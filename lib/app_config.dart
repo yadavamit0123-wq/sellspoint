@@ -153,4 +153,34 @@ class AppConfig {
 
   /// Video/reel flows require active package with `is_reel_allowed`.
   static const bool enableReelSubscriptionGateV214 = true;
+
+  /// When reel gate blocks, show upgrade dialog → subscription catalog.
+  static const bool enableReelSubscriptionUpgradePromptV214 = true;
+
+  /// Upgrade dialog opens item listing packages (reel plans first).
+  static const bool enableReelSubscriptionDirectListingV214 = true;
+
+  /// Short TTL cache for [ReelSubscriptionAccess.canUseReelFeatures].
+  static const bool enableReelSubscriptionAccessCacheV214 = true;
+
+  /// Invalidate reel gate cache after subscription checkout completes.
+  static const bool enableReelSubscriptionRefreshAfterPurchaseV214 = true;
+
+  /// Warm reel gate cache immediately after checkout.
+  static const bool enableReelSubscriptionPrefetchAfterPurchaseV214 = true;
+
+  /// Reel upgrade flow lists only packages with `is_reel_allowed`.
+  static const bool enableReelSubscriptionHideNonReelPlansV214 = true;
+
+  /// Reel included chip on [ActivePlanScreen] item listing rows.
+  static const bool enableActivePlanReelBadgeV214 = true;
+
+  /// Upgrade CTA on active listing plan without reels.
+  static const bool enableActivePlanGetReelsCtaV214 = true;
+
+  /// Refetch [ActivePlanScreen] when [ReelSubscriptionRefresh] runs after checkout.
+  static const bool enableActivePlanRefreshAfterPurchaseV214 = true;
+
+  /// Subtitle on profile subscription row when listing plan lacks reels.
+  static const bool enableProfileReelSubscriptionHintV214 = true;
 }

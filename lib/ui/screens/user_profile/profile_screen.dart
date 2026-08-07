@@ -5,7 +5,7 @@ import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/app/app_config.dart';
 import 'package:eClassify/app/app_theme.dart';
 import 'package:eClassify/app_config.dart';
-import 'package:eClassify/utils/subscription_navigation.dart';
+import 'package:eClassify/ui/screens/user_profile/widgets/profile_subscription_tile.dart';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/cubits/auth/delete_user_cubit.dart';
 import 'package:eClassify/data/cubits/chat/blocked_users_list_cubit.dart';
@@ -728,19 +728,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                         );
                       },
                     ),
-                  customTile(
-                    context,
-                    title: "subscription".translate(context),
-                    svgImagePath: AppIcons.subscription,
-                    onTap: () async {
-                      //TODO: change it once @End
-
-                      UiUtils.checkUser(
-                          onNotGuest: () {
-                            SubscriptionNavigation.openPackageCatalog(context);
-                          },
-                          context: context);
-                    },
+                  ProfileSubscriptionTile(
+                    buildTile: (
+                      context, {
+                      required title,
+                      required svgImagePath,
+                      subtitle,
+                      required onTap,
+                    }) =>
+                        customTile(
+                      context,
+                      title: title,
+                      svgImagePath: svgImagePath,
+                      subtitle: subtitle,
+                      onTap: onTap,
+                    ),
                   ),
                   customTile(
                     context,
@@ -1086,12 +1088,14 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget customTile(BuildContext context,
       {required String title,
       required String svgImagePath,
+      String? subtitle,
       bool? isSwitchBox,
       Function(dynamic value)? onTapSwitch,
       dynamic switchValue,
       required VoidCallback onTap}) {
+    final hasSubtitle = subtitle != null && subtitle.isNotEmpty;
     return Container(
-      height: 60,
+      constraints: BoxConstraints(minHeight: hasSubtitle ? 72 : 60),
       margin: const EdgeInsets.only(top: 0.5, bottom: 3),
       decoration: BoxDecoration(
         /*border: Border.all(
@@ -1128,10 +1132,25 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 Expanded(
                   flex: 3,
-                  child: CustomText(
-                    title,
-                    fontWeight: FontWeight.w700,
-                    color: context.color.textColorDark,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CustomText(
+                        title,
+                        fontWeight: FontWeight.w700,
+                        color: context.color.textColorDark,
+                      ),
+                      if (hasSubtitle) ...[
+                        const SizedBox(height: 2),
+                        CustomText(
+                          subtitle!,
+                          fontSize: context.font.small,
+                          color: context.color.territoryColor,
+                          maxLines: 2,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const Spacer(),

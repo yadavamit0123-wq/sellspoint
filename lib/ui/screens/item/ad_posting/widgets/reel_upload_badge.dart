@@ -2,6 +2,7 @@ import 'package:eClassify/app_config.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/reel_feature_gate.dart';
 import 'package:eClassify/utils/reel_upload_tracker.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +46,13 @@ class _ReelUploadBadgeState extends State<ReelUploadBadge> {
     setState(() {
       _status = ReelUploadTracker.statusForItem(widget.itemId);
     });
+  }
+
+  Future<void> _onRetryTap() async {
+    if (_retrying) return;
+    if (!await ReelFeatureGate.ensureAllowed(context)) return;
+    if (!mounted) return;
+    await _retry();
   }
 
   Future<void> _retry() async {
@@ -113,10 +121,10 @@ class _ReelUploadBadgeState extends State<ReelUploadBadge> {
     );
 
     if (isFailed && !widget.compact) {
-      return GestureDetector(onTap: _retrying ? null : _retry, child: chip);
+      return GestureDetector(onTap: _retrying ? null : _onRetryTap, child: chip);
     }
     if (isFailed && widget.compact) {
-      return InkWell(onTap: _retrying ? null : _retry, child: chip);
+      return InkWell(onTap: _retrying ? null : _onRetryTap, child: chip);
     }
     return chip;
   }

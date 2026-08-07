@@ -9,6 +9,7 @@ import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/reel_deep_link_intent.dart';
+import 'package:eClassify/utils/reel_feature_gate.dart';
 import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
@@ -122,7 +123,11 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
               AppConfig.enableVideoAdEditorRouteV214)
             IconButton(
               tooltip: 'videoAdEditorTitle'.translate(context),
-              onPressed: () => VideoAdEditorLauncher.open(context),
+              onPressed: () async {
+                if (!await ReelFeatureGate.ensureAllowed(context)) return;
+                if (!context.mounted) return;
+                VideoAdEditorLauncher.open(context);
+              },
               icon: const Icon(Icons.video_call_outlined, color: Colors.white),
             ),
         ],

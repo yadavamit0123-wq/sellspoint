@@ -30,4 +30,22 @@ abstract final class SubscriptionNavigation {
   static void openActivePlans(BuildContext context) {
     Navigator.pushNamed(context, Routes.activePlanScreen);
   }
+
+  /// Item listing packages; reel-capable plans sorted first when [highlightReelPlans].
+  static void openItemListingPackagesForReels(BuildContext context) {
+    const args = {'highlightReelPlans': true};
+    if (AppConfig.enableSubscriptionFlowV214) {
+      Navigator.pushNamed(
+        context,
+        Routes.subscriptionPackageScreen,
+        arguments: args,
+      );
+      return;
+    }
+    Navigator.pushNamed(
+      context,
+      Routes.subscriptionPackageListRoute,
+      arguments: args,
+    );
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/reel_feature_gate.dart';
 import 'package:eClassify/utils/reel_upload_tracker.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
@@ -100,7 +101,11 @@ class _ReelUploadStatusBannerState extends State<ReelUploadStatusBanner> {
               textColor: context.color.secondaryColor,
               onPressed: _retrying
                   ? () {}
-                  : () {
+                  : () async {
+                      if (!await ReelFeatureGate.ensureAllowed(context)) {
+                        return;
+                      }
+                      if (!mounted) return;
                       _retry();
                     },
             ),

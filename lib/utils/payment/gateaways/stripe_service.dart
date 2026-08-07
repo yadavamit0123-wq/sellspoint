@@ -4,6 +4,7 @@ import 'package:eClassify/settings.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -59,6 +60,7 @@ class StripeService {
     try {
       await Stripe.instance.presentPaymentSheet();
 
+      ReelSubscriptionRefresh.afterPackagePurchase();
       HelperUtils.showSnackBarMessage(
           Constant.navigatorKey.currentContext!,
           "paymentSuccessfullyCompleted"

@@ -16,10 +16,12 @@ import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
 import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
 import 'package:eClassify/ui/screens/widgets/intertitial_ads_screen.dart';
 import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/payment/gateaways/inapp_purchase_manager.dart';
+import 'package:eClassify/utils/reel_subscription_admin.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -31,15 +33,18 @@ class SubscriptionPackageListScreen extends StatefulWidget {
     super.key,
     this.categoryId,
     this.categoryName,
+    this.highlightReelPlans = false,
   });
 
   final int? categoryId;
   final String? categoryName;
+  final bool highlightReelPlans;
 
   static Route route(RouteSettings settings) {
     final args = settings.arguments as Map?;
     final categoryId = args?['categoryId'] as int?;
     final categoryName = args?['categoryName'] as String?;
+    final highlightReelPlans = args?['highlightReelPlans'] == true;
     return BlurredRouter(builder: (context) {
       return MultiBlocProvider(
         providers: [
@@ -50,6 +55,7 @@ class SubscriptionPackageListScreen extends StatefulWidget {
         child: SubscriptionPackageListScreen(
           categoryId: categoryId,
           categoryName: categoryName,
+          highlightReelPlans: highlightReelPlans,
         ),
       );
     });
@@ -82,6 +88,7 @@ class _SubscriptionPackageListScreenState
   final InAppPurchaseManager _inAppPurchaseManager = InAppPurchaseManager();
 
   late final bool isFreeAdListingEnabled;
+  bool _focusedReelPlanPage = false;
   @override
   void initState() {
     super.initState();
@@ -143,9 +150,11 @@ class _SubscriptionPackageListScreenState
       appBar: UiUtils.buildAppBar(
         context,
         showBackButton: true,
-        title: widget.categoryName?.isNotEmpty == true
-            ? widget.categoryName!
-            : 'subsctiptionPlane'.translate(context),
+        title: widget.highlightReelPlans
+            ? 'reelListingPlansTitle'.translate(context)
+            : widget.categoryName?.isNotEmpty == true
+                ? widget.categoryName!
+                : 'subsctiptionPlane'.translate(context),
         bottomHeight: isFreeAdListingEnabled ? 0 : 49,
         actions: [
           if (Platform.isIOS)
@@ -275,6 +284,46 @@ class _SubscriptionPackageListScreenState
                 );
               }
 
+              var packages = List<SubscriptionPackageModel>.from(
+                state.subscriptionPackages,
+              );
+              if (widget.highlightReelPlans) {
+                if (AppConfig.enableReelSubscriptionHideNonReelPlansV214) {
+                  packages = packages
+                      .where((p) => p.isReelAllowed == true)
+                      .toList();
+                  if (packages.isEmpty) {
+                    return NoDataFound(
+                      onTap: () {
+                        context
+                            .read<FetchAdsListingSubscriptionPackagesCubit>()
+                            .fetchPackages(categoryId: widget.categoryId);
+                      },
+                      mainMessage: 'reelNoReelPlansAvailable'.translate(context),
+                    );
+                  }
+                }
+                // Client-side sort by [ReelSubscriptionAdmin.packageReelAllowedField].
+                packages.sort((a, b) {
+                  final ar = a.isReelAllowed == true ? 1 : 0;
+                  final br = b.isReelAllowed == true ? 1 : 0;
+                  return br.compareTo(ar);
+                });
+                if (!_focusedReelPlanPage) {
+                  _focusedReelPlanPage = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    final idx =
+                        packages.indexWhere((p) => p.isReelAllowed == true);
+                    final target = idx >= 0 ? idx : 0;
+                    if (adsPageController.hasClients) {
+                      adsPageController.jumpToPage(target);
+                      setState(() => currentIndex = target);
+                    }
+                  });
+                }
+              }
+
               return PageView.builder(
                   onPageChanged: onPageChanged,
                   //update index and fetch nex index details
@@ -283,11 +332,12 @@ class _SubscriptionPackageListScreenState
                     return ItemListingSubscriptionPlansItem(
                       itemIndex: currentIndex,
                       index: index,
-                      model: state.subscriptionPackages[index],
+                      model: packages[index],
                       inAppPurchaseManager: _inAppPurchaseManager,
+                      emphasizeReelHighlight: widget.highlightReelPlans,
                     );
                   },
-                  itemCount: state.subscriptionPackages.length);
+                  itemCount: packages.length);
             }
 
             return Container();

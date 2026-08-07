@@ -5,6 +5,7 @@ import 'package:eClassify/settings.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/payment/gateaways/stripe_service.dart';
 import 'package:flutter/cupertino.dart';
@@ -133,6 +134,7 @@ class PaymentGateways {
       Future.delayed(
         Duration.zero,
         () {
+          ReelSubscriptionRefresh.afterPackagePurchase();
           HelperUtils.showSnackBarMessage(context, "success".translate(context),
               type: MessageType.success, messageDuration: 5);
 

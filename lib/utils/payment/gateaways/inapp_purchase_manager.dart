@@ -112,6 +112,7 @@ import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -144,6 +145,7 @@ class InAppPurchaseManager {
 
   void onSuccessfulPurchase(
       BuildContext context, PurchaseDetails purchase) async {
+    ReelSubscriptionRefresh.afterPackagePurchase();
     purchaseCompleteDialog(purchase);
   }
 

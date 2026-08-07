@@ -4,7 +4,8 @@ import 'package:eClassify/data/cubits/subscription/assign_free_package_cubit.dar
 import 'package:eClassify/data/cubits/subscription/get_payment_intent_cubit.dart';
 import 'package:eClassify/data/helper/widgets.dart';
 import 'package:eClassify/data/model/subscription_pacakage_model.dart';
-import 'package:eClassify/settings.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/ui/screens/subscription/payment_gatways.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/app_icon.dart';
@@ -25,6 +26,7 @@ class ItemListingSubscriptionPlansItem extends StatefulWidget {
   final int itemIndex, index;
   final SubscriptionPackageModel model;
   final InAppPurchaseManager inAppPurchaseManager;
+  final bool emphasizeReelHighlight;
 
   const ItemListingSubscriptionPlansItem({
     super.key,
@@ -32,6 +34,7 @@ class ItemListingSubscriptionPlansItem extends StatefulWidget {
     required this.index,
     required this.model,
     required this.inAppPurchaseManager,
+    this.emphasizeReelHighlight = false,
   });
 
   @override
@@ -90,6 +93,8 @@ class _ItemListingSubscriptionPlansItemState
                       reference: state.paymentIntent["payment_gateway_response"]
                           ["data"]["reference"],
                       onSuccess: (reference) {
+                        ReelSubscriptionRefresh.afterPackagePurchase();
+                        _showReelUnlockedIfNeeded(context);
                         HelperUtils.showSnackBarMessage(context,
                             "paymentSuccessfullyCompleted".translate(context));
                         // Handle successful payment
@@ -111,6 +116,8 @@ class _ItemListingSubscriptionPlansItemState
                       authorizationUrl:
                           state.paymentIntent["payment_gateway_response"],
                       onSuccess: (reference) {
+                        ReelSubscriptionRefresh.afterPackagePurchase();
+                        _showReelUnlockedIfNeeded(context);
                         HelperUtils.showSnackBarMessage(context,
                             "paymentSuccessfullyCompleted".translate(context));
                         // Handle successful payment
@@ -150,6 +157,8 @@ class _ItemListingSubscriptionPlansItemState
               listener: (context, state) {
                 if (state is AssignFreePackageInSuccess) {
                   Widgets.hideLoder(context);
+                  ReelSubscriptionRefresh.afterPackagePurchase();
+                  _showReelUnlockedIfNeeded(context);
                   HelperUtils.showSnackBarMessage(
                       context, state.responseMessage);
                   Navigator.pop(context);
@@ -185,15 +194,31 @@ class _ItemListingSubscriptionPlansItemState
                               fontWeight: FontWeight.w500,
                               fontSize: 15),
                         ),
+                      )
+                    else if (_showReelRecommendedRibbon)
+                      ClipPath(
+                        clipper: CapShapeClipper(),
+                        child: Container(
+                          alignment: Alignment.center,
+                          color: context.color.territoryColor,
+                          width: MediaQuery.of(context).size.width / 1.55,
+                          height: 33,
+                          padding: const EdgeInsets.only(top: 3),
+                          child: CustomText(
+                            'reelPlanRecommendedRibbon'.translate(context),
+                            color: context.color.secondaryColor,
+                            textAlign: TextAlign.center,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     Card(
                       color: context.color.secondaryColor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15.0),
                           side: BorderSide(
-                              color: widget.model.isActive!
-                                  ? context.color.territoryColor
-                                  : context.color.secondaryColor,
+                              color: _cardBorderColor(context),
                               width: 1.5)),
                       elevation: 0,
                       margin: EdgeInsets.fromLTRB(14, 33, 14, 0),
@@ -316,6 +341,31 @@ class _ItemListingSubscriptionPlansItemState
     );
   }
 
+  Color _cardBorderColor(BuildContext context) {
+    if (widget.model.isActive!) {
+      return context.color.territoryColor;
+    }
+    if (widget.emphasizeReelHighlight && widget.model.isReelAllowed == true) {
+      return context.color.territoryColor;
+    }
+    return context.color.secondaryColor;
+  }
+
+  bool get _showReelRecommendedRibbon =>
+      widget.emphasizeReelHighlight && widget.model.isReelAllowed == true;
+
+  void _showReelUnlockedIfNeeded(BuildContext context) {
+    if (!AppConfig.enableReelSubscriptionRefreshAfterPurchaseV214) {
+      return;
+    }
+    if (!_showReelRecommendedRibbon) return;
+    HelperUtils.showSnackBarMessage(
+      context,
+      'reelAccessUnlocked'.translate(context),
+      type: MessageType.success,
+    );
+  }
+
   Widget adsData() {
     return Expanded(
       flex: 10,
@@ -334,6 +384,11 @@ class _ItemListingSubscriptionPlansItemState
           if (widget.model.type == "item_listing")
             checkmarkPoint(context,
                 "${widget.model.limit == "unlimited" ? "unlimitedLbl".translate(context) : widget.model.limit.toString()}\t${"adsListing".translate(context)}"),
+          if (widget.model.isReelAllowed == true)
+            checkmarkPoint(
+              context,
+              'subscriptionReelIncluded'.translate(context),
+            ),
           if (widget.model.type == "advertisement")
             checkmarkPoint(context,
                 "${widget.model.limit == "unlimited" ? "unlimitedLbl".translate(context) : widget.model.limit.toString()}\t${"featuredAdsListing".translate(context)}"),
@@ -377,6 +432,11 @@ class _ItemListingSubscriptionPlansItemState
           if (widget.model.type == "item_listing")
             checkmarkPoint(context,
                 "${widget.model.userPurchasedPackages![0].remainingItemLimit}/${widget.model.limit == "unlimited" ? "unlimitedLbl".translate(context) : widget.model.limit.toString()}\t${"adsListing".translate(context)}"),
+          if (widget.model.isReelAllowed == true)
+            checkmarkPoint(
+              context,
+              'subscriptionReelIncluded'.translate(context),
+            ),
           if (widget.model.type == "advertisement")
             checkmarkPoint(context,
                 "${widget.model.userPurchasedPackages![0].remainingItemLimit}/${widget.model.limit == "unlimited" ? "unlimitedLbl".translate(context) : widget.model.limit.toString()}\t${"featuredAdsListing".translate(context)}"),
