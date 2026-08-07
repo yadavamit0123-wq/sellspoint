@@ -5,6 +5,7 @@ import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_con
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/reel_feature_gate.dart';
 import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,11 +31,13 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
     );
   }
 
-  void _onContinue(BuildContext context) {
+  void _onContinue(BuildContext context) async {
     final cubit = context.read<AdPostingCubit>();
     final type = cubit.state.adPostingData.adType;
     if (type == AdItemType.videoAd &&
         AppConfig.enableAdPostingVideoAdTypeV214) {
+      if (!await ReelFeatureGate.ensureAllowed(context)) return;
+      if (!context.mounted) return;
       VideoAdEditorLauncher.openFromAdPostingWizard(context);
       return;
     }

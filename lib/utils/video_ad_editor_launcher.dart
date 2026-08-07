@@ -28,4 +28,23 @@ abstract final class VideoAdEditorLauncher {
     }
     open(context);
   }
+
+  /// Trim + background upload for an existing listing ([Api.uploadMediaApi]).
+  static Future<Object?> openForExistingItem(
+    BuildContext context, {
+    required int itemId,
+  }) {
+    if (AppConfig.enableVideoAdEditorRouteV214) {
+      return Navigator.pushNamed(
+        context,
+        Routes.videoAdEditor,
+        arguments: {
+          'from': 'existingListing',
+          'attach_item_id': itemId,
+        },
+      );
+    }
+    open(context);
+    return Future.value(null);
+  }
 }

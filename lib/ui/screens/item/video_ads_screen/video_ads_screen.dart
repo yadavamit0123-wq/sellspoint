@@ -8,6 +8,7 @@ import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/reel_deep_link_intent.dart';
 import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
@@ -17,10 +18,12 @@ class VideoAdsScreen extends StatefulWidget {
   const VideoAdsScreen({
     super.key,
     this.reelId,
+    this.itemId,
     this.showCurrentUserReel = false,
   });
 
   final int? reelId;
+  final int? itemId;
   final bool showCurrentUserReel;
 
   static Route<dynamic> route(RouteSettings settings) {
@@ -34,6 +37,7 @@ class VideoAdsScreen extends StatefulWidget {
         ],
         child: VideoAdsScreen(
           reelId: args?['reel_id'] as int? ?? args?['reelId'] as int?,
+          itemId: args?['item_id'] as int? ?? args?['itemId'] as int?,
           showCurrentUserReel: args?['show_current_user_reel'] == true,
         ),
       ),
@@ -48,17 +52,29 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
   final PageController _pageController = PageController();
   final ValueNotifier<bool> _isMuted = ValueNotifier(false);
   final ValueNotifier<int> _currentPage = ValueNotifier(0);
+  int? _reelId;
+  int? _itemId;
 
   @override
   void initState() {
     super.initState();
+    if (widget.reelId != null || widget.itemId != null) {
+      _reelId = widget.reelId;
+      _itemId = widget.itemId;
+      ReelDeepLinkIntent.consume();
+    } else {
+      final pending = ReelDeepLinkIntent.consume();
+      _reelId = pending.reelId;
+      _itemId = pending.itemId;
+    }
     _load();
     _pageController.addListener(_onScroll);
   }
 
   void _load() {
     context.read<VideoAdsCubit>().getVideoAds(
-          reelId: widget.reelId,
+          reelId: _reelId,
+          itemId: _itemId,
           showCurrentUserReel: widget.showCurrentUserReel,
         );
   }
@@ -75,7 +91,7 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
         page >= state.ads.length - 2 &&
         cubit.hasMore &&
         !state.isLoadingPage) {
-      cubit.getMoreVideoAds();
+      cubit.getMoreVideoAds(reelId: _reelId, itemId: _itemId);
     }
   }
 

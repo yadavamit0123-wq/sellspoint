@@ -144,4 +144,13 @@ class AppConfig {
 
   /// Pending/failed reel chip on My Ads list rows.
   static const bool enableReelUploadMyAdsBadgeV214 = true;
+
+  /// Owner reel panel on [AdDetailsScreen] (video listings + upload retry).
+  static const bool enableSellerReelOwnerSectionV214 = true;
+
+  /// Push/deep links open reels tab with `reel_id` / `item_id`.
+  static const bool enableReelNotificationDeepLinkV214 = true;
+
+  /// Video/reel flows require active package with `is_reel_allowed`.
+  static const bool enableReelSubscriptionGateV214 = true;
 }

@@ -56,6 +56,7 @@ import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
 import 'package:eClassify/utils/item_job_helper.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/widgets/seller_reel_owner_section.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -541,6 +542,7 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                           )
                       ),
                       setPriceAndStatus(),
+                      if (isAddedByMe) SellerReelOwnerSection(item: model),
                       if (isAddedByMe) setRejectedReason(),
                       if (model.address != null) setAddress(isDate: true),
                       const SizedBox(

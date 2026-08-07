@@ -10,7 +10,7 @@ import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
 import 'package:eClassify/ui/screens/item/video_ads_screen/video_ads_screen.dart';
 import 'package:eClassify/ui/screens/widgets/bottom_navigation/custom_bottom_navigation_bar_v214.dart';
 import 'package:eClassify/ui/screens/widgets/bottom_navigation/main_fab_v214.dart';
-import 'package:eClassify/utils/main_navigation_v214.dart';
+import 'package:eClassify/utils/reel_deep_link_intent.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/chat/get_buyer_chat_users_cubit.dart';
@@ -223,18 +223,38 @@ class MainActivityState extends State<MainActivity>
     super.dispose();
   }
 
+  Widget _buildVideoAdsPage() {
+    final intent = ReelDeepLinkIntent.peek();
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => VideoAdsCubit()),
+        BlocProvider(create: (_) => ReelLikeCubit()),
+      ],
+      child: VideoAdsScreen(
+        key: ValueKey('reels-${intent.reelId}-${intent.itemId}'),
+        reelId: intent.reelId,
+        itemId: intent.itemId,
+      ),
+    );
+  }
+
+  /// Rebuild reels tab and switch to it (notification / deep link).
+  void applyReelsDeepLink() {
+    if (!AppConfig.enableFiveTabNavV214) return;
+    setState(() {
+      if (pages.length > MainNavigationV214.videoAdsTabIndex) {
+        pages[MainNavigationV214.videoAdsTabIndex] = _buildVideoAdsPage();
+      }
+    });
+    onItemTapped(MainNavigationV214.videoAdsTabIndex);
+  }
+
   List<Widget> _buildPages() {
     if (AppConfig.enableFiveTabNavV214) {
       return [
         HomeScreen(from: widget.from),
         ChatListScreen(),
-        MultiBlocProvider(
-          providers: [
-            BlocProvider(create: (_) => VideoAdsCubit()),
-            BlocProvider(create: (_) => ReelLikeCubit()),
-          ],
-          child: const VideoAdsScreen(),
-        ),
+        _buildVideoAdsPage(),
         const ItemsScreen(),
         const ProfileScreen(),
       ];

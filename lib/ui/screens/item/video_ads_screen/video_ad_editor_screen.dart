@@ -3,26 +3,35 @@ import 'dart:io';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/model/item/ad_item_type.dart';
+import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/data/repositories/item/item_repository.dart';
 import 'package:eClassify/ui/screens/item/video_ads_screen/widgets/video_ad_trimmer_panel.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/reel_upload_payload.dart';
 import 'package:eClassify/utils/ui_utils.dart';
+import 'package:eClassify/utils/video_ad_editor_draft.dart';
 import 'package:eClassify/utils/video_ad_thumbnail_utility.dart';
 import 'package:flutter/material.dart';
 
 /// Reel editor — [VideoAdTrimmerPanel] when trimmer flag is on, else legacy stub.
 class VideoAdEditorScreen extends StatefulWidget {
-  const VideoAdEditorScreen({super.key, this.from});
+  const VideoAdEditorScreen({super.key, this.from, this.attachItemId});
 
   final String? from;
+  final int? attachItemId;
 
   static Route route(RouteSettings routeSettings) {
     final args = routeSettings.arguments as Map? ?? {};
+    final attachRaw = args['attach_item_id'] ?? args['attachItemId'];
     return BlurredRouter(
       builder: (_) => VideoAdEditorScreen(
         from: args['from']?.toString(),
+        attachItemId: attachRaw is int
+            ? attachRaw
+            : int.tryParse(attachRaw?.toString() ?? ''),
       ),
     );
   }
@@ -33,6 +42,9 @@ class VideoAdEditorScreen extends StatefulWidget {
 
 class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
   File? _previewFile;
+  bool _uploading = false;
+
+  bool get _attachMode => widget.attachItemId != null;
 
   @override
   void initState() {
@@ -49,6 +61,41 @@ class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
     UiUtils.showSnackBarMessage(
       context,
       'successfullySaved'.translate(context),
+    );
+  }
+
+  Future<void> _uploadToExistingListing() async {
+    final itemId = widget.attachItemId;
+    if (itemId == null || !VideoAdEditorDraft.hasVideo) {
+      UiUtils.showSnackBarMessage(
+        context,
+        'selectVideo'.translate(context),
+      );
+      return;
+    }
+    setState(() => _uploading = true);
+    final files = ReelUploadPayload.files(
+      videoPath: VideoAdEditorDraft.trimmedVideo!.path,
+      thumbnailPath: VideoAdEditorDraft.thumbnailFile?.path,
+    );
+    final ok = await ItemRepository().scheduleBackgroundMediaUpload(
+      item: ItemModel(id: itemId),
+      files: files,
+    );
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    if (ok) {
+      VideoAdEditorDraft.clear();
+      UiUtils.showSnackBarMessage(
+        context,
+        'reelUploadInProgress'.translate(context),
+      );
+      Navigator.pop(context, 'reel_upload');
+      return;
+    }
+    UiUtils.showSnackBarMessage(
+      context,
+      'somethingWentWrong'.translate(context),
     );
   }
 
@@ -82,13 +129,19 @@ class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!trimmerEnabled)
+            if (_attachMode)
+              CustomText(
+                'uploadReelToListingHint'.translate(context),
+                color: context.color.textLightColor,
+              ),
+            if (!_attachMode && !trimmerEnabled)
               CustomText(
                 'videoAdEditorBody'.translate(context),
                 color: context.color.textLightColor,
               )
-            else ...[
+            else if (trimmerEnabled) ...[
               if (_previewFile != null) ...[
+                const SizedBox(height: 8),
                 CustomText(
                   'videoAds'.translate(context),
                   fontWeight: FontWeight.w600,
@@ -113,34 +166,40 @@ class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
                 child: VideoAdTrimmerPanel(onTrimmed: _onTrimmed),
               ),
             ],
-            if (!trimmerEnabled) const Spacer(),
+            if (!trimmerEnabled && !_attachMode) const Spacer(),
             UiUtils.buildButton(
               context,
               width: context.screenWidth,
               height: 48,
               radius: 10,
-              buttonTitle: 'postAdTitle'.translate(context),
+              buttonTitle: _attachMode
+                  ? 'uploadReelToListing'.translate(context)
+                  : 'postAdTitle'.translate(context),
               buttonColor: context.color.territoryColor,
               textColor: context.color.secondaryColor,
-              onPressed: _openListingWizard,
+              onPressed: _uploading
+                  ? () {}
+                  : (_attachMode ? _uploadToExistingListing : _openListingWizard),
             ),
-            const SizedBox(height: 12),
-            UiUtils.buildButton(
-              context,
-              width: context.screenWidth,
-              height: 48,
-              radius: 10,
-              buttonTitle: 'viewReels'.translate(context),
-              buttonColor: context.color.secondaryColor,
-              textColor: context.color.textDefaultColor,
-              onPressed: () {
-                Navigator.pushReplacementNamed(
-                  context,
-                  Routes.videoAdsScreen,
-                  arguments: {'show_current_user_reel': true},
-                );
-              },
-            ),
+            if (!_attachMode) ...[
+              const SizedBox(height: 12),
+              UiUtils.buildButton(
+                context,
+                width: context.screenWidth,
+                height: 48,
+                radius: 10,
+                buttonTitle: 'viewReels'.translate(context),
+                buttonColor: context.color.secondaryColor,
+                textColor: context.color.textDefaultColor,
+                onPressed: () {
+                  Navigator.pushReplacementNamed(
+                    context,
+                    Routes.videoAdsScreen,
+                    arguments: {'show_current_user_reel': true},
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),
