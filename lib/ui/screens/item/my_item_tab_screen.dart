@@ -4,7 +4,7 @@ import 'package:eClassify/utils/chat_navigation.dart';
 import 'package:eClassify/data/cubits/item/fetch_my_item_cubit.dart';
 import 'package:eClassify/data/helper/designs.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/ui/screens/home/home_screen.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/widgets/reel_upload_badge.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
 import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
@@ -377,7 +377,19 @@ class _MyItemTabState extends CloudState<MyItemTab> {
                                               fontWeight: FontWeight.bold,
                                             ),
                                             Spacer(),
-                                            showStatus(item)
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.end,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                showStatus(item),
+                                                if (item.id != null)
+                                                  ReelUploadBadge(
+                                                    itemId: item.id.toString(),
+                                                    compact: true,
+                                                  ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                         //SizedBox(height: 7,),

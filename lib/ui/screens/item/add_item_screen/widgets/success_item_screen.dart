@@ -1,7 +1,9 @@
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/widgets/reel_upload_status_banner.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/ui/screens/item/add_item_screen/select_category.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
+import 'package:eClassify/utils/ad_posting_success_navigation.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/constant.dart';
@@ -13,9 +15,14 @@ import 'package:lottie/lottie.dart';
 class SuccessItemScreen extends StatefulWidget {
   final ItemModel model;
   final bool isEdit;
+  final bool reelUploadQueued;
 
-  const SuccessItemScreen(
-      {super.key, required this.model, required this.isEdit});
+  const SuccessItemScreen({
+    super.key,
+    required this.model,
+    required this.isEdit,
+    this.reelUploadQueued = false,
+  });
 
   static Route route(RouteSettings settings) {
     Map? arguments = settings.arguments as Map?;
@@ -24,6 +31,7 @@ class SuccessItemScreen extends StatefulWidget {
         return SuccessItemScreen(
           model: arguments!['model'],
           isEdit: arguments['isEdit'],
+          reelUploadQueued: arguments['reel_upload_queued'] == true,
         );
       },
     );
@@ -102,7 +110,13 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
   }
 
   void _navigateToAdDetailsScreen() {
-    screenStack = 0;
+    if (AppConfig.enableAdPostingSuccessStackCleanupV214) {
+      AdPostingSuccessNavigation.exitToAdDetails(
+        context,
+        model: widget.model,
+      );
+      return;
+    }
     Navigator.popUntil(context, (route) => route.isFirst);
     Navigator.pushNamed(
       context,
@@ -114,14 +128,19 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
   }
 
   void _navigateBackToHome() {
+    if (AppConfig.enableAdPostingSuccessStackCleanupV214) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          AdPostingSuccessNavigation.exitToHome(context);
+        }
+      });
+      return;
+    }
     if (mounted)
       Future.delayed(
         Duration(milliseconds: 500),
         () {
-          if (mounted) {
-            screenStack = 0;
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
+          if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
           MainActivity.globalKey.currentState?.onItemTapped(0);
         },
       );
@@ -168,6 +187,13 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
                                 fontSize: context.font.larger,
                                 textAlign: TextAlign.center,
                               ),
+                              if (widget.reelUploadQueued &&
+                                  AppConfig.enableReelUploadTrackerV214 &&
+                                  !widget.isEdit &&
+                                  widget.model.id != null)
+                                ReelUploadStatusBanner(
+                                  itemId: widget.model.id.toString(),
+                                ),
                               SizedBox(height: 60),
                               InkWell(
                                 onTap: () {

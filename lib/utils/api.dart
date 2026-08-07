@@ -126,6 +126,11 @@ class Api {
   static String getActivePackagesApi = "get-user-purchased-packages";
   static String getCurrenciesApi = "get-currencies";
   static String uploadMediaApi = "upload-media";
+
+  /// Multipart field names for [uploadMediaApi] (eClassify 2.14 reels).
+  static String uploadMediaVideoField = "video";
+  static String uploadMediaThumbnailField = "thumbnail";
+  static String uploadMediaItemIdField = "item_id";
   static String bankTransferUpdateApi = "bank-transfer-update";
   static String applyForJobApi = "job-apply";
   static String getJobApplicationsApi = "get-job-applications";

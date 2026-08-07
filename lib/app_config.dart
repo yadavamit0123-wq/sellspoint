@@ -88,6 +88,9 @@ class AppConfig {
   /// [Routes.videoAdEditor] stub until trimmer lands.
   static const bool enableVideoAdEditorRouteV214 = true;
 
+  /// Native pick + trim on [VideoAdEditorScreen] ([video_trimmer]).
+  static const bool enableVideoAdEditorTrimmerV214 = true;
+
   /// Cold start + tap handlers use [NotificationDeepLinkNavigation].
   static const bool enableNotificationDeepLinksV214 = true;
 
@@ -120,4 +123,25 @@ class AppConfig {
 
   /// "Pin on map" shortcut on wizard confirm location ([Routes.locationMapPicker]).
   static const bool enableAdPostingWizardMapPickerV214 = true;
+
+  /// Clear cloud/custom-field state when starting a new post-ad session.
+  static const bool enableAdPostingWizardSessionResetV214 = true;
+
+  /// Video ad tile on in-app wizard routes to [Routes.videoAdEditor] (stub).
+  static const bool enableAdPostingVideoAdTypeV214 = true;
+
+  /// Centralized popUntil + cleanup from post-ad success screen.
+  static const bool enableAdPostingSuccessStackCleanupV214 = true;
+
+  /// JPEG thumb from trimmed reel for main listing image + [Api.uploadMediaThumbnailField].
+  static const bool enableAdPostingVideoReelThumbnailV214 = true;
+
+  /// Hide [Api.videoLink] on media step when a local reel file is attached.
+  static const bool enableAdPostingHideVideoLinkWhenReelV214 = true;
+
+  /// Track reel background uploads + retry on success screen.
+  static const bool enableReelUploadTrackerV214 = true;
+
+  /// Pending/failed reel chip on My Ads list rows.
+  static const bool enableReelUploadMyAdsBadgeV214 = true;
 }

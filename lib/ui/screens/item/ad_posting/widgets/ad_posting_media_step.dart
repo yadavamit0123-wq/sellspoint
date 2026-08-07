@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/model/item/ad_item_type.dart';
+import 'package:eClassify/utils/ad_posting_video_link_policy.dart';
+import 'package:eClassify/utils/video_ad_thumbnail_utility.dart';
 import 'package:eClassify/data/cubits/item/ad_posting_cubit.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/screens/widgets/blurred_dialoge_box.dart';
@@ -8,6 +11,7 @@ import 'package:eClassify/ui/screens/widgets/custom_text_form_field.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/ad_posting_legacy_handoff.dart';
 import 'package:eClassify/utils/ad_posting_wizard_location_bridge.dart';
+import 'package:eClassify/utils/ad_posting_wizard_progress.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/image_picker.dart';
@@ -31,6 +35,7 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
   final PickImage _galleryPicker = PickImage();
   final List<File> _galleryFiles = [];
   final TextEditingController _videoLinkController = TextEditingController();
+  bool _usedReelThumbnail = false;
 
   @override
   void initState() {
@@ -46,6 +51,28 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
         _galleryFiles.addAll(files);
       });
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prefillMainImageFromReel();
+    });
+  }
+
+  Future<void> _prefillMainImageFromReel() async {
+    if (!AppConfig.enableAdPostingVideoReelThumbnailV214 || !mounted) return;
+    final data = context.read<AdPostingCubit>().state.adPostingData;
+    if (data.adType != AdItemType.videoAd) return;
+    if (_mainImagePicker.pickedFile != null) return;
+
+    File? thumb = data.reelThumbnailFile;
+    thumb ??= data.reelVideoFile != null
+        ? await VideoAdThumbnailUtility.fromVideo(data.reelVideoFile!)
+        : null;
+
+    if (thumb == null || !mounted) return;
+    _mainImagePicker.pickedFile = thumb;
+    context.read<AdPostingCubit>().updateData(
+      (d) => d.copyWith(reelThumbnailFile: thumb),
+    );
+    setState(() => _usedReelThumbnail = true);
   }
 
   @override
@@ -78,27 +105,39 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
       return;
     }
 
-    final videoLink = _videoLinkController.text.trim();
-    if (videoLink.isNotEmpty &&
-        !RegExp(r'^https?:\/\/').hasMatch(videoLink)) {
-      UiUtils.showSnackBarMessage(
-        context,
-        'videoLink'.translate(context),
-      );
-      return;
+    final data = context.read<AdPostingCubit>().state.adPostingData;
+
+    if (AdPostingVideoLinkPolicy.shouldShowLinkField(data)) {
+      final videoLink = _videoLinkController.text.trim();
+      if (videoLink.isNotEmpty &&
+          !RegExp(r'^https?:\/\/').hasMatch(videoLink)) {
+        UiUtils.showSnackBarMessage(
+          context,
+          'videoLink'.translate(context),
+        );
+        return;
+      }
     }
 
-    final data = context.read<AdPostingCubit>().state.adPostingData;
+    final link = AdPostingVideoLinkPolicy.linkForCreatePayload(
+      data,
+      _videoLinkController.text,
+    );
+
     final main = _mainImagePicker.pickedFile!;
     final gallery = List<File>.from(_galleryFiles);
 
     if (AppConfig.enableAdPostingWizardDirectLocationV214) {
+      final steps = context.read<AdPostingCubit>().state.steps;
+      final total = AdPostingWizardProgress.totalWithLocation(steps);
       AdPostingWizardLocationBridge.openConfirmLocation(
         context,
         data: data,
         mainImage: main,
         galleryImages: gallery,
-        videoLink: videoLink.isEmpty ? null : videoLink,
+        videoLink: link,
+        wizardTotalSteps: total,
+        wizardProgressStep: total,
       );
       return;
     }
@@ -174,12 +213,22 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
   @override
   Widget build(BuildContext context) {
     final mainFile = _mainImagePicker.pickedFile;
+    final data = context.watch<AdPostingCubit>().state.adPostingData;
+    final showVideoLink = AdPostingVideoLinkPolicy.shouldShowLinkField(data);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_usedReelThumbnail) ...[
+            CustomText(
+              'reelThumbnailHint'.translate(context),
+              fontSize: context.font.small,
+              color: context.color.textLightColor,
+            ),
+            const SizedBox(height: 8),
+          ],
           CustomText(
             'mainPicture'.translate(context),
             fontWeight: FontWeight.w600,
@@ -262,10 +311,11 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
             ],
           ),
           const SizedBox(height: 20),
-          CustomTextFormField(
-            controller: _videoLinkController,
-            hintText: 'videoLink'.translate(context),
-          ),
+          if (showVideoLink)
+            CustomTextFormField(
+              controller: _videoLinkController,
+              hintText: 'videoLink'.translate(context),
+            ),
         ],
       ),
     );

@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/model/data_output.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/data/model/item_filter_model.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/background_upload_utility.dart';
+import 'package:eClassify/utils/reel_upload_tracker.dart';
 import 'package:path/path.dart' as path;
 
 List<ItemModel> _itemModelsFromGetItemResponse(Map<String, dynamic> response) {
@@ -119,15 +121,23 @@ class ItemRepository {
   }
 
   /// Queues large media files for [upload-media] after the item row exists (2.14).
-  Future<void> scheduleBackgroundMediaUpload({
+  Future<bool> scheduleBackgroundMediaUpload({
     required ItemModel item,
     Map<String, String>? files,
   }) async {
-    if (files == null || files.isEmpty) return;
-    await BackgroundUploadUtility.uploadMedia(
+    if (files == null || files.isEmpty) return false;
+    final taskId = await BackgroundUploadUtility.uploadMedia(
       itemId: item.id.toString(),
       files: files,
     );
+    if (taskId != null && AppConfig.enableReelUploadTrackerV214) {
+      await ReelUploadTracker.track(
+        itemId: item.id.toString(),
+        files: files,
+        taskId: taskId,
+      );
+    }
+    return taskId != null;
   }
 
   Future<DataOutput<ItemModel>> fetchMyFeaturedItems({int? page}) async {

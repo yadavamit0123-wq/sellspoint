@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/item/manage_item_cubit.dart';
 import 'package:eClassify/data/helper/widgets.dart';
+import 'package:eClassify/data/model/item/ad_item_type.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/ui/screens/item/my_item_tab_screen.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
@@ -18,7 +19,11 @@ import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_progress_header.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/ad_posting_wizard_cleanup.dart';
+import 'package:eClassify/data/repositories/item/item_repository.dart';
+import 'package:eClassify/utils/ad_posting_item_payload.dart';
 import 'package:eClassify/utils/ad_posting_launcher.dart';
+import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/reel_upload_payload.dart';
 import 'package:eClassify/utils/leaf_location_bridge.dart';
 import 'package:eClassify/utils/location_picker_launcher.dart';
 import 'package:eClassify/utils/hive_utils.dart';
@@ -40,6 +45,8 @@ class ConfirmLocationScreen extends StatefulWidget {
   final File? mainImage;
   final List<File>? otherImage;
   final bool inAppWizardHandoff;
+  final int? wizardTotalSteps;
+  final int? wizardProgressStep;
 
   const ConfirmLocationScreen({
     Key? key,
@@ -47,6 +54,8 @@ class ConfirmLocationScreen extends StatefulWidget {
     required this.mainImage,
     required this.otherImage,
     this.inAppWizardHandoff = false,
+    this.wizardTotalSteps,
+    this.wizardProgressStep,
   }) : super(key: key);
 
   static BlurredRouter route(RouteSettings settings) {
@@ -61,6 +70,8 @@ class ConfirmLocationScreen extends StatefulWidget {
             mainImage: arguments?['mainImage'],
             otherImage: arguments?['otherImage'],
             inAppWizardHandoff: arguments?['inAppWizardHandoff'] == true,
+            wizardTotalSteps: arguments?['wizardTotalSteps'] as int?,
+            wizardProgressStep: arguments?['wizardProgressStep'] as int?,
           ),
         );
       },
@@ -428,6 +439,13 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
                   if (formatedAddress!.areaId != null)
                     cloudData['area_id'] = formatedAddress!.areaId;
 
+                  final rawItemType =
+                      cloudData[Api.itemType] ?? cloudData['item_type'];
+                  AdPostingItemPayload.ensureItemType(
+                    cloudData,
+                    adType: AdItemType.fromValue(rawItemType?.toString()),
+                  );
+
                   if (widget.isEdit == true) {
                     context.read<ManageItemCubit>().manage(ManageItemType.edit,
                         cloudData, widget.mainImage, widget.otherImage!);
@@ -464,8 +482,12 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
             children: [
               if (widget.isEdit != true)
                 AdPostingProgressHeader(
-                  currentStep: widget.inAppWizardHandoff ? 5 : 4,
-                  totalSteps: widget.inAppWizardHandoff ? 5 : 4,
+                  currentStep: widget.inAppWizardHandoff
+                      ? (widget.wizardProgressStep ?? 5)
+                      : 4,
+                  totalSteps: widget.inAppWizardHandoff
+                      ? (widget.wizardTotalSteps ?? 5)
+                      : 4,
                 ),
               Expanded(child: bodyData()),
             ],
@@ -484,6 +506,21 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
         Widgets.hideLoder(context);
         //This will locally update item model
         myAdsCubitReference[getCloudData("edit_from")]?.edit(state.model);
+
+        final pending = getCloudData('pending_reel_upload');
+        final uploadFiles = ReelUploadPayload.fromCloud(pending);
+        if (state.type == ManageItemType.add && uploadFiles != null) {
+          unawaited(
+            ItemRepository().scheduleBackgroundMediaUpload(
+              item: state.model,
+              files: uploadFiles,
+            ),
+          );
+        }
+
+        final reelQueued = uploadFiles != null &&
+            AppConfig.enableReelUploadTrackerV214;
+
         if (widget.inAppWizardHandoff) {
           AdPostingWizardCleanup.afterSuccessfulPost();
         }
@@ -493,6 +530,7 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
               context,
               model: state.model,
               isEdit: widget.isEdit ?? false,
+              reelUploadQueued: reelQueued,
             );
           }
         });

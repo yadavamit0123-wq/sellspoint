@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:eClassify/data/model/category_model.dart';
 import 'package:eClassify/data/model/item/ad_item_type.dart';
 
@@ -13,6 +15,8 @@ class AdPostingData {
     this.slug,
     this.customFieldsJson,
     this.customFieldFiles = const {},
+    this.reelVideoFile,
+    this.reelThumbnailFile,
   });
 
   final AdItemType? adType;
@@ -24,6 +28,8 @@ class AdPostingData {
   final String? slug;
   final String? customFieldsJson;
   final Map<String, dynamic> customFieldFiles;
+  final File? reelVideoFile;
+  final File? reelThumbnailFile;
 
   CategoryModel? get leafCategory =>
       categoryPath.isEmpty ? null : categoryPath.last;
@@ -50,6 +56,8 @@ class AdPostingData {
     String? slug,
     String? customFieldsJson,
     Map<String, dynamic>? customFieldFiles,
+    File? reelVideoFile,
+    File? reelThumbnailFile,
   }) {
     return AdPostingData(
       adType: adType ?? this.adType,
@@ -61,6 +69,8 @@ class AdPostingData {
       slug: slug ?? this.slug,
       customFieldsJson: customFieldsJson ?? this.customFieldsJson,
       customFieldFiles: customFieldFiles ?? this.customFieldFiles,
+      reelVideoFile: reelVideoFile ?? this.reelVideoFile,
+      reelThumbnailFile: reelThumbnailFile ?? this.reelThumbnailFile,
     );
   }
 }

@@ -93,4 +93,8 @@ class AdPostingCubit extends Cubit<AdPostingState> {
     }
     emit(state.copyWith(steps: steps, activeStep: active));
   }
+
+  void reset() {
+    emit(_initialState());
+  }
 }

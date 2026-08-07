@@ -3,6 +3,7 @@ import 'package:eClassify/data/cubits/custom_field/fetch_custom_fields_cubit.dar
 import 'package:eClassify/data/cubits/category/category_browsing_cubit.dart';
 import 'package:eClassify/data/cubits/item/ad_posting_cubit.dart';
 import 'package:eClassify/data/model/item/ad_posting_step.dart';
+import 'package:eClassify/data/model/item/ad_item_type.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_ad_type_step.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_basic_details_step.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_category_step.dart';
@@ -11,7 +12,9 @@ import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_media_st
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_form_buttons.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_header.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
+import 'package:eClassify/utils/video_ad_editor_draft.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/utils/ad_posting_wizard_cleanup.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -49,6 +52,49 @@ class AdPostingInAppScreen extends StatefulWidget {
 class _AdPostingInAppScreenState extends State<AdPostingInAppScreen> {
   final PageController _pageController = PageController();
   final AdPostingStepController _stepController = AdPostingStepController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (AppConfig.enableAdPostingWizardSessionResetV214) {
+      AdPostingWizardCleanup.prepareForNewSession();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cubit = context.read<AdPostingCubit>();
+      cubit.reset();
+      _applyLaunchArguments(cubit);
+    });
+  }
+
+  void _applyLaunchArguments(AdPostingCubit cubit) {
+    final args = widget.arguments;
+    if (args == null) return;
+
+    final initialType = AdItemType.fromValue(args['initialAdType'] as String?);
+    if (initialType != null) {
+      cubit.updateData((d) => d.copyWith(adType: initialType));
+    }
+
+    if (VideoAdEditorDraft.hasVideo) {
+      cubit.updateData(
+        (d) => d.copyWith(
+          adType: AdItemType.videoAd,
+          reelVideoFile: VideoAdEditorDraft.trimmedVideo,
+          reelThumbnailFile: VideoAdEditorDraft.thumbnailFile,
+        ),
+      );
+    }
+
+    final skipAdType = args['skipAdTypeStep'] == true;
+    if (skipAdType && cubit.state.adPostingData.adType != null) {
+      cubit.jumpToStep(AdPostingStep.category);
+      final index = cubit.state.steps.indexOf(AdPostingStep.category);
+      if (index >= 0 && _pageController.hasClients) {
+        _pageController.jumpToPage(index);
+      }
+    }
+  }
 
   @override
   void dispose() {

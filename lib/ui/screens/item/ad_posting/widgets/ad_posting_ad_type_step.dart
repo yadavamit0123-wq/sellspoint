@@ -1,9 +1,11 @@
 import 'package:eClassify/data/cubits/item/ad_posting_cubit.dart';
 import 'package:eClassify/data/model/item/ad_item_type.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -22,12 +24,21 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
     final selected = cubit.state.adPostingData.adType != null;
     AdPostingStepController.of(context).register(
       onNext: selected
-          ? () {
-              cubit.nextStep();
-            }
+          ? () => _onContinue(context)
           : null,
       showNext: selected,
     );
+  }
+
+  void _onContinue(BuildContext context) {
+    final cubit = context.read<AdPostingCubit>();
+    final type = cubit.state.adPostingData.adType;
+    if (type == AdItemType.videoAd &&
+        AppConfig.enableAdPostingVideoAdTypeV214) {
+      VideoAdEditorLauncher.openFromAdPostingWizard(context);
+      return;
+    }
+    cubit.nextStep();
   }
 
   @override
@@ -52,7 +63,7 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
                     (d) => d.copyWith(adType: AdItemType.regularAd),
                   );
                   AdPostingStepController.of(context).register(
-                    onNext: () => cubit.nextStep(),
+                    onNext: () => _onContinue(context),
                     showNext: true,
                   );
                 },
@@ -63,8 +74,17 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
                 subtitle: 'postAdSubtitle'.translate(context),
                 icon: Icons.play_circle_outline,
                 isSelected: selected == AdItemType.videoAd,
-                enabled: false,
-                onTap: () {},
+                enabled: AppConfig.enableAdPostingVideoAdTypeV214,
+                onTap: () {
+                  if (!AppConfig.enableAdPostingVideoAdTypeV214) return;
+                  cubit.updateData(
+                    (d) => d.copyWith(adType: AdItemType.videoAd),
+                  );
+                  AdPostingStepController.of(context).register(
+                    onNext: () => _onContinue(context),
+                    showNext: true,
+                  );
+                },
               ),
             ],
           ),

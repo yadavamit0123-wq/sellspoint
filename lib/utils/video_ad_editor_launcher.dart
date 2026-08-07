@@ -15,4 +15,17 @@ abstract final class VideoAdEditorLauncher {
       arguments: {'show_current_user_reel': true},
     );
   }
+
+  /// Leaves in-app post-ad wizard for the video editor stub.
+  static void openFromAdPostingWizard(BuildContext context) {
+    if (AppConfig.enableVideoAdEditorRouteV214) {
+      Navigator.pushReplacementNamed(
+        context,
+        Routes.videoAdEditor,
+        arguments: const {'from': 'adPostingWizard'},
+      );
+      return;
+    }
+    open(context);
+  }
 }
