@@ -27,18 +27,30 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 class SubscriptionPackageListScreen extends StatefulWidget {
-  const SubscriptionPackageListScreen({super.key});
+  const SubscriptionPackageListScreen({
+    super.key,
+    this.categoryId,
+    this.categoryName,
+  });
+
+  final int? categoryId;
+  final String? categoryName;
 
   static Route route(RouteSettings settings) {
+    final args = settings.arguments as Map?;
+    final categoryId = args?['categoryId'] as int?;
+    final categoryName = args?['categoryName'] as String?;
     return BlurredRouter(builder: (context) {
       return MultiBlocProvider(
         providers: [
           BlocProvider(
             create: (context) => AssignFreePackageCubit(),
           ),
-          //BlocProvider<InAppPurchaseCubit>(create: (_) => InAppPurchaseCubit()),
         ],
-        child: const SubscriptionPackageListScreen(),
+        child: SubscriptionPackageListScreen(
+          categoryId: categoryId,
+          categoryName: categoryName,
+        ),
       );
     });
   }
@@ -77,8 +89,12 @@ class _SubscriptionPackageListScreenState
     if (HiveUtils.isUserAuthenticated()) {
       context.read<GetApiKeysCubit>().fetch();
     }
-    context.read<FetchAdsListingSubscriptionPackagesCubit>().fetchPackages();
-    context.read<FetchFeaturedSubscriptionPackagesCubit>().fetchPackages();
+    context
+        .read<FetchAdsListingSubscriptionPackagesCubit>()
+        .fetchPackages(categoryId: widget.categoryId);
+    context
+        .read<FetchFeaturedSubscriptionPackagesCubit>()
+        .fetchPackages(categoryId: widget.categoryId);
     if (Platform.isIOS) {
       InAppPurchaseManager.getPending();
       _inAppPurchaseManager.listenIAP(context);
@@ -127,7 +143,9 @@ class _SubscriptionPackageListScreenState
       appBar: UiUtils.buildAppBar(
         context,
         showBackButton: true,
-        title: "subsctiptionPlane".translate(context),
+        title: widget.categoryName?.isNotEmpty == true
+            ? widget.categoryName!
+            : 'subsctiptionPlane'.translate(context),
         bottomHeight: isFreeAdListingEnabled ? 0 : 49,
         actions: [
           if (Platform.isIOS)

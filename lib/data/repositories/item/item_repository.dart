@@ -5,7 +5,73 @@ import 'package:eClassify/data/model/data_output.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/data/model/item_filter_model.dart';
 import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/background_upload_utility.dart';
 import 'package:path/path.dart' as path;
+
+List<ItemModel> _itemModelsFromGetItemResponse(Map<String, dynamic> response) {
+  final data = response['data'];
+  if (data is List) {
+    return data
+        .map((e) => ItemModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+  if (data is Map && data['data'] is List) {
+    return (data['data'] as List)
+        .map((e) => ItemModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+  return [];
+}
+
+int _itemTotalFromGetItemResponse(Map<String, dynamic> response) {
+  final data = response['data'];
+  if (data is Map) {
+    return data['total'] ?? 0;
+  }
+  return 0;
+}
+
+void _applyListingLocation({
+  required Map<String, dynamic> parameters,
+  int? radius,
+  double? latitude,
+  double? longitude,
+  String? city,
+  int? areaId,
+  String? country,
+  String? state,
+}) {
+  if (radius != null) {
+    parameters['radius'] = radius;
+    if (latitude != null && longitude != null) {
+      parameters['latitude'] = latitude;
+      parameters['longitude'] = longitude;
+    }
+    parameters.remove('city');
+    parameters.remove('area');
+    parameters.remove('area_id');
+    parameters.remove('country');
+    parameters.remove('state');
+  } else {
+    if (city != null && city.isNotEmpty) parameters['city'] = city;
+    if (areaId != null) parameters['area_id'] = areaId;
+    if (country != null && country.isNotEmpty) parameters['country'] = country;
+    if (state != null && state.isNotEmpty) parameters['state'] = state;
+  }
+}
+
+ItemModel _itemModelFromMutationResponse(Map<String, dynamic> response) {
+  final data = response['data'];
+  if (data is List && data.isNotEmpty) {
+    return ItemModel.fromJson(
+      Map<String, dynamic>.from(data.first as Map),
+    );
+  }
+  if (data is Map) {
+    return ItemModel.fromJson(Map<String, dynamic>.from(data));
+  }
+  throw Exception('Invalid item create/update response');
+}
 
 class ItemRepository {
   Future<ItemModel> createItem(
@@ -46,10 +112,22 @@ class ItemRepository {
         parameter: parameters, /* useAuthToken: true*/
       );
 
-      return ItemModel.fromJson(response['data'][0]);
+      return _itemModelFromMutationResponse(response);
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Queues large media files for [upload-media] after the item row exists (2.14).
+  Future<void> scheduleBackgroundMediaUpload({
+    required ItemModel item,
+    Map<String, String>? files,
+  }) async {
+    if (files == null || files.isEmpty) return;
+    await BackgroundUploadUtility.uploadMedia(
+      itemId: item.id.toString(),
+      files: files,
+    );
   }
 
   Future<DataOutput<ItemModel>> fetchMyFeaturedItems({int? page}) async {
@@ -105,15 +183,14 @@ class ItemRepository {
       queryParameters: parameters,
     );
 
-    List<ItemModel> modelList =
-        (response['data'] as List).map((e) => ItemModel.fromJson(e)).toList();
+    final modelList = _itemModelsFromGetItemResponse(response);
 
     return DataOutput(total: modelList.length, modelList: modelList);
   }
 
   Future<DataOutput<ItemModel>> fetchItemFromItemSlug(String slug) async {
     Map<String, dynamic> parameters = {
-      "slug": slug,
+      Api.slug: slug,
     };
 
     Map<String, dynamic> response = await Api.get(
@@ -121,9 +198,7 @@ class ItemRepository {
       queryParameters: parameters,
     );
 
-    List<ItemModel> modelList = (response['data']['data'] as List)
-        .map((e) => ItemModel.fromJson(e))
-        .toList();
+    final modelList = _itemModelsFromGetItemResponse(response);
 
     return DataOutput(total: modelList.length, modelList: modelList);
   }
@@ -154,44 +229,46 @@ class ItemRepository {
       String? state,
       String? city,
       int? areaId,
+      int? radius,
+      double? latitude,
+      double? longitude,
+      int? excludedItemId,
       ItemFilterModel? filter}) async {
     Map<String, dynamic> parameters = {
       Api.categoryId: categoryId,
       Api.page: page,
     };
 
+    if (excludedItemId != null) {
+      parameters[Api.excludedItemId] = excludedItemId;
+    }
+
     if (filter != null) {
-      parameters.addAll(filter.toMap());
+      parameters.addAll(filter.toQueryParameters());
 
-      // If radius is present, include latitude and longitude
-      // and remove location-related fields
       if (filter.radius != null) {
-        if (filter.latitude != null && filter.longitude != null) {
-          parameters['latitude'] = filter.latitude;
-          parameters['longitude'] = filter.longitude;
-        }
-
-        // Remove location-related fields when radius is provided
-        parameters.remove('city');
-        parameters.remove('area');
-        parameters.remove('area_id');
-        parameters.remove('country');
-        parameters.remove('state');
+        _applyListingLocation(
+          parameters: parameters,
+          radius: filter.radius,
+          latitude: filter.latitude,
+          longitude: filter.longitude,
+        );
       } else {
-        // If radius is not present, include other location-related parameters
-        if (city != null && city != "") parameters['city'] = city;
-        if (areaId != null) parameters['area_id'] = areaId;
-        if (country != null && country != "") parameters['country'] = country;
-        if (state != null && state != "") parameters['state'] = state;
+        _applyListingLocation(
+          parameters: parameters,
+          city: city ?? filter.city,
+          areaId: areaId ?? filter.areaId,
+          country: country ?? filter.country,
+          state: state ?? filter.state,
+        );
       }
 
-      if (filter.areaId == null) {
+      if (filter.areaId == null && areaId == null) {
         parameters.remove('area_id');
       }
 
       parameters.remove('area');
 
-      // Add custom fields separately to the parameters
       if (filter.customFields != null) {
         filter.customFields!.forEach((key, value) {
           if (value is List) {
@@ -201,24 +278,34 @@ class ItemRepository {
           }
         });
       }
+    } else {
+      _applyListingLocation(
+        parameters: parameters,
+        radius: radius,
+        latitude: latitude,
+        longitude: longitude,
+        city: city,
+        areaId: areaId,
+        country: country,
+        state: state,
+      );
     }
 
-    if (search != null) {
+    if (search != null && search.isNotEmpty) {
       parameters[Api.search] = search;
     }
 
-    if (sortBy != null) {
+    if (sortBy != null && sortBy.isNotEmpty) {
       parameters[Api.sortBy] = sortBy;
     }
 
     Map<String, dynamic> response =
         await Api.get(url: Api.getItemApi, queryParameters: parameters);
 
-    List<ItemModel> items = (response['data']['data'] as List)
-        .map((e) => ItemModel.fromJson(e))
-        .toList();
+    final items = _itemModelsFromGetItemResponse(response);
 
-    return DataOutput(total: response['data']['total'] ?? 0, modelList: items);
+    return DataOutput(
+        total: _itemTotalFromGetItemResponse(response), modelList: items);
   }
 
 /*  Future<DataOutput<ItemModel>> fetchItemFromCatId(
@@ -325,7 +412,7 @@ class ItemRepository {
       parameter: parameters, /* useAuthToken: true*/
     );
 
-    return ItemModel.fromJson(response['data'][0]);
+    return _itemModelFromMutationResponse(response);
   }
 
   Future<void> deleteItem(int id) async {

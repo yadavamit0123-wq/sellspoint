@@ -42,6 +42,14 @@ class AuthenticationFail extends AuthenticationState {
   AuthenticationFail(this.error);
 }
 
+class AuthenticationUserDeleted extends AuthenticationState {}
+
+class AuthenticationUserDeletionFailure extends AuthenticationState {
+  AuthenticationUserDeletionFailure(this.error);
+
+  final dynamic error;
+}
+
 class AuthenticationCubit extends Cubit<AuthenticationState> {
   AuthenticationCubit() : super(AuthenticationInitial());
   AuthenticationType? type;
@@ -123,6 +131,18 @@ class AuthenticationCubit extends Cubit<AuthenticationState> {
 
         emit(AuthenticationInitial());
       }
+    }
+  }
+
+  /// Re-auth via OTP should run before this (Firebase `requires-recent-login`).
+  Future<void> deleteUser() async {
+    try {
+      await FirebaseAuth.instance.currentUser?.delete();
+      emit(AuthenticationUserDeleted());
+    } catch (e, stack) {
+      log(e.toString());
+      log('$stack');
+      emit(AuthenticationUserDeletionFailure(e));
     }
   }
 }

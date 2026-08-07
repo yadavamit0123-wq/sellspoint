@@ -1,4 +1,6 @@
+import 'package:eClassify/data/model/category_model.dart';
 import 'package:eClassify/data/model/home/home_screen_section.dart';
+import 'package:eClassify/data/model/home/home_section.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/data/model/data_output.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
@@ -48,7 +50,8 @@ class HomeRepository {
         if (radius != null && radius != "") 'radius': radius,
         if (latitude != null && latitude != "") 'latitude': latitude,
         if (longitude != null && longitude != "") 'longitude': longitude,
-        "sort_by": "new-to-old"
+        "sort_by": "new-to-old",
+        "current_page": "home",
       };
 
       Map<String, dynamic> response =
@@ -62,6 +65,48 @@ class HomeRepository {
     } catch (error) {
       rethrow;
     }
+  }
+
+  Future<List<CategoryModel>> fetchPopularCategories() async {
+    final response = await Api.get(url: Api.getPopularCategoriesApi);
+    if (response['error'] == true) {
+      throw Exception(response['message']?.toString() ?? 'error');
+    }
+    final list = response['data'] as List? ?? [];
+    return list
+        .map((e) => CategoryModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// Admin-driven home layout (`get-home-screen`). Empty list if shape unknown.
+  Future<List<HomeSection>> fetchHomeConfiguration() async {
+    final response = await Api.get(url: Api.getHomeConfigurationApi);
+    if (response['error'] == true) {
+      throw Exception(response['message']?.toString() ?? 'error');
+    }
+
+    final data = response['data'];
+    List<dynamic> raw = [];
+    if (data is Map && data['sections'] is List) {
+      raw = data['sections'] as List;
+    } else if (data is List) {
+      raw = data;
+    } else {
+      return [];
+    }
+
+    final sections = <HomeSection>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      try {
+        sections.add(
+          HomeSection.fromJson(Map<String, dynamic>.from(entry)),
+        );
+      } catch (_) {
+        continue;
+      }
+    }
+    return sections;
   }
 
   Future<DataOutput<ItemModel>> fetchSectionItems(

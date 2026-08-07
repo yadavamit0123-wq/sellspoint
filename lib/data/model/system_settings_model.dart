@@ -30,5 +30,6 @@ enum SystemSetting {
   mobileAuthentication,
   googleAuthentication,
   appleAuthentication,
-  emailAuthentication
+  emailAuthentication,
+  geminiAiEnabled,
 }

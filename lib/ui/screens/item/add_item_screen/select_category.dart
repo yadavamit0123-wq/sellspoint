@@ -3,6 +3,7 @@ import 'package:eClassify/data/cubits/category/fetch_category_cubit.dart';
 import 'package:eClassify/data/cubits/category/fetch_sub_categories_cubit.dart';
 import 'package:eClassify/data/model/category_model.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/widgets/category.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_progress_header.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
@@ -75,7 +76,12 @@ class _SelectCategoryScreenState extends CloudState<SelectCategoryScreen> {
               title: "adListing".translate(context), onBackPress: () {
             Navigator.of(context).popUntil((route) => route.isFirst);
           }),
-          body: SingleChildScrollView(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AdPostingProgressHeader(currentStep: 1),
+              Expanded(
+                child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             controller: controller,
             child: Padding(
@@ -174,6 +180,10 @@ class _SelectCategoryScreenState extends CloudState<SelectCategoryScreen> {
                 return Container();
               }),
             ),
+          ),
+              ),
+            ),
+            ],
           ),
         ),
       ),

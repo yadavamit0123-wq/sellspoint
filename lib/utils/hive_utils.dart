@@ -1,3 +1,4 @@
+import 'package:eClassify/data/model/location/leaf_location.dart';
 import 'package:eClassify/app/app_theme.dart';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/model/user_model.dart';
@@ -215,6 +216,22 @@ class HiveUtils {
         HiveKeys.nearbyRadius: radius ?? null,
       });
     }
+    await setLeafLocationJson(LeafLocation.fromLegacyHive());
+  }
+
+  static Future<void> setLeafLocationJson(LeafLocation location) async {
+    await Hive.box(HiveKeys.userDetailsBox).put(
+      HiveKeys.leafLocationJson,
+      location.toJson(),
+    );
+  }
+
+  static LeafLocation? getLeafLocationJson() {
+    final raw = Hive.box(HiveKeys.userDetailsBox).get(HiveKeys.leafLocationJson);
+    if (raw is Map) {
+      return LeafLocation.fromJson(Map<String, dynamic>.from(raw));
+    }
+    return null;
   }
 
   static void setCurrentLocation(
@@ -250,6 +267,7 @@ class HiveUtils {
       HiveKeys.city: null,
       HiveKeys.stateKey: null,
       HiveKeys.countryKey: null,
+      HiveKeys.leafLocationJson: null,
     });
   }
 

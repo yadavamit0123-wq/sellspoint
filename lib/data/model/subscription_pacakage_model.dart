@@ -16,6 +16,7 @@ class SubscriptionPackageModel {
   String? createdAt;
   String? updatedAt;
   bool? isActive;
+  bool? isReelAllowed;
   List<UserPurchasedPackages>? userPurchasedPackages;
 
   SubscriptionPackageModel(
@@ -34,6 +35,7 @@ class SubscriptionPackageModel {
       this.createdAt,
       this.updatedAt,
       this.isActive,
+      this.isReelAllowed,
       this.userPurchasedPackages});
 
   SubscriptionPackageModel.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,9 @@ class SubscriptionPackageModel {
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
     isActive = json['is_active'];
+    isReelAllowed = json['is_reel_allowed'] == 1 ||
+        json['is_reel_allowed'] == true ||
+        json['is_reel_allowed'] == '1';
     if (json['user_purchased_packages'] != null) {
       userPurchasedPackages = <UserPurchasedPackages>[];
       json['user_purchased_packages'].forEach((v) {

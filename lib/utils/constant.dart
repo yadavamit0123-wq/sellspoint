@@ -18,7 +18,7 @@ class Constant {
   static const String shareappText = AppSettings.shareAppText;
   static const String shareappTextSecond = AppSettings.shareAppTextSecond;
 
-  //backend url
+  //backend url — must stay aligned with [AppConfig.apiBaseUrl]
   static String baseUrl = AppSettings.baseUrl;
 
   static String isGoogleBannerAdsEnabled = "";
@@ -37,6 +37,8 @@ class Constant {
 
   static String currencySymbol = "";
   static bool currencyPositionIsLeft = true;
+  static String currencyIsoCode = "INR";
+  static bool geminiAiEnabled = false;
   static String defaultLatitude = "";
   static String defaultLongitude = "";
   static String mobileAuthentication = "";
@@ -159,6 +161,7 @@ class Constant {
     SystemSetting.googleAuthentication: "google_authentication",
     SystemSetting.appleAuthentication: "apple_authentication",
     SystemSetting.emailAuthentication: "email_authentication",
+    SystemSetting.geminiAiEnabled: "gemini_ai_enabled",
   };
 
   ///This is limit of minimum chat messages load count , make sure you set it grater than 25;

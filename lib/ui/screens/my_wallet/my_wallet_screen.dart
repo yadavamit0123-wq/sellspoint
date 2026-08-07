@@ -1,6 +1,7 @@
 // my_wallet_screen.dart
 import 'package:eClassify/data/cubits/my_wallet/transaction_cubit.dart';
 import 'package:eClassify/data/model/user_model.dart';
+import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
@@ -11,6 +12,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 // My Wallet Screen
 class MyWalletScreen extends StatefulWidget {
   const MyWalletScreen({super.key});
+
+  static Route route(RouteSettings settings) {
+    return BlurredRouter(
+      builder: (context) => const MyWalletScreen(),
+    );
+  }
 
   @override
   State<MyWalletScreen> createState() => _MyWalletScreenState();

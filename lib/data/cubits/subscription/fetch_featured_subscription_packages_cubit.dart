@@ -36,12 +36,14 @@ class FetchFeaturedSubscriptionPackagesCubit
   final SubscriptionRepository _subscriptionRepository =
       SubscriptionRepository();
 
-  Future<void> fetchPackages() async {
+  Future<void> fetchPackages({int? categoryId}) async {
     try {
       emit(FetchFeaturedSubscriptionPackagesInProgress());
       DataOutput<SubscriptionPackageModel> result =
           await _subscriptionRepository.getSubscriptionPacakges(
-              type: "advertisement");
+        type: 'advertisement',
+        categoryId: categoryId,
+      );
       emit(FetchFeaturedSubscriptionPackagesSuccess(
           subscriptionPackages: result.modelList));
     } catch (e) {

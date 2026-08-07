@@ -1,4 +1,3 @@
-import 'package:eClassify/data/cubits/category/fetch_category_cubit.dart';
 import 'package:eClassify/data/cubits/system/fetch_language_cubit.dart';
 import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
 import 'package:eClassify/data/cubits/system/language_cubit.dart';
@@ -9,6 +8,7 @@ import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/home_locale_refresh.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -61,7 +61,7 @@ class LanguagesListScreen extends StatelessWidget {
 
             HiveUtils.storeLanguage(map);
             context.read<LanguageCubit>().changeLanguages(map);
-            context.read<FetchCategoryCubit>().fetchCategories();
+            HomeLocaleRefresh.afterLanguageChange(context);
           }
           if (state is FetchLanguageFailure) {
             Widgets.hideLoder(context);

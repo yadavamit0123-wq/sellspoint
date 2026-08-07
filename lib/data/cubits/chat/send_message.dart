@@ -63,10 +63,15 @@ class SendMessageCubit extends Cubit<SendMessageState> {
           attachment: attachmentFile,
           audio: audioFile);
 
-      emit(SendMessageSuccess(messageId: result['data']['id']));
+      final data = result['data'];
+      final rawId = data is Map ? data['id'] : null;
+      final messageId = rawId is int
+          ? rawId
+          : int.tryParse(rawId?.toString() ?? '') ?? 0;
+      emit(SendMessageSuccess(messageId: messageId));
     } catch (e) {
       log(e.toString());
-      emit(SendMessageFailed(e.toString()));
+      emit(SendMessageFailed(e));
     }
   }
 

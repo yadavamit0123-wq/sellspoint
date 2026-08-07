@@ -8,76 +8,81 @@ import 'package:flutter/material.dart';
 class ChatRepository {
   Future<DataOutput<ChatUser>> fetchBuyerChatList(int page) async {
     Map<String, dynamic> response = await Api.get(
-        url: Api.getChatListApi,
-        queryParameters: {"type": "buyer", "page": page});
+      url: Api.getChatListApi,
+      queryParameters: {Api.type: "buyer", Api.page: page},
+    );
 
-    List<ChatUser> modelList = (response['data']['data'] as List).map(
-      (e) {
-        return ChatUser.fromJson(e);
-      },
-    ).toList();
+    final data = response['data'] as Map? ?? {};
+    List<ChatUser> modelList = (data['data'] as List? ?? []).map((e) {
+      return ChatUser.fromJson(Map<String, dynamic>.from(e as Map));
+    }).toList();
 
-    return DataOutput(total: response['data']['total'], modelList: modelList);
+    return DataOutput(
+      total: data['total'] ?? modelList.length,
+      modelList: modelList,
+    );
   }
 
   Future<DataOutput<ChatUser>> fetchSellerChatList(int page) async {
     Map<String, dynamic> response = await Api.get(
-        url: Api.getChatListApi,
-        queryParameters: {"page": page, "type": "seller"});
+      url: Api.getChatListApi,
+      queryParameters: {Api.page: page, Api.type: "seller"},
+    );
 
-    List<ChatUser> modelList = (response['data']["data"] as List).map(
-      (e) {
-        return ChatUser.fromJson(e /*, context: _setContext*/);
-      },
-    ).toList();
+    final data = response['data'] as Map? ?? {};
+    List<ChatUser> modelList = (data['data'] as List? ?? []).map((e) {
+      return ChatUser.fromJson(Map<String, dynamic>.from(e as Map));
+    }).toList();
 
     return DataOutput(
-        total: response['data']['total'] ?? 0, modelList: modelList);
+      total: data['total'] ?? 0,
+      modelList: modelList,
+    );
   }
 
-  Future<DataOutput<ChatMessage>> getMessagesApi(
-      {required int page, required int itemOfferId}) async {
+  Future<DataOutput<ChatMessage>> getMessagesApi({
+    required int page,
+    required int itemOfferId,
+  }) async {
     Map<String, dynamic> response = await Api.get(
       url: Api.chatMessagesApi,
       queryParameters: {
-        "item_offer_id": itemOfferId,
-        "page": page,
+        Api.itemOfferId: itemOfferId,
+        Api.page: page,
       },
     );
 
-    List<ChatMessage> modelList = (response['data']['data'] as List).map(
-      (result) {
-        int senderId = result['sender_id'];
-        String? message = result['message'];
-        String? file = result['file'];
-        String? audio = result['audio'];
-        String createdAt = result['created_at'];
-        int itemOfferId = result['item_offer_id'];
-        int id = result['id'];
+    final data = response['data'] as Map? ?? {};
+    List<ChatMessage> modelList = (data['data'] as List? ?? []).map((result) {
+      final map = Map<String, dynamic>.from(result as Map);
+      return ChatMessage(
+        key: ValueKey(map['id']),
+        message: map['message']?.toString() ?? '',
+        senderId: (map['sender_id'] as num).toInt(),
+        createdAt: map['created_at'].toString(),
+        file: map['file']?.toString() ?? '',
+        audio: map['audio']?.toString() ?? '',
+        itemOfferId: (map['item_offer_id'] as num).toInt(),
+        updatedAt: map['updated_at']?.toString() ?? map['created_at'].toString(),
+        messageType: map['message_type']?.toString(),
+        id: (map['id'] as num?)?.toInt(),
+      );
+    }).toList();
 
-        return ChatMessage(
-          key: ValueKey(id),
-          message: message ?? "",
-          senderId: senderId,
-          createdAt: createdAt,
-          file: file!,
-          audio: audio!,
-          itemOfferId: itemOfferId,
-          updatedAt: createdAt,
-        );
-      },
-    ).toList();
-
-    return DataOutput(total: response['total'] ?? 0, modelList: modelList);
+    return DataOutput(
+      total: data['total'] ?? modelList.length,
+      modelList: modelList,
+    );
   }
 
-  Future<Map<String, dynamic>> sendMessageApi(
-      {required int itemOfferId,
-      required String message,
-      MultipartFile? audio,
-      MultipartFile? attachment}) async {
+  Future<Map<String, dynamic>> sendMessageApi({
+    required int itemOfferId,
+    required String message,
+    MultipartFile? audio,
+    MultipartFile? attachment,
+  }) async {
     Map<String, dynamic> parameters = {
-      "item_offer_id": itemOfferId,
+      Api.itemOfferId: itemOfferId,
     };
 
     if (attachment != null) {
@@ -87,47 +92,67 @@ class ChatRepository {
       parameters['audio'] = audio;
     }
 
-    if (message != "") {
-      parameters['message'] = message;
+    if (message.isNotEmpty) {
+      parameters[Api.message] = message;
     }
 
-    // Logger.error(parameters, name: "CHAT PARAMS");
     Map<String, dynamic> map =
         await Api.post(url: Api.sendMessageApi, parameter: parameters);
 
+    if (map['error'] == true) {
+      final key = map['data'] is Map ? map['data']['key']?.toString() : null;
+      if (key == 'blocked_by_other_user') {
+        throw ApiException('blocked_by_other_user');
+      }
+      throw ApiException(map['message']?.toString() ?? 'error');
+    }
+
     return map;
+  }
+
+  Future<void> deleteChatMessages({
+    required int itemOfferId,
+    required List<int> messageIds,
+  }) async {
+    await Api.post(
+      url: Api.deleteChatMessagesApi,
+      parameter: {
+        Api.itemOfferId: itemOfferId,
+        Api.messageIds: messageIds,
+      },
+    );
+  }
+
+  Future<void> deleteChats({required List<int> itemOfferIds}) async {
+    await Api.post(
+      url: Api.deleteChatApi,
+      parameter: {Api.itemOfferId: itemOfferIds},
+    );
   }
 
   Future<Map<String, dynamic>> blockUserApi({required int blockUserId}) async {
     Map<String, dynamic> parameters = {
-      "blocked_user_id": blockUserId,
+      Api.blockedUserId: blockUserId,
     };
 
-    Map<String, dynamic> map =
-        await Api.post(url: Api.blockUserApi, parameter: parameters);
-
-    return map;
+    return Api.post(url: Api.blockUserApi, parameter: parameters);
   }
 
-  Future<Map<String, dynamic>> unBlockUserApi(
-      {required int blockUserId}) async {
+  Future<Map<String, dynamic>> unBlockUserApi({required int blockUserId}) async {
     Map<String, dynamic> parameters = {
-      "blocked_user_id": blockUserId,
+      Api.blockedUserId: blockUserId,
     };
 
-    Map<String, dynamic> map =
-        await Api.post(url: Api.unBlockUserApi, parameter: parameters);
-
-    return map;
+    return Api.post(url: Api.unBlockUserApi, parameter: parameters);
   }
 
   Future<DataOutput<BlockedUserModel>> blockedUsersListApi() async {
     Map<String, dynamic> response =
         await Api.get(url: Api.blockedUsersListApi, queryParameters: {});
 
-    List<BlockedUserModel> modelList = (response['data'] as List).map(
+    List<BlockedUserModel> modelList = (response['data'] as List? ?? []).map(
       (e) {
-        return BlockedUserModel.fromJson(e);
+        return BlockedUserModel.fromJson(Map<String, dynamic>.from(e as Map));
       },
     ).toList();
 

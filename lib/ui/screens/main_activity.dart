@@ -4,6 +4,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:app_links/app_links.dart';
+import 'package:eClassify/data/cubits/item/video_ads/reel_like_cubit.dart';
+import 'package:eClassify/data/cubits/item/video_ads/video_ads_cubit.dart';
+import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
+import 'package:eClassify/ui/screens/item/video_ads_screen/video_ads_screen.dart';
+import 'package:eClassify/ui/screens/widgets/bottom_navigation/custom_bottom_navigation_bar_v214.dart';
+import 'package:eClassify/ui/screens/widgets/bottom_navigation/main_fab_v214.dart';
+import 'package:eClassify/utils/main_navigation_v214.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/chat/get_buyer_chat_users_cubit.dart';
 import 'package:eClassify/data/cubits/chat/get_seller_chat_users_cubit.dart';
@@ -18,9 +26,10 @@ import 'package:eClassify/ui/screens/home/search_screen.dart';
 import 'package:eClassify/ui/screens/item/my_items_screen.dart';
 import 'package:eClassify/ui/screens/user_profile/profile_screen.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
-import 'package:eClassify/ui/screens/widgets/blurred_dialoge_box.dart';
 import 'package:eClassify/ui/screens/widgets/maintenance_mode.dart';
 import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/utils/ad_posting_launcher.dart';
+import 'package:eClassify/utils/app_update_helper.dart';
 import 'package:eClassify/utils/app_icon.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
@@ -35,8 +44,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 List<ItemModel> myItemList = [];
 Map<String, dynamic> searchBody = {};
@@ -134,7 +141,9 @@ class MainActivityState extends State<MainActivity>
     Constant.isNumberWithSuffix = numberWithSuffix == "1" ? true : false;
 
     ///This will check for update
-    versionCheck(settings);
+    if (AppConfig.enableVersionUpdateDialogV214) {
+      AppUpdateHelper.checkAndPrompt(context, settings);
+    }
 
 //This will init page controller
     initPageController();
@@ -198,88 +207,6 @@ class MainActivityState extends State<MainActivity>
     }
   }
 
-  void versionCheck(settings) async {
-    var remoteVersion = settings.getSetting(Platform.isIOS
-        ? SystemSetting.iosVersion
-        : SystemSetting.androidVersion);
-    var remote = remoteVersion;
-
-    var forceUpdate = settings.getSetting(SystemSetting.forceUpdate);
-
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
-
-    var current = packageInfo.version;
-
-    int currentVersion = HelperUtils.comparableVersion(packageInfo.version);
-    if (remoteVersion == null) {
-      return;
-    }
-
-    remoteVersion = HelperUtils.comparableVersion(
-      remoteVersion,
-    );
-
-    if (remoteVersion > currentVersion) {
-      Constant.isUpdateAvailable = true;
-      Constant.newVersionNumber = settings.getSetting(
-        Platform.isIOS
-            ? SystemSetting.iosVersion
-            : SystemSetting.androidVersion,
-      );
-
-      Future.delayed(
-        Duration.zero,
-        () {
-          if (forceUpdate == "1") {
-            ///This is force update
-            UiUtils.showBlurredDialoge(context,
-                dialoge: BlurredDialogBox(
-                    onAccept: () async {
-                      await launchUrl(
-                          Uri.parse(
-                            Constant.playstoreURLAndroid,
-                          ),
-                          mode: LaunchMode.externalApplication);
-                    },
-                    backAllowedButton: false,
-                    svgImagePath: AppIcons.update,
-                    isAcceptContainerPush: true,
-                    svgImageColor: context.color.territoryColor,
-                    showCancelButton: false,
-                    title: "updateAvailable".translate(context),
-                    acceptTextColor: context.color.buttonColor,
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CustomText("$current>$remote"),
-                        CustomText(
-                            "newVersionAvailableForce".translate(context),
-                            textAlign: TextAlign.center),
-                      ],
-                    )));
-          } else {
-            UiUtils.showBlurredDialoge(
-              context,
-              dialoge: BlurredDialogBox(
-                onAccept: () async {
-                  await launchUrl(Uri.parse(Constant.playstoreURLAndroid),
-                      mode: LaunchMode.externalApplication);
-                },
-                svgImagePath: AppIcons.update,
-                svgImageColor: context.color.territoryColor,
-                showCancelButton: true,
-                title: "updateAvailable".translate(context),
-                content: CustomText(
-                  "newVersionAvailable".translate(context),
-                ),
-              ),
-            );
-          }
-        },
-      );
-    }
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -296,12 +223,31 @@ class MainActivityState extends State<MainActivity>
     super.dispose();
   }
 
-  late List<Widget> pages = [
-    HomeScreen(from: widget.from),
-    ChatListScreen(),
-    const ItemsScreen(),
-    const ProfileScreen(),
-  ];
+  List<Widget> _buildPages() {
+    if (AppConfig.enableFiveTabNavV214) {
+      return [
+        HomeScreen(from: widget.from),
+        ChatListScreen(),
+        MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => VideoAdsCubit()),
+            BlocProvider(create: (_) => ReelLikeCubit()),
+          ],
+          child: const VideoAdsScreen(),
+        ),
+        const ItemsScreen(),
+        const ProfileScreen(),
+      ];
+    }
+    return [
+      HomeScreen(from: widget.from),
+      ChatListScreen(),
+      const ItemsScreen(),
+      const ProfileScreen(),
+    ];
+  }
+
+  late List<Widget> pages = _buildPages();
 
   @override
   Widget build(BuildContext context) {
@@ -343,8 +289,19 @@ class MainActivityState extends State<MainActivity>
         },
         child: Scaffold(
           backgroundColor: context.color.primaryColor,
-          bottomNavigationBar:
-              Constant.maintenanceMode == "1" ? null : bottomBar(),
+          floatingActionButton:
+              _showV214Fab ? const MainFabV214() : null,
+          floatingActionButtonLocation: _showV214Fab
+              ? FloatingActionButtonLocation.centerDocked
+              : null,
+          bottomNavigationBar: Constant.maintenanceMode == "1"
+              ? null
+              : _showV214Fab
+                  ? CustomBottomNavigationBarV214(
+                      currentIndex: currentTab,
+                      onTap: onItemTapped,
+                    )
+                  : bottomBar(),
           body: Stack(
             children: <Widget>[
               PageView(
@@ -361,7 +318,17 @@ class MainActivityState extends State<MainActivity>
     );
   }
 
+  bool get _showV214Fab =>
+      AppConfig.enableFiveTabNavV214 &&
+      (currentTab == MainNavigationV214.homeTabIndex ||
+          currentTab == MainNavigationV214.myAdsTabIndex);
+
   void onItemTapped(int index) {
+    if (AppConfig.enableFiveTabNavV214 && index == currentTab) {
+      context.read<BottomNavCubit>().changeTabByIndex(index);
+      return;
+    }
+
     addHistory(index);
 
     FocusManager.instance.primaryFocus?.unfocus();
@@ -374,7 +341,10 @@ class MainActivityState extends State<MainActivity>
       }
     }
     searchBody = {};
-    if (index == 1 || index == 2) {
+    final authTabs = AppConfig.enableFiveTabNavV214
+        ? {1, 3}
+        : {1, 2};
+    if (authTabs.contains(index)) {
       UiUtils.checkUser(
           onNotGuest: () {
             currentTab = index;
@@ -389,6 +359,10 @@ class MainActivityState extends State<MainActivity>
       pageController.jumpToPage(currentTab);
 
       setState(() {});
+    }
+
+    if (AppConfig.enableFiveTabNavV214) {
+      context.read<BottomNavCubit>().changeTabByIndex(index);
     }
   }
 
@@ -455,8 +429,7 @@ class MainActivityState extends State<MainActivity>
                         UiUtils.noPackageAvailableDialog(context);
                       }
                       if (state is FetchUserPackageLimitInSuccess) {
-                        Navigator.pushNamed(context, Routes.selectCategoryScreen,
-                            arguments: <String, dynamic>{});
+                        AdPostingLauncher.openCategoryStep(context);
                       }
                     },
                     child: Transform(

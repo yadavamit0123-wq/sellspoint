@@ -110,8 +110,10 @@ class ProfileSettingCubit extends Cubit<ProfileSettingState> {
 
           if (title == Api.aboutUs) {
             profileSettingData = data['about_us'];
-            // .where((element) => element['type'] == "about_us")
-            // .first['data'];
+          }
+
+          if (title == Api.refundPolicy) {
+            profileSettingData = data['refund_policy'];
           }
         }
       } else {

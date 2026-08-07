@@ -25,7 +25,7 @@ class TransactionModel {
   TransactionModel.fromJson(Map<String, dynamic> json) {
     id = json['id'];
     userId = json['user_id'];
-    amount = (json['amount'] as num).toDouble();
+    amount = (json['amount'] as num?)?.toDouble();
     paymentGateway = json['payment_gateway'];
     orderId = json['order_id'];
     paymentId = json['payment_id'];

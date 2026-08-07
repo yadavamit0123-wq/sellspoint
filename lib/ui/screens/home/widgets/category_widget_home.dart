@@ -1,5 +1,8 @@
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/cubits/category/category_browsing_cubit.dart';
 import 'package:eClassify/data/cubits/category/fetch_category_cubit.dart';
+import 'package:eClassify/data/model/category_model.dart';
 import 'package:eClassify/ui/screens/home/home_screen.dart';
 import 'package:eClassify/ui/screens/home/widgets/category_home_card.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
@@ -40,29 +43,10 @@ class CategoryWidgetHome extends StatelessWidget {
                       return CategoryHomeCard(
                         title: state.categories[index].name!,
                         url: state.categories[index].url!,
-                        onTap: () {
-                          if (state.categories[index].children!.isNotEmpty) {
-                            Navigator.pushNamed(
-                                context, Routes.subCategoryScreen,
-                                arguments: {
-                                  "categoryList": state.categories[index].children,
-                                  "catName": state.categories[index].name,
-                                  "catId": state.categories[index].id,
-                                  "categoryIds": [
-                                    state.categories[index].id.toString()
-                                  ]
-                                });
-                          } else {
-                            Navigator.pushNamed(context, Routes.itemsList,
-                                arguments: {
-                                  'catID': state.categories[index].id.toString(),
-                                  'catName': state.categories[index].name,
-                                  "categoryIds": [
-                                    state.categories[index].id.toString()
-                                  ]
-                                });
-                          }
-                        },
+                        onTap: () => _openHomeCategory(
+                          context,
+                          state.categories[index],
+                        ),
                       );
                     }
                   },
@@ -91,17 +75,57 @@ class CategoryWidgetHome extends StatelessWidget {
     );
   }
 
+  void _openHomeCategory(BuildContext context, CategoryModel category) {
+    if (AppConfig.enableCategoryBrowsingV214) {
+      if (CategoryBrowsingCubit.hasSubCategories(category)) {
+        Navigator.pushNamed(
+          context,
+          Routes.categoryBrowsing,
+          arguments: {
+            'initialPath': [category],
+          },
+        );
+        return;
+      }
+      Navigator.pushNamed(context, Routes.itemsList, arguments: {
+        'catID': category.id.toString(),
+        'catName': category.name,
+        'categoryIds': [category.id.toString()],
+      });
+      return;
+    }
+    if (category.children!.isNotEmpty) {
+      Navigator.pushNamed(context, Routes.subCategoryScreen, arguments: {
+        'categoryList': category.children,
+        'catName': category.name,
+        'catId': category.id,
+        'categoryIds': [category.id.toString()],
+      });
+    } else {
+      Navigator.pushNamed(context, Routes.itemsList, arguments: {
+        'catID': category.id.toString(),
+        'catName': category.name,
+        'categoryIds': [category.id.toString()],
+      });
+    }
+  }
+
   Widget moreCategory(BuildContext context) {
+    final route = AppConfig.enableCategoryBrowsingV214
+        ? Routes.categoryBrowsing
+        : Routes.categories;
+    final args = AppConfig.enableCategoryBrowsingV214
+        ? null
+        : {'from': Routes.home};
+
     return SizedBox(
       width: 70,
       child: GestureDetector(
         onTap: () {
-          Navigator.pushNamed(context, Routes.categories,
-              arguments: {"from": Routes.home}).then(
+          Navigator.pushNamed(context, route, arguments: args).then(
             (dynamic value) {
               if (value != null) {
                 selectedCategory = value;
-                //setState(() {});
               }
             },
           );

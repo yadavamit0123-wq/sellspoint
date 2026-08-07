@@ -1,4 +1,6 @@
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/utils/chat_navigation.dart';
 import 'package:eClassify/data/cubits/item/fetch_my_item_cubit.dart';
 import 'package:eClassify/data/helper/designs.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
@@ -386,10 +388,8 @@ class _MyItemTabState extends CloudState<MyItemTab> {
                                         ),
                                         //SizedBox(height: 12,),
                                         Row(
-                                          //mainAxisAlignment: MainAxisAlignment.spaceAround,
                                           crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
+                                              CrossAxisAlignment.center,
                                           children: [
                                             Flexible(
                                               flex: 1,
@@ -417,9 +417,7 @@ class _MyItemTabState extends CloudState<MyItemTab> {
                                                 ],
                                               ),
                                             ),
-                                            SizedBox(
-                                              width: 20,
-                                            ),
+                                            const SizedBox(width: 12),
                                             Flexible(
                                               flex: 1,
                                               child: Row(
@@ -447,6 +445,30 @@ class _MyItemTabState extends CloudState<MyItemTab> {
                                                 ],
                                               ),
                                             ),
+                                            if (AppConfig
+                                                    .enableSellerItemChatV214 &&
+                                                item.id != null)
+                                              IconButton(
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                                tooltip: 'listingChats'
+                                                    .translate(context),
+                                                onPressed: () {
+                                                  ChatNavigation
+                                                      .openSellerItemChats(
+                                                    context,
+                                                    itemId: item.id!,
+                                                    itemName: item.name,
+                                                  );
+                                                },
+                                                icon: Icon(
+                                                  Icons.chat_bubble_outline,
+                                                  size: 22,
+                                                  color: context
+                                                      .color.territoryColor,
+                                                ),
+                                              ),
                                           ],
                                         )
                                       ],

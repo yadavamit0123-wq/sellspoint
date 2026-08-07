@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
 import 'package:eClassify/data/cubits/system/fetch_language_cubit.dart';
 import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
 import 'package:eClassify/data/cubits/system/language_cubit.dart';
@@ -187,6 +189,9 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
                 if (state is FetchSystemSettingsSuccess) {
                   Constant.isDemoModeOn = context.read<FetchSystemSettingsCubit>().getSetting(SystemSetting.demoMode);
                   getDefaultLanguage(state.settings['data']['default_language']);
+                  if (AppConfig.enableHomeConfigurationV214) {
+                    context.read<HomeConfigurationCubit>().getHomeConfiguration();
+                  }
                   isSettingsLoaded = true;
                   setState(() {});
                 }

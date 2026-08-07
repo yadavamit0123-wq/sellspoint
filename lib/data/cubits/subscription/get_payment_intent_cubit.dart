@@ -23,16 +23,26 @@ class GetPaymentIntentCubit extends Cubit<GetPaymentIntentState> {
   GetPaymentIntentCubit() : super(GetPaymentIntentInitial());
   AdvertisementRepository repository = AdvertisementRepository();
 
-  void getPaymentIntent(
-      {required int packageId, required String paymentMethod}) async {
-    emit(GetPaymentIntentInProgress());
+  Future<void> getPaymentIntent({
+    required int packageId,
+    required String paymentMethod,
+  }) async {
+    try {
+      emit(GetPaymentIntentInProgress());
 
-    repository
-        .getPaymentIntent(packageId: packageId, paymentMethod: paymentMethod)
-        .then((value) {
-      emit(GetPaymentIntentInSuccess(value['data']['payment_intent']));
-    }).catchError((e) {
-      emit(GetPaymentIntentFailure(e.toString()));
-    });
+      final value = await repository.getPaymentIntent(
+        packageId: packageId,
+        paymentMethod: paymentMethod,
+      );
+
+      final data = value['data'];
+      dynamic intent;
+      if (data is Map) {
+        intent = data['payment_intent'];
+      }
+      emit(GetPaymentIntentInSuccess(intent ?? data ?? {}));
+    } catch (e) {
+      emit(GetPaymentIntentFailure(e));
+    }
   }
 }

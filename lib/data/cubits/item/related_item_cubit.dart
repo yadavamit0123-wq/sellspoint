@@ -43,9 +43,9 @@ class FetchRelatedItemsSuccess extends FetchRelatedItemsState {
 }
 
 class FetchRelatedItemsFailure extends FetchRelatedItemsState {
-  final String errorMessage;
+  final dynamic error;
 
-  FetchRelatedItemsFailure(this.errorMessage);
+  FetchRelatedItemsFailure(this.error);
 }
 
 class FetchRelatedItemsCubit extends Cubit<FetchRelatedItemsState> {
@@ -53,22 +53,32 @@ class FetchRelatedItemsCubit extends Cubit<FetchRelatedItemsState> {
 
   final ItemRepository _itemRepository = ItemRepository();
 
-  Future<void> fetchRelatedItems(
-      {required int categoryId,
-      String? country,
-      String? state,
-      String? city,
-      int? areaId}) async {
+  Future<void> fetchRelatedItems({
+    required int categoryId,
+    int? excludedItemId,
+    String? country,
+    String? state,
+    String? city,
+    int? areaId,
+    int? radius,
+    double? latitude,
+    double? longitude,
+  }) async {
     try {
       emit(FetchRelatedItemsInProgress());
 
       DataOutput<ItemModel> result = await _itemRepository.fetchItemFromCatId(
-          categoryId: categoryId,
-          page: 1,
-          areaId: areaId,
-          city: city,
-          country: country,
-          state: state);
+        categoryId: categoryId,
+        page: 1,
+        excludedItemId: excludedItemId,
+        areaId: areaId,
+        city: city,
+        country: country,
+        state: state,
+        radius: radius,
+        latitude: latitude,
+        longitude: longitude,
+      );
 
       emit(
         FetchRelatedItemsSuccess(
@@ -81,20 +91,21 @@ class FetchRelatedItemsCubit extends Cubit<FetchRelatedItemsState> {
         ),
       );
     } catch (e) {
-      emit(
-        FetchRelatedItemsFailure(
-          e.toString(),
-        ),
-      );
+      emit(FetchRelatedItemsFailure(e));
     }
   }
 
-  Future<void> fetchRelatedItemsMore(
-      {required int categoryId,
-      String? country,
-      String? state,
-      String? city,
-      int? areaId}) async {
+  Future<void> fetchRelatedItemsMore({
+    required int categoryId,
+    int? excludedItemId,
+    String? country,
+    String? state,
+    String? city,
+    int? areaId,
+    int? radius,
+    double? latitude,
+    double? longitude,
+  }) async {
     try {
       if (state is FetchRelatedItemsSuccess) {
         if ((state as FetchRelatedItemsSuccess).isLoadingMore) {
@@ -103,12 +114,17 @@ class FetchRelatedItemsCubit extends Cubit<FetchRelatedItemsState> {
         emit((state as FetchRelatedItemsSuccess).copyWith(isLoadingMore: true));
 
         DataOutput<ItemModel> result = await _itemRepository.fetchItemFromCatId(
-            categoryId: categoryId,
-            areaId: areaId,
-            city: city,
-            country: country,
-            state: state,
-            page: (state as FetchRelatedItemsSuccess).page + 1);
+          categoryId: categoryId,
+          excludedItemId: excludedItemId,
+          areaId: areaId,
+          city: city,
+          country: country,
+          state: state,
+          radius: radius,
+          latitude: latitude,
+          longitude: longitude,
+          page: (state as FetchRelatedItemsSuccess).page + 1,
+        );
 
         FetchRelatedItemsSuccess item = (state as FetchRelatedItemsSuccess);
 

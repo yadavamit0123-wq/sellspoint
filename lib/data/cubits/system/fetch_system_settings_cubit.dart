@@ -105,6 +105,7 @@ class FetchSystemSettingsCubit extends Cubit<FetchSystemSettingsState> {
             _getSetting(settings, SystemSetting.appleAuthentication) ?? "0";
         Constant.emailAuthentication =
             _getSetting(settings, SystemSetting.emailAuthentication) ?? "0";
+        _applyDerivedSystemSettings(settings);
 
         emit(FetchSystemSettingsSuccess(settings: settings));
       } else {
@@ -155,6 +156,7 @@ class FetchSystemSettingsCubit extends Cubit<FetchSystemSettingsState> {
               _getSetting(settings, SystemSetting.appleAuthentication) ?? "0";
           Constant.emailAuthentication =
               _getSetting(settings, SystemSetting.emailAuthentication) ?? "0";
+          _applyDerivedSystemSettings(settings);
 
           emit(FetchSystemSettingsSuccess(settings: settings));
         } else {
@@ -220,6 +222,7 @@ class FetchSystemSettingsCubit extends Cubit<FetchSystemSettingsState> {
               Constant.emailAuthentication =
                   _getSetting(settings, SystemSetting.emailAuthentication) ??
                       "0";
+              _applyDerivedSystemSettings(settings);
 
               emit(FetchSystemSettingsSuccess(settings: settings));
             },
@@ -279,5 +282,16 @@ class FetchSystemSettingsCubit extends Cubit<FetchSystemSettingsState> {
         settings['data'][Constant.systemSettingKeys[selected]];
 
     return selectedSettingData;
+  }
+
+  void _applyDerivedSystemSettings(Map settings) {
+    final data = settings['data'];
+    if (data is! Map) return;
+    Constant.geminiAiEnabled =
+        data['gemini_ai_enabled']?.toString() == '1';
+    final iso = data['currency_iso_code']?.toString();
+    if (iso != null && iso.isNotEmpty) {
+      Constant.currencyIsoCode = iso;
+    }
   }
 }

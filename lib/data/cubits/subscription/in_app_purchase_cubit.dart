@@ -35,7 +35,7 @@ class InAppPurchaseCubit extends Cubit<InAppPurchaseState> {
         .then((value) {
       emit(InAppPurchaseInSuccess(value['message']));
     }).catchError((e) {
-      emit(InAppPurchaseFailure(e.toString()));
+      emit(InAppPurchaseFailure(e));
     });
   }
 }

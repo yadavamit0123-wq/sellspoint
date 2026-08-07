@@ -80,6 +80,21 @@ class ItemFilterModel {
     };
   }
 
+  /// Query params for get-item (2.14-style: omit empty / default values).
+  Map<String, dynamic> toQueryParameters() {
+    final parameters = <String, dynamic>{};
+    for (final entry in toMap().entries) {
+      final value = entry.value;
+      if (value == null) continue;
+      if (value is String && value.isEmpty) continue;
+      parameters[entry.key] = value;
+    }
+    if (parameters['posted_since'] == 'all-time') {
+      parameters.remove('posted_since');
+    }
+    return parameters;
+  }
+
   factory ItemFilterModel.fromMap(Map<String, dynamic> map) {
     return ItemFilterModel(
       city: map['city'].toString(),

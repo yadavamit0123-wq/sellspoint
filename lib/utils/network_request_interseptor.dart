@@ -1,6 +1,5 @@
-import 'dart:developer';
-
 import 'package:dio/dio.dart';
+import 'package:eClassify/utils/log.dart';
 
 class NetworkRequestInterceptor extends Interceptor {
   int totalAPICallTimes = 0;
@@ -8,45 +7,34 @@ class NetworkRequestInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     totalAPICallTimes++;
-    log(
-        {
-          "URL": options.path,
-          "Parameters": options.method == "POST"
-              ? (options.data as FormData).fields
-              : options.queryParameters,
-          "Method": options.method,
-          "_total_api_calls": totalAPICallTimes
-        }.toString(),
-        name: "Request-API");
+    final parameters = options.method == "POST" && options.data is FormData
+        ? (options.data as FormData).fields
+        : options.queryParameters.isNotEmpty
+            ? options.queryParameters
+            : options.data;
+    Log.debug(
+      'API #$totalAPICallTimes ${options.method} ${options.uri.path} $parameters',
+    );
     handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    log(
-        {
-          "URL": err.response?.requestOptions.path ?? "",
-          "Type": err.type,
-          "Error": err.error,
-          "Message": err.message,
-          "body": err.response?.data
-        }.toString(),
-        name: "API-Error");
-
+    if (err.response?.statusCode != 304) {
+      Log.error(
+        'API error ${err.requestOptions.method} ${err.requestOptions.uri.path}',
+        err.error,
+        err.stackTrace,
+      );
+    }
     handler.next(err);
   }
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    log(
-        {
-          "URL": response.requestOptions.path,
-          "Method": response.requestOptions.method,
-          "status": response.statusCode,
-          "statusMessage": response.statusMessage,
-          "response": response.data,
-        }.toString(),
-        name: "Response-API");
+    Log.debug(
+      'API ${response.statusCode} ${response.requestOptions.method} ${response.requestOptions.uri.path}',
+    );
     handler.next(response);
   }
 }

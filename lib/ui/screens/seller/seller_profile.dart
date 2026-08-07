@@ -2,7 +2,10 @@ import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/data/cubits/seller/fetch_seller_item_cubit.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/cubits/followers/follow_cubit.dart';
+import 'package:eClassify/ui/screens/seller/widgets/seller_follow_widget.dart';
+import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/data/cubits/seller/fetch_seller_ratings_cubit.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/data/model/seller_ratings_model.dart';
@@ -41,6 +44,9 @@ class SellerProfileScreen extends StatefulWidget {
 
   static Route route(RouteSettings routeSettings) {
     Map? arguments = routeSettings.arguments as Map?;
+    final model = arguments?['model'] as User?;
+    final isOtherSeller = model?.id != null &&
+        model!.id.toString() != HiveUtils.getUserId();
     return BlurredRouter(
         builder: (_) => MultiBlocProvider(
               providers: [
@@ -50,12 +56,19 @@ class SellerProfileScreen extends StatefulWidget {
                 BlocProvider(
                   create: (context) => FetchSellerRatingsCubit(),
                 ),
+                if (AppConfig.enableFollowersV214 && isOtherSeller)
+                  BlocProvider(
+                    create: (_) => FollowCubit()
+                      ..setFollowingStatus(
+                        model.isFollowingSeller ?? false,
+                        userId: model.id,
+                      ),
+                  ),
               ],
               child: SellerProfileScreen(
-                model: arguments?['model'],
+                model: model,
                 rating: arguments?['rating'],
                 total: arguments?['total'],
-                // from: arguments?['from'],
               ),
             ));
   }
@@ -314,6 +327,10 @@ class SellerProfileScreenState extends State<SellerProfileScreen>
                 ),
               ),
             ),
+            if (AppConfig.enableFollowersV214)
+              SliverToBoxAdapter(
+                child: SellerFollowWidget(seller: widget.model),
+              ),
           ],
           body: SafeArea(
             top: false,

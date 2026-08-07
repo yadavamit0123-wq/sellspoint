@@ -4,6 +4,7 @@ import 'package:eClassify/data/cubits/referral/referral_cubit.dart';
 import 'package:eClassify/data/model/faq_response.dart';
 import 'package:eClassify/data/model/user_model.dart';
 import 'package:eClassify/ui/screens/referral_program/widgets/my_referral_widget.dart';
+import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/app_icon.dart';
 import 'package:eClassify/utils/constant.dart';
@@ -21,6 +22,12 @@ import 'package:url_launcher/url_launcher.dart';
 // Referral Program Screen
 class ReferralProgramScreen extends StatefulWidget {
   const ReferralProgramScreen({super.key});
+
+  static Route route(RouteSettings settings) {
+    return BlurredRouter(
+      builder: (context) => const ReferralProgramScreen(),
+    );
+  }
 
   @override
   State<ReferralProgramScreen> createState() => _ReferralProgramScreenState();

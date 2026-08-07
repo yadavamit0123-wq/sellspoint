@@ -1,10 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dotted_border/dotted_border.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/data/cubits/ai/generate_description_cubit.dart';
 import 'package:eClassify/data/cubits/custom_field/fetch_custom_fields_cubit.dart';
 import 'package:eClassify/data/model/category_model.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/ui/screens/item/add_item_screen/widgets/ai_generate_button.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_progress_header.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/select_category.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/widgets/image_adapter.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
@@ -14,9 +18,9 @@ import 'package:eClassify/ui/screens/widgets/dynamic_field.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/cloud_state/cloud_state.dart';
 import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/image_picker.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -28,11 +32,15 @@ import 'package:image_picker/image_picker.dart';
 class AddItemDetails extends StatefulWidget {
   final List<CategoryModel>? breadCrumbItems;
   final bool? isEdit;
+  final Map<String, dynamic>? wizardDraft;
+  final bool inAppWizardHandoff;
 
   const AddItemDetails({
     super.key,
     this.breadCrumbItems,
     required this.isEdit,
+    this.wizardDraft,
+    this.inAppWizardHandoff = false,
   });
 
   static Route route(RouteSettings settings) {
@@ -40,11 +48,16 @@ class AddItemDetails extends StatefulWidget {
         settings.arguments as Map<String, dynamic>?;
     return BlurredRouter(
       builder: (context) {
-        return BlocProvider(
-          create: (context) => FetchCustomFieldsCubit(),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (context) => FetchCustomFieldsCubit()),
+            BlocProvider(create: (context) => GenerateDescriptionCubit()),
+          ],
           child: AddItemDetails(
             breadCrumbItems: arguments?['breadCrumbItems'],
             isEdit: arguments?['isEdit'],
+            wizardDraft: arguments?['wizardDraft'] as Map<String, dynamic>?,
+            inAppWizardHandoff: arguments?['inAppWizardHandoff'] == true,
           ),
         );
       },
@@ -90,6 +103,31 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
   late List selectedCategoryList;
   ItemModel? item;
 
+  bool get _customFieldsDoneInWizard =>
+      widget.inAppWizardHandoff &&
+      widget.wizardDraft?['custom_fields'] != null;
+
+  void _applyWizardCustomFields() {
+    final draft = widget.wizardDraft;
+    if (draft == null) return;
+    final encoded = draft['custom_fields'];
+    if (encoded != null) {
+      try {
+        final decoded = json.decode(encoded.toString());
+        if (decoded is Map) {
+          AbstractField.fieldsData
+              .addAll(Map<String, dynamic>.from(decoded));
+        }
+      } catch (_) {}
+    }
+    const reserved = {'title', 'description', 'price', 'phone', 'slug', 'custom_fields'};
+    for (final entry in draft.entries) {
+      if (!reserved.contains(entry.key)) {
+        AbstractField.files[entry.key] = entry.value;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -124,6 +162,31 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
           .fetchCustomFields(categoryIds: ids.join(','));
       selectedCategoryList = ids;
       adPhoneNumberController.text = HiveUtils.getUserDetails().mobile ?? "";
+      final draft = widget.wizardDraft;
+      if (draft != null) {
+        if (draft['title'] != null) {
+          adTitleController.text = draft['title'].toString();
+        }
+        if (draft['slug'] != null) {
+          adSlugController.text = draft['slug'].toString();
+        }
+        if (draft['description'] != null) {
+          adDescriptionController.text = draft['description'].toString();
+        }
+        if (draft['price'] != null) {
+          adPriceController.text = draft['price'].toString();
+        }
+        if (draft['phone'] != null &&
+            draft['phone'].toString().trim().isNotEmpty) {
+          adPhoneNumberController.text = draft['phone'].toString();
+        }
+        if (adTitleController.text.isNotEmpty) {
+          updateSlug();
+        }
+      }
+      if (_customFieldsDoneInWizard) {
+        _applyWizardCustomFields();
+      }
       adTitleController.addListener(() {
         // Check if the default language is English
         String languageCode = HiveUtils.getLanguage()['code'].toString();
@@ -154,6 +217,42 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
     String slug = generateSlug(title);
     adSlugController.text = slug;
     setState(() {});
+  }
+
+  String _categoryNameForAi() {
+    if (widget.isEdit == true && item?.category?.name != null) {
+      return item!.category!.name!;
+    }
+    if (widget.breadCrumbItems != null && widget.breadCrumbItems!.isNotEmpty) {
+      return widget.breadCrumbItems!.last.name ?? '';
+    }
+    return '';
+  }
+
+  String _languageIdForAi() {
+    final lang = HiveUtils.getLanguage();
+    if (lang is Map) {
+      return (lang['id'] ?? lang['code'] ?? '1').toString();
+    }
+    return '1';
+  }
+
+  void _generateDescriptionWithAi() {
+    final title = adTitleController.text.trim();
+    if (title.isEmpty) {
+      HelperUtils.showSnackBarMessage(
+        context,
+        'titleIsRequiredForAIGeneration'.translate(context),
+      );
+      return;
+    }
+    context.read<GenerateDescriptionCubit>().generate(
+          title: title,
+          price: adPriceController.text.trim(),
+          languageId: _languageIdForAi(),
+          category: _categoryNameForAi(),
+          currencyISOCode: Constant.currencyIsoCode,
+        );
   }
 
   String generateSlug(String title) {
@@ -210,7 +309,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       );
                       return;
                     }
-                    addCloudData("item_details", {
+                    final itemDetailsMap = <String, dynamic>{
                       "name": adTitleController.text,
                       "slug": adSlugController.text,
                       "description": adDescriptionController.text,
@@ -220,15 +319,34 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       "price": adPriceController.text,
                       "contact": adPhoneNumberController.text,
                       "video_link": adAdditionalDetailsController.text,
+                      if (_customFieldsDoneInWizard)
+                        "custom_fields": widget.wizardDraft!['custom_fields'],
                       if (widget.isEdit == true)
                         "delete_item_image_id": deleteItemImageList.join(','),
                       "all_category_ids": widget.isEdit == true
                           ? item!.allCategoryIds
-                          : selectedCategoryList.join(',')
-                    });
+                          : selectedCategoryList.join(','),
+                    };
+                    if (_customFieldsDoneInWizard) {
+                      const reserved = {
+                        'title',
+                        'description',
+                        'price',
+                        'phone',
+                        'slug',
+                        'custom_fields',
+                      };
+                      for (final entry in widget.wizardDraft!.entries) {
+                        if (!reserved.contains(entry.key)) {
+                          itemDetailsMap[entry.key] = entry.value;
+                        }
+                      }
+                    }
+                    addCloudData("item_details", itemDetailsMap);
                     screenStack++;
-                    if (context.read<FetchCustomFieldsCubit>().isEmpty()!) {
-                      addCloudData("with_more_details", {
+                    if (context.read<FetchCustomFieldsCubit>().isEmpty()! ||
+                        _customFieldsDoneInWizard) {
+                      final withMoreDetails = <String, dynamic>{
                         "name": adTitleController.text,
                         "slug": adSlugController.text,
                         "description": adDescriptionController.text,
@@ -242,14 +360,33 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                             ? item!.allCategoryIds
                             : selectedCategoryList.join(','),
                         if (widget.isEdit == true)
-                          "delete_item_image_id": deleteItemImageList.join(',')
-                      });
+                          "delete_item_image_id": deleteItemImageList.join(','),
+                      };
+                      if (_customFieldsDoneInWizard) {
+                        withMoreDetails['custom_fields'] =
+                            widget.wizardDraft!['custom_fields'];
+                        const reserved = {
+                          'title',
+                          'description',
+                          'price',
+                          'phone',
+                          'slug',
+                          'custom_fields',
+                        };
+                        for (final entry in widget.wizardDraft!.entries) {
+                          if (!reserved.contains(entry.key)) {
+                            withMoreDetails[entry.key] = entry.value;
+                          }
+                        }
+                      }
+                      addCloudData("with_more_details", withMoreDetails);
 
                       Navigator.pushNamed(context, Routes.confirmLocationScreen,
                           arguments: {
                             "isEdit": widget.isEdit,
                             "mainImage": _pickTitleImage.pickedFile,
-                            "otherImage": galleryImages
+                            "otherImage": galleryImages,
+                            "inAppWizardHandoff": widget.inAppWizardHandoff,
                           });
                     } else {
                       Navigator.pushNamed(context, Routes.addMoreDetailsScreen,
@@ -269,7 +406,15 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                     buttonTitle: "next".translate(context)),
               ),
             ),
-            body: Form(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.isEdit != true)
+                  AdPostingProgressHeader(
+                    currentStep: widget.inAppWizardHandoff ? 3 : 2,
+                  ),
+                Expanded(
+                  child: Form(
               key: _formKey,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -279,7 +424,9 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomText(
-                        "youAreAlmostThere".translate(context),
+                        widget.inAppWizardHandoff
+                            ? "uploadPictures".translate(context)
+                            : "youAreAlmostThere".translate(context),
                         fontSize: context.font.large,
                         fontWeight: FontWeight.w600,
                         color: context.color.textColorDark,
@@ -287,6 +434,10 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 16,
                       ),
+                      if (widget.inAppWizardHandoff) ...[
+                        _wizardBasicsSummary(context),
+                        const SizedBox(height: 16),
+                      ],
                       if (widget.breadCrumbItems != null)
                         SizedBox(
                           height: 20,
@@ -330,6 +481,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 18,
                       ),
+                      if (!widget.inAppWizardHandoff) ...[
                       CustomText("adTitle".translate(context)),
                       SizedBox(
                         height: 10,
@@ -379,7 +531,33 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       ),
                       CustomText("descriptionLbl".translate(context)),
                       SizedBox(
-                        height: 15,
+                        height: 8,
+                      ),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: BlocConsumer<GenerateDescriptionCubit,
+                            GenerateDescriptionState>(
+                          listener: (context, state) {
+                            if (state is GenerateDescriptionSuccess) {
+                              adDescriptionController.text = state.description;
+                            }
+                            if (state is GenerateDescriptionFailure) {
+                              HelperUtils.showSnackBarMessage(
+                                context,
+                                state.errorMessage,
+                              );
+                            }
+                          },
+                          builder: (context, state) {
+                            return AiGenerateButton(
+                              isLoading: state is GenerateDescriptionInProgress,
+                              onPressed: _generateDescriptionWithAi,
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        height: 10,
                       ),
                       CustomTextFormField(
                         controller: adDescriptionController,
@@ -400,6 +578,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 15,
                       ),
+                      ],
                       Row(
                         children: [
                           CustomText("mainPicture".translate(context)),
@@ -448,6 +627,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 10,
                       ),
+                      if (!widget.inAppWizardHandoff) ...[
                       CustomText("price".translate(context)),
                       SizedBox(
                         height: 10,
@@ -494,6 +674,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 10,
                       ),
+                      ],
                       CustomText("videoLink".translate(context)),
                       SizedBox(
                         height: 10,
@@ -518,8 +699,51 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                 ),
               ),
             ),
+                ),
+              ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _wizardBasicsSummary(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.color.secondaryColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: context.color.borderColor.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomText(
+            adTitleController.text,
+            fontWeight: FontWeight.w600,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          CustomText(
+            adDescriptionController.text,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            color: context.color.textLightColor,
+            fontSize: context.font.small,
+          ),
+          const SizedBox(height: 8),
+          CustomText(
+            '${Constant.currencySymbol} ${adPriceController.text}',
+            fontWeight: FontWeight.w500,
+            color: context.color.territoryColor,
+          ),
+        ],
       ),
     );
   }

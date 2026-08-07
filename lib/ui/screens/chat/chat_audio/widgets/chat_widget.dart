@@ -7,6 +7,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
 import 'package:eClassify/app/app_theme.dart';
 import 'package:eClassify/data/cubits/chat/send_message.dart';
+import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/data/cubits/system/app_theme_cubit.dart';
 import 'package:eClassify/ui/screens/chat/chat_screen.dart';
 import 'package:eClassify/ui/theme/theme.dart';
@@ -379,8 +380,12 @@ class ChatMessageState extends State<ChatMessage>
                             });
                           }
                           if (state is SendMessageFailed) {
-                            HelperUtils.showSnackBarMessage(
-                                context, state.error.toString());
+                            final err = state.error;
+                            final message = err is ApiException &&
+                                    err.errorMessage == 'blocked_by_other_user'
+                                ? 'blockedByOtherUser'.translate(context)
+                                : err.toString();
+                            HelperUtils.showSnackBarMessage(context, message);
                           }
                         },
                         builder: (context, state) {

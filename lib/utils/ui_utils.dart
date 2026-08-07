@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eClassify/app/app_theme.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/utils/subscription_navigation.dart';
 import 'package:eClassify/data/cubits/home/fetch_home_all_items_cubit.dart';
 import 'package:eClassify/data/cubits/home/fetch_home_screen_cubit.dart';
 import 'package:eClassify/data/cubits/system/app_theme_cubit.dart';
@@ -550,7 +551,7 @@ class UiUtils {
         isAcceptContainerPush: false,
         onAccept: () async {
           Future.delayed(Duration(seconds: 1), () {
-            Navigator.pushNamed(context, Routes.subscriptionPackageListRoute);
+            SubscriptionNavigation.openPackageCatalog(context);
           });
         },
       ),

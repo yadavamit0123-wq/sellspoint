@@ -15,7 +15,9 @@ import 'package:eClassify/utils/cloud_state/cloud_state.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_progress_header.dart';
+import 'package:eClassify/utils/ad_posting_launcher.dart';
+import 'package:eClassify/utils/location_picker_launcher.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:eClassify/utils/validator.dart';
@@ -350,7 +352,15 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
                 width: double.maxFinite,
                 buttonTitle: "postNow".translate(context)),
           ),
-          body: bodyData()),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.isEdit != true)
+                const AdPostingProgressHeader(currentStep: 4),
+              Expanded(child: bodyData()),
+            ],
+          ),
+      ),
     );
   }
 
@@ -366,8 +376,11 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
         myAdsCubitReference[getCloudData("edit_from")]?.edit(state.model);
         Future.delayed(Duration(milliseconds: 500), () {
           if (mounted) {
-            Navigator.pushNamed(context, Routes.successItemScreen,
-                arguments: {'model': state.model, 'isEdit': widget.isEdit});
+            AdPostingLauncher.openSuccess(
+              context,
+              model: state.model,
+              isEdit: widget.isEdit,
+            );
           }
         });
       }
@@ -393,24 +406,27 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
                 Padding(
                   padding: EdgeInsets.only(top: 20, right: 15, left: 15),
                   child: UiUtils.buildButton(context, height: 48,
-                      onPressed: () {
-                    Navigator.pushNamed(context, Routes.countriesScreen,
-                        arguments: {"from": "addItem"}).then((value) {
-                      if (value != null) {
-                        Map<String, dynamic> location =
-                            value as Map<String, dynamic>;
+                      onPressed: () async {
+                    final value = await LocationPickerLauncher.open(
+                      context,
+                      from: 'addItem',
+                      requiresExactLocation: true,
+                    );
+                    if (value != null) {
+                      Map<String, dynamic> location =
+                          value as Map<String, dynamic>;
 
-                        if (mounted)
-                          setState(() {
-                            currentLocation = [
-                              location["area"] ?? null,
-                              location["city"] ?? null,
-                              location["state"] ?? null,
-                              location["country"] ?? null,
-                            ]
-                                .where(
-                                    (part) => part != null && part.isNotEmpty)
-                                .join(', ');
+                      if (mounted) {
+                        setState(() {
+                          currentLocation = [
+                            location['area'] ?? null,
+                            location['city'] ?? null,
+                            location['state'] ?? null,
+                            location['country'] ?? null,
+                          ]
+                              .where(
+                                  (part) => part != null && part.isNotEmpty)
+                              .join(', ');
 
                             formatedAddress = AddressComponent(
                                 area: location["area"] ?? null,
@@ -433,9 +449,9 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
                               markerId: const MarkerId('currentLocation'),
                               position: LatLng(latitude!, longitude!),
                             ));
-                          });
+                        });
                       }
-                    });
+                    }
                   },
                       fontSize: 14,
                       buttonTitle: "somewhereElseLbl".translate(context),

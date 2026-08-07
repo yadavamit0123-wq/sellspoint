@@ -2,6 +2,7 @@ class HiveKeys {
   //Box
   static const String userDetailsBox = "userDetailsBox";
   static const String nearbyRadius = "nearbyRadiusKey";
+  static const String leafLocationJson = "leafLocationJson";
   static const String city = "cityKey";
   static const String area = "areaKey";
   static const String areaId = "areaIdKey";

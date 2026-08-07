@@ -77,7 +77,7 @@ class LoadChatMessagesCubit extends Cubit<LoadChatMessagesState> {
         totalPage: result.total,
       ));
     } catch (e) {
-      emit(LoadChatMessagesFailed(error: e.toString()));
+      emit(LoadChatMessagesFailed(error: e));
     }
   }
 

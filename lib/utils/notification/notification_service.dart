@@ -2,21 +2,14 @@
 
 import 'dart:async';
 
-import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/chat/get_buyer_chat_users_cubit.dart';
 import 'package:eClassify/data/cubits/chat/get_seller_chat_users_cubit.dart';
-import 'package:eClassify/data/cubits/chat/load_chat_messages.dart';
 import 'package:eClassify/data/cubits/chat/send_message.dart';
+import 'package:eClassify/utils/notification/notification_deep_link_navigation.dart';
 import 'package:eClassify/data/model/chat/chat_message_modal.dart';
 import 'package:eClassify/data/model/chat/chat_user_model.dart';
-import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/data/repositories/item/item_repository.dart';
 import 'package:eClassify/ui/screens/chat/chat_audio/widgets/chat_widget.dart';
-import 'package:eClassify/ui/screens/chat/chat_screen.dart';
-import 'package:eClassify/ui/screens/main_activity.dart';
 import 'package:eClassify/utils/constant.dart';
-import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/notification/awsome_notification.dart';
 import 'package:eClassify/utils/notification/chat_message_handler.dart';
@@ -184,164 +177,32 @@ class NotificationService {
 
   static Future<void> terminatedStateNotificationHandler(
       BuildContext context) async {
-    FirebaseMessaging.instance.getInitialMessage().then(
-      (RemoteMessage? message) {
-        if (message == null) {
-          return;
-        }
-        if (message.notification == null) {
-          handleNotification(message, false, context);
-        }
-      },
-    );
+    final message = await FirebaseMessaging.instance.getInitialMessage();
+    if (message == null) {
+      return;
+    }
+    Future.delayed(Duration.zero, () {
+      final ctx = Constant.navigatorKey.currentContext;
+      if (ctx == null) return;
+      NotificationDeepLinkNavigation.openFromData(
+        ctx,
+        Map<String, dynamic>.from(message.data),
+      );
+    });
   }
 
   static void onTapNotificationHandler(context) {
     onMessageOpen = FirebaseMessaging.onMessageOpenedApp
         .listen((RemoteMessage message) async {
       print("message.data on tap***${message.data.toString()}");
-      if (message.data['type'] == "chat") {
-        var username = message.data['user_name'];
-        var itemTitleImage = message.data['item_title_image'];
-        var itemTitle = message.data['item_title'];
-        var userProfile = message.data['user_profile'];
-        var senderId = message.data['sender_id'];
-        var itemId = message.data['item_id'];
-        var date = message.data['created_at'];
-        var itemOfferId = message.data['item_offer_id'];
-        var itemPrice = message.data['item_price'];
-        var itemOfferPrice = message.data['item_offer_amount'] ?? null;
-        Future.delayed(
-          Duration.zero,
-          () {
-            Navigator.push(Constant.navigatorKey.currentContext!,
-                MaterialPageRoute(
-              builder: (context) {
-                return MultiBlocProvider(
-                  providers: [
-                    BlocProvider(
-                      create: (context) => SendMessageCubit(),
-                    ),
-                    BlocProvider(
-                      create: (context) => LoadChatMessagesCubit(),
-                    ),
-                  ],
-                  child: Builder(builder: (context) {
-                    return ChatScreen(
-                      profilePicture: userProfile ?? "",
-                      userName: username ?? "",
-                      itemImage: itemTitleImage ?? "",
-                      itemTitle: itemTitle ?? "",
-                      userId: senderId ?? "",
-                      itemId: itemId ?? "",
-                      date: date ?? "",
-                      itemOfferId: int.parse(itemOfferId),
-                      itemPrice: getPrice(itemPrice)!,
-                      itemOfferPrice: getPrice(itemOfferPrice),
-                      buyerId: HiveUtils.getUserId(),
-                      alreadyReview: false,
-                      isPurchased: 0,
-                    );
-                  }),
-                );
-              },
-            ));
-          },
+      Future.delayed(Duration.zero, () {
+        final ctx = Constant.navigatorKey.currentContext;
+        if (ctx == null) return;
+        NotificationDeepLinkNavigation.openFromData(
+          ctx,
+          Map<String, dynamic>.from(message.data),
         );
-      } else if (message.data['type'] == "offer") {
-        if (HiveUtils.isUserAuthenticated()) {
-          var username = message.data['user_name'];
-          var itemTitleImage = message.data['item_title_image'];
-          var itemTitle = message.data['item_title'];
-          var userProfile = message.data['user_profile'];
-          var senderId = message.data['sender_id'];
-          var itemId = message.data['item_id'];
-          var date = message.data['created_at'];
-          var itemOfferId = message.data['item_offer_id'];
-          var itemPrice = message.data['item_price'];
-          var itemOfferPrice = message.data['item_offer_amount'] ?? null;
-          Future.delayed(
-            Duration.zero,
-            () {
-              Navigator.push(Constant.navigatorKey.currentContext!,
-                  MaterialPageRoute(
-                builder: (context) {
-                  return MultiBlocProvider(
-                    providers: [
-                      BlocProvider(
-                        create: (context) => SendMessageCubit(),
-                      ),
-                      BlocProvider(
-                        create: (context) => LoadChatMessagesCubit(),
-                      ),
-                    ],
-                    child: Builder(builder: (context) {
-                      return ChatScreen(
-                        profilePicture: userProfile ?? "",
-                        userName: username ?? "",
-                        itemImage: itemTitleImage ?? "",
-                        itemTitle: itemTitle ?? "",
-                        userId: senderId ?? "",
-                        itemId: itemId ?? "",
-                        date: date ?? "",
-                        itemOfferId: int.parse(itemOfferId),
-                        itemPrice: getPrice(itemPrice)!,
-                        itemOfferPrice: getPrice(itemOfferPrice),
-                        buyerId: HiveUtils.getUserId(),
-                        alreadyReview: false,
-                        isPurchased: 0,
-                      );
-                    }),
-                  );
-                },
-              ));
-            },
-          );
-        } else {
-          Future.delayed(Duration.zero, () {
-            HelperUtils.goToNextPage(Routes.notificationPage,
-                Constant.navigatorKey.currentContext!, false);
-          });
-        }
-      } else if (message.data['type'] == "item-update") {
-        Future.delayed(Duration.zero, () {
-          HelperUtils.goToNextPage(
-            Routes.main,
-            Constant.navigatorKey.currentContext!,
-            false,
-          );
-          MainActivity.globalKey.currentState?.onItemTapped(2);
-        });
-      } else if (message.data["item_id"] != null &&
-          message.data["item_id"] != '') {
-        String id = message.data["item_id"] ?? "";
-        DataOutput<ItemModel> item =
-            await ItemRepository().fetchItemFromItemId(int.parse(id));
-        Future.delayed(Duration.zero, () {
-          Navigator.pushNamed(
-              Constant.navigatorKey.currentContext!, Routes.adDetailsScreen,
-              arguments: {
-                'model': item.modelList[0],
-              });
-        });
-      } else if (message.data['type'] == "payment") {
-        if (HiveUtils.isUserAuthenticated()) {
-          Future.delayed(Duration.zero, () {
-            Navigator.pushNamed(Constant.navigatorKey.currentContext!,
-                Routes.subscriptionPackageListRoute);
-          });
-        } else {
-          Future.delayed(Duration.zero, () {
-            HelperUtils.goToNextPage(Routes.notificationPage,
-                Constant.navigatorKey.currentContext!, false);
-          });
-        }
-      } else {
-        Future.delayed(Duration.zero, () {
-          HelperUtils.goToNextPage(Routes.notificationPage,
-              Constant.navigatorKey.currentContext!, false);
-        });
-      }
+      });
     });
   }
 

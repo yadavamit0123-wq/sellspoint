@@ -26,17 +26,20 @@ import 'package:eClassify/data/cubits/fetch_notifications_cubit.dart';
 import 'package:eClassify/data/cubits/home/fetch_home_all_items_cubit.dart';
 import 'package:eClassify/data/cubits/home/fetch_home_screen_cubit.dart';
 import 'package:eClassify/data/cubits/home/fetch_section_items_cubit.dart';
+import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
+import 'package:eClassify/data/cubits/home/popular_categories_cubit.dart';
 import 'package:eClassify/data/cubits/item/change_my_items_status_cubit.dart';
 import 'package:eClassify/data/cubits/item/create_featured_ad_cubit.dart';
 import 'package:eClassify/data/cubits/item/delete_item_cubit.dart';
 import 'package:eClassify/data/cubits/item/fetch_item_from_category_cubit.dart';
 import 'package:eClassify/data/cubits/item/fetch_my_item_cubit.dart';
+import 'package:eClassify/data/cubits/item/job_application/fetch_job_application_cubit.dart';
 import 'package:eClassify/data/cubits/item/fetch_my_promoted_items_cubit.dart';
 import 'package:eClassify/data/cubits/item/fetch_popular_items_cubit.dart';
 import 'package:eClassify/data/cubits/item/item_total_click_cubit.dart';
 import 'package:eClassify/data/cubits/item/related_item_cubit.dart';
 import 'package:eClassify/data/cubits/item/search_item_cubit.dart';
-import 'package:eClassify/data/cubits/location/fetch_areas_cubit.dart';
+import 'package:eClassify/data/cubits/location/leaf_location_cubit.dart';
 import 'package:eClassify/data/cubits/location/fetch_cities_cubit.dart';
 import 'package:eClassify/data/cubits/location/fetch_countries_cubit.dart';
 import 'package:eClassify/data/cubits/location/fetch_states_cubit.dart';
@@ -53,6 +56,7 @@ import 'package:eClassify/data/cubits/seller/fetch_seller_verification_field.dar
 import 'package:eClassify/data/cubits/seller/fetch_verification_request_cubit.dart';
 import 'package:eClassify/data/cubits/seller/send_verification_field_cubit.dart';
 import 'package:eClassify/data/cubits/slider_cubit.dart';
+import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
 import 'package:eClassify/data/cubits/subscription/assign_free_package_cubit.dart';
 import 'package:eClassify/data/cubits/subscription/fetch_ads_listing_subscription_packages_cubit.dart';
 import 'package:eClassify/data/cubits/subscription/fetch_featured_subscription_packages_cubit.dart';
@@ -101,8 +105,9 @@ class RegisterCubits {
     BlocProvider(create: (context) => FetchItemReportReasonsListCubit()),
     BlocProvider(create: (context) => ItemEditCubit()),
     BlocProvider(create: (context) => FetchHomeScreenCubit()),
+    BlocProvider(create: (context) => PopularCategoriesCubit()),
+    BlocProvider(create: (context) => HomeConfigurationCubit()),
     BlocProvider(create: (context) => AuthenticationCubit()),
-    BlocProvider(create: (context) => FetchHomeScreenCubit()),
     BlocProvider(create: (context) => FetchHomeAllItemsCubit()),
     BlocProvider(create: (context) => DeleteItemCubit()),
     BlocProvider(create: (context) => ItemTotalClickCubit()),
@@ -119,6 +124,7 @@ class RegisterCubits {
     BlocProvider(create: (context) => GetPaymentIntentCubit()),
     BlocProvider(create: (context) => DeleteUserCubit()),
     BlocProvider(create: (context) => MakeAnOfferItemCubit()),
+    BlocProvider(create: (context) => FetchJobApplicationCubit()),
     BlocProvider(create: (context) => InAppPurchaseCubit()),
     BlocProvider(create: (context) => SendMessageCubit()),
     BlocProvider(create: (context) => DeleteMessageCubit()),
@@ -134,6 +140,8 @@ class RegisterCubits {
     BlocProvider(create: (context) => FetchStatesCubit()),
     BlocProvider(create: (context) => FetchCitiesCubit()),
     BlocProvider(create: (context) => FetchAreasCubit()),
+    BlocProvider(create: (context) => LeafLocationCubit()),
+    BlocProvider(create: (context) => BottomNavCubit()),
     BlocProvider(create: (context) => FetchFaqsCubit()),
     BlocProvider(create: (context) => GetItemBuyerListCubit()),
     BlocProvider(create: (context) => FetchSellerItemsCubit()),

@@ -2,6 +2,9 @@ import 'package:eClassify/data/model/personalized/personalized_settings.dart';
 import 'package:eClassify/firebase_options.dart';
 import 'package:eClassify/main.dart';
 import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
+import 'package:eClassify/utils/api_infrastructure.dart';
+import 'package:eClassify/utils/app_session.dart';
+import 'package:eClassify/utils/background_upload_utility.dart';
 import 'package:eClassify/utils/hive_keys.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -36,11 +39,10 @@ void initApp() async {
     };
   }
 
-  if (Firebase.apps.isNotEmpty) {
+  if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform);
-  } else {
-    await Firebase.initializeApp();
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
 
   MobileAds.instance.initialize();
@@ -53,6 +55,10 @@ void initApp() async {
   await Hive.openBox(HiveKeys.svgBox);
   await Hive.openBox(HiveKeys.jwtToken);
   await Hive.openBox(HiveKeys.historyBox);
+
+  AppSession.create();
+  await ApiInfrastructure.init();
+  await BackgroundUploadUtility.initialize();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]).then(
     (_) async {

@@ -43,14 +43,20 @@ class AdvertisementRepository {
     return response;
   }
 
-  Future<Map> getPaymentIntent(
-      {required int packageId, required String paymentMethod}) async {
+  Future<Map> getPaymentIntent({
+    required int packageId,
+    required String paymentMethod,
+  }) async {
+    final needsAppPlatform = paymentMethod == "Paystack" ||
+        paymentMethod == "PhonePe" ||
+        paymentMethod == "PayPal";
+
     Map response = await Api.post(
       url: Api.getPaymentIntentApi,
       parameter: {
-        "package_id": packageId,
-        "payment_method": paymentMethod,
-        if (paymentMethod == "Paystack") "platform_type": "app"
+        Api.packageId: packageId,
+        Api.paymentMethod: paymentMethod,
+        if (needsAppPlatform) Api.platformType: "app",
       },
     );
     return response;

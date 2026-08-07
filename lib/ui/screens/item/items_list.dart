@@ -13,6 +13,8 @@ import 'package:eClassify/ui/screens/main_activity.dart';
 import 'package:eClassify/ui/screens/native_ads_screen.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
+import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
+import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
 import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/api.dart';
@@ -593,9 +595,11 @@ class ItemsListState extends State<ItemsList> {
       }
 
       if (state is FetchItemFromCategoryFailure) {
-        return Center(
-          child: CustomText(state.errorMessage),
-        );
+        if (state.error is ApiException &&
+            (state.error as ApiException).error == "no-internet") {
+          return Center(child: NoInternet());
+        }
+        return const Center(child: SomethingWentWrong());
       }
       if (state is FetchItemFromCategorySuccess) {
         if (state.itemModel.isEmpty) {

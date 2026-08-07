@@ -44,9 +44,9 @@ class FetchItemFromCategorySuccess extends FetchItemFromCategoryState {
 }
 
 class FetchItemFromCategoryFailure extends FetchItemFromCategoryState {
-  final String errorMessage;
+  final dynamic error;
 
-  FetchItemFromCategoryFailure(this.errorMessage);
+  FetchItemFromCategoryFailure(this.error);
 }
 
 class FetchItemFromCategoryCubit extends Cubit<FetchItemFromCategoryState> {
@@ -79,11 +79,7 @@ class FetchItemFromCategoryCubit extends Cubit<FetchItemFromCategoryState> {
         ),
       );
     } catch (e) {
-      emit(
-        FetchItemFromCategoryFailure(
-          e.toString(),
-        ),
-      );
+      emit(FetchItemFromCategoryFailure(e));
     }
   }
 

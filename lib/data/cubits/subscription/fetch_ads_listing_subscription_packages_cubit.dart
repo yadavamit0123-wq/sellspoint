@@ -33,12 +33,14 @@ class FetchAdsListingSubscriptionPackagesCubit
       : super(FetchAdsListingSubscriptionPackagesInitial());
   final SubscriptionRepository _subscriptionRepository =
       SubscriptionRepository();
-  Future<void> fetchPackages() async {
+  Future<void> fetchPackages({int? categoryId}) async {
     try {
       emit(FetchAdsListingSubscriptionPackagesInProgress());
       DataOutput<SubscriptionPackageModel> result =
           await _subscriptionRepository.getSubscriptionPacakges(
-              type: "item_listing");
+        type: 'item_listing',
+        categoryId: categoryId,
+      );
       emit(FetchAdsListingSubscriptionPackagesSuccess(
           subscriptionPackages: result.modelList));
     } catch (e) {

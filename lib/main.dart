@@ -1,3 +1,5 @@
+import 'package:eClassify/app/cubit_observer.dart';
+import 'package:eClassify/app/navigator_observer.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:eClassify/app/app.dart';
 import 'package:eClassify/app/app_localization.dart';
@@ -11,6 +13,7 @@ import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/notification/notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -19,7 +22,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 ///V-1.0.0//
 ////////////
 
-void main() => initApp();
+void main() {
+  if (kDebugMode) {
+    Bloc.observer = AppCubitObserver();
+  }
+  initApp();
+}
+
+final _appNavigatorObserver = AppNavigatorObserver();
 
 class EntryPoint extends StatefulWidget {
   const EntryPoint({
@@ -78,6 +88,7 @@ class _AppState extends State<App> {
           initialRoute: Routes.splash,
           // App will start from here splash screen is first screen,
           navigatorKey: Constant.navigatorKey,
+          navigatorObservers: [_appNavigatorObserver],
           //This navigator key is used for Navigate users through notification
           title: Constant.appName,
           debugShowCheckedModeBanner: false,

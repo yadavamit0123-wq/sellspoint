@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/cubits/chat/delete_message_cubit.dart';
 import 'package:eClassify/data/cubits/chat/get_buyer_chat_users_cubit.dart';
 import 'package:eClassify/data/cubits/chat/load_chat_messages.dart';
@@ -10,6 +11,7 @@ import 'package:eClassify/data/cubits/chat/make_an_offer_item_cubit.dart';
 import 'package:eClassify/data/cubits/chat/send_message.dart';
 import 'package:eClassify/data/cubits/favorite/favorite_cubit.dart';
 import 'package:eClassify/data/cubits/favorite/manage_fav_cubit.dart';
+import 'package:eClassify/data/cubits/item/job_application/fetch_job_application_cubit.dart';
 import 'package:eClassify/data/cubits/item/change_my_items_status_cubit.dart';
 import 'package:eClassify/data/cubits/item/create_featured_ad_cubit.dart';
 import 'package:eClassify/data/cubits/item/delete_item_cubit.dart';
@@ -32,7 +34,7 @@ import 'package:eClassify/data/model/report_item/reason_model.dart';
 import 'package:eClassify/data/model/safety_tips_model.dart';
 import 'package:eClassify/data/model/subscription_pacakage_model.dart';
 import 'package:eClassify/ui/screens/ad_banner_screen.dart';
-import 'package:eClassify/ui/screens/chat/chat_screen.dart';
+import 'package:eClassify/utils/chat_navigation.dart';
 import 'package:eClassify/ui/screens/google_map_screen.dart';
 import 'package:eClassify/ui/screens/home/home_screen.dart';
 import 'package:eClassify/ui/screens/home/widgets/grid_list_adapter.dart';
@@ -53,6 +55,7 @@ import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
+import 'package:eClassify/utils/item_job_helper.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -69,10 +72,13 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 class AdDetailsScreen extends StatefulWidget {
   final ItemModel? model;
   final String? slug;
+  final int? itemId;
+
   const AdDetailsScreen({
     super.key,
     this.model,
     this.slug,
+    this.itemId,
   });
 
   @override
@@ -103,6 +109,7 @@ class AdDetailsScreen extends StatefulWidget {
               child: AdDetailsScreen(
                 model: arguments?['model'],
                 slug: arguments?['slug'],
+                itemId: arguments?['item_id'] ?? arguments?['itemId'],
                 // from: arguments?['from'],
               ),
             ));
@@ -165,6 +172,14 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
       context.read<FetchSafetyTipsListCubit>().fetchSafetyTips();
       context.read<FetchSellerRatingsCubit>().fetch(
           sellerId: (model.user?.id != null ? model.user!.id! : model.userId!));
+      if (AppConfig.enableJobApplicationsV214 &&
+          ItemJobHelper.isJobListing(model) &&
+          HiveUtils.isUserAuthenticated()) {
+        context.read<FetchJobApplicationCubit>().fetchApplications(
+              itemId: model.id!,
+              isMyJobApplications: true,
+            );
+      }
     } else {
       context.read<FetchAdsListingSubscriptionPackagesCubit>().fetchPackages();
     }
@@ -173,24 +188,43 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
     setItemClick();
     //ImageView
     combineImages();
+    _fetchRelatedAds();
+  }
+
+  void _fetchRelatedAds() {
+    if (categoryId == null) return;
     context.read<FetchRelatedItemsCubit>().fetchRelatedItems(
-        categoryId: categoryId!,
-        city: HiveUtils.getCityName(),
-        areaId: HiveUtils.getAreaId(),
-        country: HiveUtils.getCountryName(),
-        state: HiveUtils.getStateName());
-    _pageScrollController.addListener(_pageScroll);
+          categoryId: categoryId!,
+          excludedItemId: model.id,
+          city: HiveUtils.getCityName(),
+          areaId: HiveUtils.getAreaId(),
+          country: HiveUtils.getCountryName(),
+          state: HiveUtils.getStateName(),
+          radius: HiveUtils.getNearbyRadius(),
+          latitude: HiveUtils.getLatitude(),
+          longitude: HiveUtils.getLongitude(),
+        );
+  }
+
+  void _fetchRelatedAdsMore() {
+    if (categoryId == null) return;
+    context.read<FetchRelatedItemsCubit>().fetchRelatedItemsMore(
+          categoryId: categoryId!,
+          excludedItemId: model.id,
+          city: HiveUtils.getCityName(),
+          areaId: HiveUtils.getAreaId(),
+          country: HiveUtils.getCountryName(),
+          state: HiveUtils.getStateName(),
+          radius: HiveUtils.getNearbyRadius(),
+          latitude: HiveUtils.getLatitude(),
+          longitude: HiveUtils.getLongitude(),
+        );
   }
 
   void _pageScroll() {
     if (_pageScrollController.isEndReached()) {
       if (context.read<FetchRelatedItemsCubit>().hasMoreData()) {
-        context.read<FetchRelatedItemsCubit>().fetchRelatedItemsMore(
-            categoryId: categoryId!,
-            city: HiveUtils.getCityName(),
-            areaId: HiveUtils.getAreaId(),
-            country: HiveUtils.getCountryName(),
-            state: HiveUtils.getStateName());
+        _fetchRelatedAdsMore();
       }
     }
   }
@@ -272,6 +306,18 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                 child: UiUtils.progress(),
               ),
             );
+          }
+          if (state is FetchItemFromSlugInitial &&
+              widget.itemId != null &&
+              widget.model == null) {
+            context
+                .read<FetchItemFromSlugCubit>()
+                .fetchItemFromId(id: widget.itemId!);
+            return Material(
+              child: Center(
+                child: UiUtils.progress(),
+              ),
+            );
           } else if (state is FetchItemFromSlugLoading) {
             log('loading');
             return Material(
@@ -299,6 +345,28 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                 backgroundColor: context.color.secondaryDetailsColor,
                 showBackButton: true,
                 actions: [
+                  if (AppConfig.enableSellerItemChatV214 &&
+                      isAddedByMe &&
+                      !ItemJobHelper.isJobListing(model) &&
+                      model.id != null &&
+                      (model.status == 'active' ||
+                          model.status == 'approved' ||
+                          model.status == 'review'))
+                    IconButton(
+                      tooltip: 'listingChats'.translate(context),
+                      onPressed: () {
+                        ChatNavigation.openSellerItemChats(
+                          context,
+                          itemId: model.id!,
+                          itemName: model.name,
+                        );
+                      },
+                      icon: Icon(
+                        Icons.chat_bubble_outline,
+                        size: 24,
+                        color: context.color.textDefaultColor,
+                      ),
+                    ),
                   if (isAddedByMe && model.status == "active" ||
                       model.status == 'approved')
                     Padding(
@@ -554,17 +622,10 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
         return relatedItemShimmer();
       }
       if (state is FetchRelatedItemsFailure) {
-        if (state.errorMessage is ApiException) {
-          if (state.errorMessage == "no-internet") {
+        if (state.error is ApiException) {
+          if ((state.error as ApiException).error == "no-internet") {
             return NoInternet(
-              onRetry: () {
-                context.read<FetchRelatedItemsCubit>().fetchRelatedItems(
-                    categoryId: categoryId!,
-                    city: HiveUtils.getCityName(),
-                    areaId: HiveUtils.getAreaId(),
-                    country: HiveUtils.getCountryName(),
-                    state: HiveUtils.getStateName());
-              },
+              onRetry: _fetchRelatedAds,
             );
           }
         }
@@ -1332,6 +1393,8 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
           ],
         );
       } else if (model.status == "active" || model.status == "approved") {
+        final jobListing = AppConfig.enableJobApplicationsV214 &&
+            ItemJobHelper.isJobListing(model);
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1344,6 +1407,34 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
               }, contextColor.secondaryColor, contextColor.territoryColor),
             ),
             SizedBox(width: 10),
+            if (jobListing)
+              Expanded(
+                child: _buildButton("jobApplications".translate(context), () {
+                  Navigator.pushNamed(
+                    context,
+                    Routes.jobApplicationList,
+                    arguments: {
+                      'itemId': model.id,
+                      'isRecruiterView': true,
+                    },
+                  );
+                }, null, null),
+              ),
+            if (jobListing) SizedBox(width: 10),
+            if (AppConfig.enableSellerItemChatV214 &&
+                !jobListing &&
+                model.id != null)
+              Expanded(
+                child: _buildButton("listingChats".translate(context), () {
+                  ChatNavigation.openSellerItemChats(
+                    context,
+                    itemId: model.id!,
+                    itemName: model.name,
+                  );
+                }, null, null),
+              ),
+            if (AppConfig.enableSellerItemChatV214 && !jobListing)
+              SizedBox(width: 10),
             Expanded(
               child: _buildButton("soldOut".translate(context), () async {
                 Navigator.pushNamed(context, Routes.soldOutBoughtScreen,
@@ -1466,47 +1557,29 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                   );
                 }
 
-                Navigator.push(context, BlurredRouter(
-                  builder: (context) {
-                    return MultiBlocProvider(
-                      providers: [
-                        BlocProvider(
-                          create: (context) => SendMessageCubit(),
-                        ),
-                        BlocProvider(
-                          create: (context) => LoadChatMessagesCubit(),
-                        ),
-                        BlocProvider(
-                          create: (context) => DeleteMessageCubit(),
-                        ),
-                      ],
-                      child: ChatScreen(
-                        profilePicture: model.user!.profile ?? "",
-                        userName: model.user!.name!,
-                        userId: model.user!.id!.toString(),
-                        from: "item",
-                        itemImage: model.image!,
-                        itemId: model.id.toString(),
-                        date: model.created!,
-                        itemTitle: model.name!,
-                        itemOfferId: state.data['id'],
-                        itemPrice: model.price!,
-                        status: model.status!,
-                        buyerId: HiveUtils.getUserId(),
-                        itemOfferPrice: state.data['amount'] != null
-                            ? double.parse(state.data['amount'])
-                            : null,
-                        isPurchased: model.isPurchased!,
-                        alreadyReview: model.review == null
-                            ? false
-                            : model.review!.isEmpty
-                                ? false
-                                : true,
-                        isFromBuyerList: true,
-                      ),
-                    );
-                  },
-                ));
+                final chatUser = ChatUser(
+                  itemId: data['item_id'] is String
+                      ? int.parse(data['item_id'])
+                      : data['item_id'],
+                  amount: data['amount'] != null
+                      ? double.parse(data['amount'].toString())
+                      : null,
+                  buyerId: data['buyer_id'],
+                  createdAt: data['created_at']?.toString(),
+                  id: data['id'],
+                  sellerId: data['seller_id'],
+                  updatedAt: data['updated_at']?.toString(),
+                  buyer: data['buyer'] != null
+                      ? Buyer.fromJson(data['buyer'])
+                      : null,
+                  item: data['item'] != null
+                      ? Item.fromJson(data['item'])
+                      : null,
+                  seller: data['seller'] != null
+                      ? Seller.fromJson(data['seller'])
+                      : null,
+                );
+                ChatNavigation.openChatUser(context, chatUser);
               }
               if (state is MakeAnOfferItemFailure) {
                 HelperUtils.showSnackBarMessage(
@@ -1518,7 +1591,40 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (chatedUser == null)
+                if (AppConfig.enableJobApplicationsV214 &&
+                    ItemJobHelper.isJobListing(model))
+                  BlocBuilder<FetchJobApplicationCubit,
+                      FetchJobApplicationState>(
+                    builder: (context, _) {
+                      final applied = context
+                          .read<FetchJobApplicationCubit>()
+                          .getJobAppliedItem(model.id!);
+                      if (applied != null) return const SizedBox.shrink();
+                      return Expanded(
+                        child: _buildButton(
+                          "applyNow".translate(context),
+                          () {
+                            UiUtils.checkUser(
+                              onNotGuest: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  Routes.jobApplicationForm,
+                                  arguments: model,
+                                );
+                              },
+                              context: context,
+                            );
+                          },
+                          null,
+                          null,
+                        ),
+                      );
+                    },
+                  ),
+                if (AppConfig.enableJobApplicationsV214 &&
+                    ItemJobHelper.isJobListing(model))
+                  const SizedBox(width: 10),
+                if (!ItemJobHelper.isJobListing(model) && chatedUser == null)
                   Expanded(
                     child: _buildButton("makeAnOffer".translate(context), () {
                       UiUtils.checkUser(
@@ -1529,69 +1635,14 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                           context: context);
                     }, null, null),
                   ),
-                if (chatedUser == null) SizedBox(width: 10),
+                if (!ItemJobHelper.isJobListing(model) && chatedUser == null)
+                  SizedBox(width: 10),
                 Expanded(
                   child: _buildButton("chat".translate(context), () {
                     UiUtils.checkUser(
                         onNotGuest: () {
                           if (chatedUser != null) {
-                            Navigator.push(context, BlurredRouter(
-                              builder: (context) {
-                                return MultiBlocProvider(
-                                  providers: [
-                                    BlocProvider(
-                                      create: (context) => SendMessageCubit(),
-                                    ),
-                                    BlocProvider(
-                                      create: (context) =>
-                                          LoadChatMessagesCubit(),
-                                    ),
-                                    BlocProvider(
-                                      create: (context) => DeleteMessageCubit(),
-                                    ),
-                                  ],
-                                  child: ChatScreen(
-                                    itemId: chatedUser.itemId.toString(),
-                                    profilePicture: chatedUser.seller != null &&
-                                            chatedUser.seller!.profile != null
-                                        ? chatedUser.seller!.profile!
-                                        : "",
-                                    userName: chatedUser.seller != null &&
-                                            chatedUser.seller!.name != null
-                                        ? chatedUser.seller!.name!
-                                        : "",
-                                    date: chatedUser.createdAt!,
-                                    itemOfferId: chatedUser.id!,
-                                    itemPrice: chatedUser.item != null &&
-                                            chatedUser.item!.price != null
-                                        ? chatedUser.item!.price!
-                                        : 0.0,
-                                    itemOfferPrice: chatedUser.amount != null
-                                        ? chatedUser.amount!
-                                        : null,
-                                    itemImage: chatedUser.item != null &&
-                                            chatedUser.item!.image != null
-                                        ? chatedUser.item!.image!
-                                        : "",
-                                    itemTitle: chatedUser.item != null &&
-                                            chatedUser.item!.name != null
-                                        ? chatedUser.item!.name!
-                                        : "",
-                                    userId: chatedUser.sellerId.toString(),
-                                    buyerId: chatedUser.buyerId.toString(),
-                                    status: chatedUser.item!.status,
-                                    from: "item",
-                                    isPurchased: model.isPurchased!,
-                                    alreadyReview: model.review == null
-                                        ? false
-                                        : model.review!.isEmpty
-                                            ? false
-                                            : true,
-                                    isFromBuyerList: true,
-                                  ),
-                                );
-                              },
-                            ));
+                            ChatNavigation.openChatUser(context, chatedUser);
                           } else {
                             context
                                 .read<MakeAnOfferItemCubit>()

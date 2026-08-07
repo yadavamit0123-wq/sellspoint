@@ -1,14 +1,18 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:async';
 import 'dart:developer';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/data/cubits/location/leaf_location_cubit.dart';
 import 'package:eClassify/data/cubits/category/fetch_category_cubit.dart';
 import 'package:eClassify/data/cubits/chat/blocked_users_list_cubit.dart';
 import 'package:eClassify/data/cubits/chat/get_buyer_chat_users_cubit.dart';
 import 'package:eClassify/data/cubits/favorite/favorite_cubit.dart';
 import 'package:eClassify/data/cubits/home/fetch_home_all_items_cubit.dart';
 import 'package:eClassify/data/cubits/home/fetch_home_screen_cubit.dart';
-import 'package:eClassify/data/cubits/slider_cubit.dart';
+import 'package:eClassify/data/cubits/home/popular_categories_cubit.dart';
+import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
+import 'package:eClassify/utils/bottom_nav_tap_listener.dart';
 import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
 import 'package:eClassify/data/cubits/system/get_api_keys_cubit.dart';
 import 'package:eClassify/data/helper/designs.dart';
@@ -21,20 +25,27 @@ import 'package:eClassify/ui/screens/ad_banner_screen.dart';
 import 'package:eClassify/ui/screens/home/slider_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/category_widget_home.dart';
 import 'package:eClassify/ui/screens/home/widgets/grid_list_adapter.dart';
+import 'package:eClassify/ui/screens/home/widgets/all_items_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/home_section_layout_builder.dart';
+import 'package:eClassify/ui/screens/home/widgets/home_sticky_search_delegate.dart';
+import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_search.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_sections_adapter.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_shimmers.dart';
 import 'package:eClassify/ui/screens/home/widgets/location_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/popular_category_home_widget.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
 import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
 import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 //import 'package:uni_links/uni_links.dart';
 
+import 'package:eClassify/utils/app_assets.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/leaf_location_bridge.dart';
 import 'package:eClassify/utils/notification/awsome_notification.dart';
 import 'package:eClassify/utils/notification/notification_service.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -83,19 +94,15 @@ class HomeScreenState extends State<HomeScreen>
           context,
         );
     context.read<FetchCategoryCubit>().fetchCategories();
-    context.read<FetchHomeScreenCubit>().fetch(
-        city: HiveUtils.getCityName(),
-        areaId: HiveUtils.getAreaId(),
-        country: HiveUtils.getCountryName(),
-        state: HiveUtils.getStateName());
-    context.read<FetchHomeAllItemsCubit>().fetch(
-        city: HiveUtils.getCityName(),
-        areaId: HiveUtils.getAreaId(),
-        radius: HiveUtils.getNearbyRadius(),
-        longitude: HiveUtils.getLongitude(),
-        latitude: HiveUtils.getLatitude(),
-        country: HiveUtils.getCountryName(),
-        state: HiveUtils.getStateName());
+    context.read<PopularCategoriesCubit>().fetchPopularCategories();
+    _fetchHomeData();
+
+    if (AppConfig.enableHomeConfigurationV214) {
+      final configCubit = context.read<HomeConfigurationCubit>();
+      if (configCubit.state is! HomeConfigurationSuccess) {
+        configCubit.getHomeConfiguration();
+      }
+    }
 
     if (HiveUtils.isUserAuthenticated()) {
       context.read<FavoriteCubit>().getFavorite();
@@ -106,19 +113,53 @@ class HomeScreenState extends State<HomeScreen>
 
     _scrollController.addListener(() {
       if (_scrollController.isEndReached()) {
+        final configState = context.read<HomeConfigurationCubit>().state;
+        if (!HomeSectionLayoutBuilder.shouldFetchAllItems(configState)) {
+          return;
+        }
         if (context.read<FetchHomeAllItemsCubit>().hasMoreData()) {
+          final loc = LeafLocationBridge.allItems;
           context.read<FetchHomeAllItemsCubit>().fetchMore(
-                city: HiveUtils.getCityName(),
-                areaId: HiveUtils.getAreaId(),
-                radius: HiveUtils.getNearbyRadius(),
-                longitude: HiveUtils.getLongitude(),
-                latitude: HiveUtils.getLatitude(),
-                country: HiveUtils.getCountryName(),
-                stateName: HiveUtils.getStateName(),
+                city: loc.city,
+                areaId: loc.areaId,
+                radius: loc.radius,
+                longitude: loc.longitude,
+                latitude: loc.latitude,
+                country: loc.country,
+                stateName: loc.state,
               );
         }
       }
     });
+  }
+
+  void _fetchHomeData() {
+    context.read<LeafLocationCubit>().syncFromLegacyHive();
+    final featured = LeafLocationBridge.featuredSection;
+    context.read<FetchHomeScreenCubit>().fetch(
+          city: featured.city,
+          areaId: featured.areaId,
+          country: featured.country,
+          state: featured.state,
+        );
+    _fetchHomeAllItemsIfNeeded();
+  }
+
+  void _fetchHomeAllItemsIfNeeded() {
+    final configState = context.read<HomeConfigurationCubit>().state;
+    if (!HomeSectionLayoutBuilder.shouldFetchAllItems(configState)) {
+      return;
+    }
+    final items = LeafLocationBridge.allItems;
+    context.read<FetchHomeAllItemsCubit>().fetch(
+          city: items.city,
+          areaId: items.areaId,
+          radius: items.radius,
+          longitude: items.longitude,
+          latitude: items.latitude,
+          country: items.country,
+          state: items.state,
+        );
   }
 
   @override
@@ -146,7 +187,7 @@ class HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return SafeArea(
+    Widget shell = SafeArea(
       child: Scaffold(
         appBar: AppBar(
           elevation: 0,
@@ -157,6 +198,27 @@ class HomeScreenState extends State<HomeScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const LocationWidget(),
+                  if (!AppConfig.enableFiveTabNavV214)
+                    InkWell(
+                      onTap: () {
+                        Navigator.pushNamed(context, Routes.videoAdsScreen);
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: context.color.secondaryColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: UiUtils.getSvg(
+                            AppAssets.bottomNavigation.videoAds,
+                            color: context.color.textColorDark,
+                          ),
+                        ),
+                      ),
+                    ),
                   InkWell(
                     onTap: (){
                       UiUtils.checkUser(
@@ -184,102 +246,180 @@ class HomeScreenState extends State<HomeScreen>
         body: RefreshIndicator(
           key: _refreshIndicatorKey,
           color: context.color.territoryColor,
-          onRefresh: () async {
-            context.read<SliderCubit>().fetchSlider(
-                  context,
-                );
-            context.read<FetchCategoryCubit>().fetchCategories();
-            context.read<FetchHomeScreenCubit>().fetch(
-                city: HiveUtils.getCityName(),
-                areaId: HiveUtils.getAreaId(),
-                country: HiveUtils.getCountryName(),
-                state: HiveUtils.getStateName());
-            context.read<FetchHomeAllItemsCubit>().fetch(
-                city: HiveUtils.getCityName(),
-                areaId: HiveUtils.getAreaId(),
-                radius: HiveUtils.getNearbyRadius(),
-                longitude: HiveUtils.getLongitude(),
-                latitude: HiveUtils.getLatitude(),
-                country: HiveUtils.getCountryName(),
-                state: HiveUtils.getStateName());
-          },
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            controller: _scrollController,
-            child: Column(
-              children: [
-                BlocBuilder<FetchHomeScreenCubit, FetchHomeScreenState>(
-                  builder: (context, state) {
-                    if (state is FetchHomeScreenInProgress) {
-                      return shimmerEffect();
-                    }
-                    if (state is FetchHomeScreenSuccess) {
-
-                      // Build flattened list once
-                      final List<StatusModel> allStatus = [];
-                      for (var section in state.sections) {
-                        for (ItemModel data in (section.sectionData ?? [])) {
-                          final images = (data.galleryImages ?? []).map((i) => i.image).whereType<String>().toList();
-                          if (images.isNotEmpty) {
-                            allStatus.add(StatusModel(
-                              name: data.user?.name ?? '',
-                              avatarUrl: data.user?.profile ?? '',
-                              mediaUrls: images,
-                              description: data.name ?? '',
-                              item: data
-                            ));
-                          }
-                        }
-                      }
-
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const HomeSearchField(),
-                          if(allStatus.isNotEmpty)
-                          StatusWidget(allStatus: allStatus),
-                          const SliderWidget(),
-                          const CategoryWidgetHome(),
-                          ...List.generate(state.sections.length, (index) {
-                            HomeScreenSection section = state.sections[index];
-                            if (state.sections.isNotEmpty) {
-                              return HomeSectionsAdapter(
-                                section: section,
-                              );
-                            } else {
-                              return SizedBox.shrink();
-                            }
-                          }),
-                          if (state.sections.isNotEmpty && Constant.isGoogleBannerAdsEnabled == "1") ...[
-                            Container(
-                              padding: EdgeInsets.only(top: 5),
-                              margin: EdgeInsets.symmetric(vertical: 10),
-                              child: AdBannerWidget(), // Custom widget for banner ad
-                            )
-                          ] else ...[
-                            SizedBox(
-                              height: 10,
-                            )
-                          ],
-                        ],
-                      );
-                    }
-
-                    if (state is FetchHomeScreenFail) {
-                      print('hey bro ${state.error}');
-                    }
-                    return SizedBox.shrink();
-                  },
-                ),
-                const AllItemsWidget(),
-                const SizedBox(
-                  height: 30,
-                )
-              ],
-            ),
-          ),
+          onRefresh: _onHomeRefresh,
+          child: AppConfig.enableHomeSliverV214
+              ? _buildSliverHomeBody(context)
+              : _buildLegacyHomeBody(context),
         ),
       ),
+    );
+
+    if (AppConfig.enableFiveTabNavV214) {
+      shell = BottomNavTapListener(
+        listenFor: BottomTab.home,
+        onRepeatTap: _scrollHomeToTop,
+        child: shell,
+      );
+    }
+    if (AppConfig.enableHomeConfigurationV214) {
+      shell = BlocListener<HomeConfigurationCubit, HomeConfigurationState>(
+        listenWhen: (previous, current) =>
+            current is HomeConfigurationSuccess &&
+            previous is! HomeConfigurationSuccess,
+        listener: (context, state) => _fetchHomeAllItemsIfNeeded(),
+        child: shell,
+      );
+    }
+    return shell;
+  }
+
+  void _scrollHomeToTop() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels > 0) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    if (AppConfig.enableHomeSliverV214) {
+      _onHomeRefresh();
+    }
+  }
+
+  Future<void> _onHomeRefresh() async {
+    context.read<SliderCubit>().fetchSlider(context);
+    context.read<FetchCategoryCubit>().fetchCategories();
+    context.read<PopularCategoriesCubit>().fetchPopularCategories();
+    if (AppConfig.enableHomeConfigurationV214) {
+      context.read<HomeConfigurationCubit>().getHomeConfiguration();
+    }
+    _fetchHomeData();
+  }
+
+  Widget _buildLegacyHomeBody(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      controller: _scrollController,
+      child: Column(
+        children: [
+          _buildHomeScreenBloc(includeSearch: true),
+          if (_showAllAdsAtTail()) const AllItemsWidget(),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliverHomeBody(BuildContext context) {
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      slivers: [
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: HomeStickySearchDelegate(
+            backgroundColor: context.color.primaryColor,
+          ),
+        ),
+        SliverToBoxAdapter(child: _buildHomeScreenBloc(includeSearch: false)),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              if (_showAllAdsAtTail()) const AllItemsWidget(),
+              const SizedBox(height: 30),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeScreenBloc({required bool includeSearch}) {
+    return BlocBuilder<FetchHomeScreenCubit, FetchHomeScreenState>(
+      builder: (context, state) {
+        if (state is FetchHomeScreenInProgress) {
+          return shimmerEffect();
+        }
+        if (state is FetchHomeScreenSuccess) {
+          final List<StatusModel> allStatus = [];
+          for (var section in state.sections) {
+            for (ItemModel data in (section.sectionData ?? [])) {
+              final images = (data.galleryImages ?? [])
+                  .map((i) => i.image)
+                  .whereType<String>()
+                  .toList();
+              if (images.isNotEmpty) {
+                allStatus.add(StatusModel(
+                  name: data.user?.name ?? '',
+                  avatarUrl: data.user?.profile ?? '',
+                  mediaUrls: images,
+                  description: data.name ?? '',
+                  item: data,
+                ));
+              }
+            }
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (includeSearch) const HomeSearchField(),
+              if (allStatus.isNotEmpty) StatusWidget(allStatus: allStatus),
+              ..._homeContentBlocks(state.sections),
+              if (state.sections.isNotEmpty &&
+                  Constant.isGoogleBannerAdsEnabled == "1") ...[
+                Container(
+                  padding: const EdgeInsets.only(top: 5),
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  child: AdBannerWidget(),
+                ),
+              ] else ...[
+                const SizedBox(height: 10),
+              ],
+            ],
+          );
+        }
+
+        if (state is FetchHomeScreenFail) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: TextButton(
+                onPressed: _fetchHomeData,
+                child: Text('retry'.translate(context)),
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  List<Widget> _homeContentBlocks(List<HomeScreenSection> featuredSections) {
+    if (AppConfig.enableHomeConfigurationV214) {
+      final configState = context.watch<HomeConfigurationCubit>().state;
+      if (configState is HomeConfigurationSuccess &&
+          configState.sections.isNotEmpty) {
+        return HomeSectionLayoutBuilder.build(
+          configuration: configState.sections,
+          featuredSections: featuredSections,
+        );
+      }
+    }
+    return HomeSectionLayoutBuilder.build(
+      configuration: const [],
+      featuredSections: featuredSections,
+    );
+  }
+
+  bool _showAllAdsAtTail() {
+    return HomeSectionLayoutBuilder.showAllAdsAtTail(
+      context.watch<HomeConfigurationCubit>().state,
     );
   }
 
@@ -491,93 +631,6 @@ class HomeScreenState extends State<HomeScreen>
           }
         }
         return Container();
-      },
-    );
-  }
-}
-
-class AllItemsWidget extends StatelessWidget {
-  const AllItemsWidget({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<FetchHomeAllItemsCubit, FetchHomeAllItemsState>(
-      builder: (context, state) {
-        if (state is FetchHomeAllItemsSuccess) {
-          if (state.items.isNotEmpty) {
-            final int crossAxisCount = 2;
-            final int items = state.items.length;
-            final int total = (items ~/ crossAxisCount) +
-                (items % crossAxisCount != 0 ? 1 : 0);
-
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GridListAdapter(
-                    type: ListUiType.List,
-                    crossAxisCount: 2,
-                    builder: (context, int index, bool isGrid) {
-                      int itemIndex = index * crossAxisCount;
-                      return SizedBox(
-                        height: (MediaQuery.sizeOf(context).height / 3.5) +10,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            for (int i = 0; i < crossAxisCount; ++i) ...[
-                              Expanded(
-                                  child: itemIndex + 1 <= items
-                                      ? ItemCard(item: state.items[itemIndex++])
-                                      : SizedBox.shrink()),
-                              if (i != crossAxisCount - 1)
-                                SizedBox(
-                                  width: 15,
-                                )
-                            ]
-                          ],
-                        ),
-                      );
-                    },
-                    listSeparator: (context, index) {
-                      if (index == 0 ||
-                          index % Constant.nativeAdsAfterItemNumber != 0) {
-                        return SizedBox(
-                          height: 15,
-                        );
-                      } else {
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              height: 5,
-                            ),
-                            AdBannerWidget(),
-                            SizedBox(
-                              height: 5,
-                            ),
-                          ],
-                        );
-                      }
-                    },
-                    total: total),
-                if (state.isLoadingMore) UiUtils.progress(),
-              ],
-            );
-          } else {
-            return SizedBox.shrink();
-          }
-        }
-        if (state is FetchHomeAllItemsFail) {
-          if (state.error is ApiException) {
-            if (state.error.error == "no-internet") {
-              return Center(child: NoInternet());
-            }
-          }
-
-          return const SomethingWentWrong();
-        }
-        return SizedBox.shrink();
       },
     );
   }

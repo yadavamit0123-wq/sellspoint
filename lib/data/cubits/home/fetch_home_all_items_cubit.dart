@@ -81,7 +81,7 @@ class FetchHomeAllItemsCubit extends Cubit<FetchHomeAllItemsState> {
         ),
       );
     } catch (e) {
-      emit(FetchHomeAllItemsFail(e.toString()));
+      emit(FetchHomeAllItemsFail(e));
     }
   }
 

@@ -1,6 +1,9 @@
 import 'package:eClassify/ui/screens/ad_details_screen.dart';
 import 'package:eClassify/ui/screens/advertisement/my_advertisment_screen.dart';
 import 'package:eClassify/ui/screens/auth/login/forgot_password.dart';
+import 'package:eClassify/ui/screens/auth/delete_account_verification_screen.dart';
+import 'package:eClassify/ui/screens/auth/forgot_password_otp_verification_screen.dart';
+import 'package:eClassify/ui/screens/auth/reset_password_screen.dart';
 import 'package:eClassify/ui/screens/auth/login/login_screen.dart';
 import 'package:eClassify/ui/screens/auth/sign_up/mobile_signup_screen.dart';
 import 'package:eClassify/ui/screens/auth/sign_up/signup_main_screen.dart';
@@ -11,6 +14,7 @@ import 'package:eClassify/ui/screens/chat/blocked_user_list_screen.dart';
 import 'package:eClassify/ui/screens/faqs_screen.dart';
 import 'package:eClassify/ui/screens/favorite_screen.dart';
 import 'package:eClassify/ui/screens/filter_screen.dart';
+import 'package:eClassify/ui/screens/home/category_browsing_screen.dart';
 import 'package:eClassify/ui/screens/home/category_list.dart';
 import 'package:eClassify/ui/screens/home/change_language_screen.dart';
 import 'package:eClassify/ui/screens/home/search_screen.dart';
@@ -23,15 +27,30 @@ import 'package:eClassify/ui/screens/item/add_item_screen/more_details.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/select_category.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/widgets/pdf_viewer.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/widgets/success_item_screen.dart';
+import 'package:eClassify/ui/screens/chat/chat_screen_route.dart';
+import 'package:eClassify/ui/screens/chat/seller_item_chat_screen.dart';
+import 'package:eClassify/ui/screens/location/location_map_picker_screen.dart';
+import 'package:eClassify/ui/screens/item/video_ads_screen/video_ad_editor_screen.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_screen.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_success_screen.dart';
+import 'package:eClassify/ui/screens/followers/follow_users_screen.dart';
+import 'package:eClassify/ui/screens/item/job_application/job_application_form_screen.dart';
+import 'package:eClassify/ui/screens/item/job_application/job_application_list_screen.dart';
 import 'package:eClassify/ui/screens/item/items_list.dart';
+import 'package:eClassify/ui/screens/item/video_ads_screen/video_ads_screen.dart';
 import 'package:eClassify/ui/screens/item/my_items_screen.dart';
 import 'package:eClassify/ui/screens/item/view_all_screen.dart';
 import 'package:eClassify/ui/screens/location/areas_screen.dart';
 import 'package:eClassify/ui/screens/location/cities_screen.dart';
 import 'package:eClassify/ui/screens/location/countries_screen.dart';
+import 'package:eClassify/ui/screens/location/location_screen.dart';
 import 'package:eClassify/ui/screens/location/nearby_location.dart';
 import 'package:eClassify/ui/screens/location/states_screen.dart';
 import 'package:eClassify/ui/screens/location_permission_screen.dart';
+import 'package:eClassify/ui/screens/my_wallet/my_wallet_screen.dart';
+import 'package:eClassify/ui/screens/referral_program/referral_program_screen.dart';
+import 'package:eClassify/new_development/status/models/status_models.dart';
+import 'package:eClassify/new_development/status/screens/status_user_viewer.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
 import 'package:eClassify/ui/screens/my_review_screen.dart';
 import 'package:eClassify/ui/screens/onboarding/onboarding_screen.dart';
@@ -40,14 +59,21 @@ import 'package:eClassify/ui/screens/seller/seller_profile.dart';
 import 'package:eClassify/ui/screens/seller/seller_verification.dart';
 import 'package:eClassify/ui/screens/seller/seller_verification_complete.dart';
 import 'package:eClassify/ui/screens/settings/contact_us.dart';
+import 'package:eClassify/ui/screens/settings/company_page_screen.dart';
+import 'package:eClassify/ui/screens/settings/help_and_support_screen.dart';
+import 'package:eClassify/ui/screens/settings/legal_information_screen.dart';
 import 'package:eClassify/ui/screens/settings/notification_detail.dart';
 import 'package:eClassify/ui/screens/settings/notifications.dart';
 import 'package:eClassify/ui/screens/settings/profile_setting.dart';
 import 'package:eClassify/ui/screens/sold_out_bought_screen.dart';
 import 'package:eClassify/ui/screens/splash_screen.dart';
 import 'package:eClassify/ui/screens/sub_category/sub_category_screen.dart';
+import 'package:eClassify/ui/screens/subscription/active_plan_screen.dart';
 import 'package:eClassify/ui/screens/subscription/packages_list.dart';
+import 'package:eClassify/ui/screens/subscription/subscription_category_selection_screen.dart';
+import 'package:eClassify/ui/screens/subscription/subscription_package_screen.dart';
 import 'package:eClassify/ui/screens/subscription/transaction_history_screen.dart';
+import 'package:eClassify/ui/screens/subscription/transaction_receipt_screen.dart';
 import 'package:eClassify/ui/screens/user_profile/edit_profile.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/screens/widgets/maintenance_mode.dart';
@@ -60,6 +86,9 @@ class Routes {
   static const onboarding = 'onboarding';
   static const login = 'login';
   static const forgotPassword = 'forgotPassword';
+  static const forgotPasswordOtpVerification = 'forgotPasswordOtpVerification';
+  static const resetPassword = 'resetPassword';
+  static const deleteAccountVerification = 'deleteAccountVerification';
   static const signup = 'signup';
   static const signupMainScreen = 'signUpMainScreen';
   static const mobileSignUp = 'mobileSignUp';
@@ -69,6 +98,8 @@ class Routes {
   static const addItem = 'addItem';
   static const waitingScreen = 'waitingScreen';
   static const categories = 'Categories';
+  static const categoryBrowsing = '/categoryBrowsing';
+  static const locationScreen = '/locationScreen';
   static const addresses = 'address';
   static const chooseAddress = 'chooseAddress';
   static const itemsList = 'itemsList';
@@ -80,6 +111,19 @@ class Routes {
   static const addItemScreenRoute = 'addItemScreenRoute';
   static const blogsScreenRoute = 'blogsScreenRoute';
   static const subscriptionPackageListRoute = 'subscriptionPackageListRoute';
+  static const subscriptionCategorySelectionScreen =
+      '/subscriptionCategorySelectionScreen';
+  static const subscriptionPackageScreen = '/subscriptionPackageScreen';
+  static const activePlanScreen = '/activePlanScreen';
+  static const jobApplicationForm = '/jobApplicationForm';
+  static const jobApplicationList = '/jobApplicationList';
+  static const followersScreen = '/followersScreen';
+  static const adPostingScreen = '/adPostingScreen';
+  static const adPostingSuccessScreen = '/adPostingSuccessScreen';
+  static const locationMapPicker = '/locationMapPicker';
+  static const videoAdEditor = '/videoAdEditor';
+  static const chatScreen = '/chatScreen';
+  static const sellerItemChatScreen = '/sellerItemChatScreen';
   static const subscriptionScreen = 'subscriptionScreen';
   static const maintenanceMode = '/maintenanceMode';
   static const favoritesScreen = '/favoritescreen';
@@ -131,6 +175,14 @@ class Routes {
   static const addItemDetails = '/addItemDetails';
   static const addMoreDetailsScreen = '/addMoreDetailsScreen';
   static const confirmLocationScreen = '/confirmLocationScreen';
+  static const videoAdsScreen = '/videoAdsScreen';
+  static const myWalletScreen = '/myWalletScreen';
+  static const referralProgramScreen = '/referralProgramScreen';
+  static const statusStoriesViewer = '/statusStoriesViewer';
+  static const helpAndSupportScreen = '/helpAndSupport';
+  static const legalInformationScreen = '/legalInformation';
+  static const companyPage = '/companyPage';
+  static const transactionReceipt = '/transactionReceipt';
   static const sectionWiseItemsScreen = '/sectionWiseItemsScreen';
   static const blockedUserListScreen = '/blockedUserListScreen';
   static const payStackWebViewScreen = '/payStackWebViewScreen';
@@ -177,6 +229,12 @@ class Routes {
         return LoginScreen.route(routeSettings);
       case forgotPassword:
         return ForgotPasswordScreen.route(routeSettings);
+      case forgotPasswordOtpVerification:
+        return ForgotPasswordOtpVerificationScreen.route(routeSettings);
+      case resetPassword:
+        return ResetPasswordScreen.route(routeSettings);
+      case deleteAccountVerification:
+        return DeleteAccountVerificationScreen.route(routeSettings);
       case signup:
         return SignupScreen.route(routeSettings);
       case signupMainScreen:
@@ -188,6 +246,10 @@ class Routes {
 
       case categories:
         return CategoryList.route(routeSettings);
+      case categoryBrowsing:
+        return CategoryBrowsingScreen.route(routeSettings);
+      case locationScreen:
+        return LocationScreen.route(routeSettings);
       case subCategoryScreen:
         return SubCategoryScreen.route(routeSettings);
       case categoryFilterScreen:
@@ -221,6 +283,30 @@ class Routes {
         return BlogDetails.route(routeSettings);
       case subscriptionPackageListRoute:
         return SubscriptionPackageListScreen.route(routeSettings);
+      case subscriptionCategorySelectionScreen:
+        return SubscriptionCategorySelectionScreen.route(routeSettings);
+      case subscriptionPackageScreen:
+        return SubscriptionPackageScreen.route(routeSettings);
+      case activePlanScreen:
+        return ActivePlanScreen.route(routeSettings);
+      case jobApplicationForm:
+        return JobApplicationFormScreen.route(routeSettings);
+      case jobApplicationList:
+        return JobApplicationListScreen.route(routeSettings);
+      case followersScreen:
+        return FollowUsersScreen.route(routeSettings);
+      case adPostingScreen:
+        return AdPostingScreen.route(routeSettings);
+      case adPostingSuccessScreen:
+        return AdPostingSuccessScreen.route(routeSettings);
+      case locationMapPicker:
+        return LocationMapPickerScreen.route(routeSettings);
+      case videoAdEditor:
+        return VideoAdEditorScreen.route(routeSettings);
+      case chatScreen:
+        return ChatScreenRoute.route(routeSettings);
+      case sellerItemChatScreen:
+        return SellerItemChatScreen.route(routeSettings);
 
       case favoritesScreen:
         return FavoriteScreen.route(routeSettings);
@@ -263,6 +349,22 @@ class Routes {
 
       case confirmLocationScreen:
         return ConfirmLocationScreen.route(routeSettings);
+      case videoAdsScreen:
+        return VideoAdsScreen.route(routeSettings);
+      case myWalletScreen:
+        return MyWalletScreen.route(routeSettings);
+      case referralProgramScreen:
+        return ReferralProgramScreen.route(routeSettings);
+      case statusStoriesViewer:
+        return _statusStoriesRoute(routeSettings);
+      case transactionReceipt:
+        return TransactionReceiptScreen.route(routeSettings);
+      case helpAndSupportScreen:
+        return HelpAndSupportScreen.route(routeSettings);
+      case legalInformationScreen:
+        return LegalInformationScreen.route(routeSettings);
+      case companyPage:
+        return CompanyPageScreen.route(routeSettings);
       case sectionWiseItemsScreen:
         return SectionItemsScreen.route(routeSettings);
 
@@ -289,5 +391,23 @@ class Routes {
       default:
         return CupertinoPageRoute(builder: (context) => const Scaffold());
     }
+  }
+
+  static Route _statusStoriesRoute(RouteSettings settings) {
+    final args = settings.arguments;
+    if (args is! Map) {
+      return CupertinoPageRoute(builder: (context) => const Scaffold());
+    }
+    final users = args['allUsers'];
+    if (users is! List<StatusModel>) {
+      return CupertinoPageRoute(builder: (context) => const Scaffold());
+    }
+    final index = args['initialUserIndex'];
+    return MaterialPageRoute(
+      builder: (context) => StatusUserViewer(
+        allUsers: users,
+        initialUserIndex: index is int ? index : 0,
+      ),
+    );
   }
 }

@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:eClassify/app/app_theme.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app/app_config.dart';
+import 'package:eClassify/app/app_theme.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/utils/subscription_navigation.dart';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/cubits/auth/delete_user_cubit.dart';
 import 'package:eClassify/data/cubits/chat/blocked_users_list_cubit.dart';
@@ -15,8 +18,6 @@ import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
 import 'package:eClassify/data/cubits/system/user_details.dart';
 import 'package:eClassify/data/model/system_settings_model.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
-import 'package:eClassify/ui/screens/my_wallet/my_wallet_screen.dart';
-import 'package:eClassify/ui/screens/referral_program/referral_program_screen.dart';
 import 'package:eClassify/ui/screens/widgets/blurred_dialoge_box.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/api.dart';
@@ -673,20 +674,60 @@ class _ProfileScreenState extends State<ProfileScreen>
                           context: context);
                     },
                   ),
-                  customTile(
-                    context,
-                    title: "My wallet",
-                    svgImagePath: AppIcons.wallet,
-                    onTap: () async {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => MyWalletScreen(),));
-                    },
-                  ),
-                  customTile(
-                    context,
-                    title: "Referral program".translate(context),
-                    svgImagePath: AppIcons.shareApp,
-                    onTap: ()=> Navigator.push(context,MaterialPageRoute(builder: (context) => ReferralProgramScreen(),)),
-                  ),
+                  if (AppConfig.enableWallet)
+                    customTile(
+                      context,
+                      title: "myWallet".translate(context),
+                      svgImagePath: AppIcons.wallet,
+                      onTap: () {
+                        UiUtils.checkUser(
+                          onNotGuest: () {
+                            Navigator.pushNamed(context, Routes.myWalletScreen);
+                          },
+                          context: context,
+                        );
+                      },
+                    ),
+                  if (AppConfig.enableReferralProgram)
+                    customTile(
+                      context,
+                      title: "referralProgram".translate(context),
+                      svgImagePath: AppIcons.shareApp,
+                      onTap: () {
+                        UiUtils.checkUser(
+                          onNotGuest: () {
+                            Navigator.pushNamed(
+                              context,
+                              Routes.referralProgramScreen,
+                            );
+                          },
+                          context: context,
+                        );
+                      },
+                    ),
+                  if (AppConfig.enableFollowersV214)
+                    customTile(
+                      context,
+                      title: 'followersAndFollowing'.translate(context),
+                      svgImagePath: AppIcons.profile,
+                      onTap: () {
+                        UiUtils.checkUser(
+                          onNotGuest: () {
+                            final id = int.tryParse(HiveUtils.getUserId());
+                            Navigator.pushNamed(
+                              context,
+                              Routes.followersScreen,
+                              arguments: {
+                                'user_id': id,
+                                'title': 'followersAndFollowing'
+                                    .translate(context),
+                              },
+                            );
+                          },
+                          context: context,
+                        );
+                      },
+                    ),
                   customTile(
                     context,
                     title: "subscription".translate(context),
@@ -696,8 +737,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                       UiUtils.checkUser(
                           onNotGuest: () {
-                            Navigator.pushNamed(
-                                context, Routes.subscriptionPackageListRoute);
+                            SubscriptionNavigation.openPackageCatalog(context);
                           },
                           context: context);
                     },
@@ -797,85 +837,101 @@ class _ProfileScreenState extends State<ProfileScreen>
                           context: context);
                     },
                   ),
-                  customTile(
-                    context,
-                    title: "faqsLbl".translate(context),
-                    svgImagePath: AppIcons.faqsIcon,
-                    onTap: () {
-                      UiUtils.checkUser(
-                          onNotGuest: () {
-                            Navigator.pushNamed(
-                              context,
-                              Routes.faqsScreen,
-                            );
+                  if (AppConfig.enableHelpAndLegalHubs) ...[
+                    customTile(
+                      context,
+                      title: 'helpAndSupport'.translate(context),
+                      svgImagePath: AppIcons.faqsIcon,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          Routes.helpAndSupportScreen,
+                        );
+                      },
+                    ),
+                    customTile(
+                      context,
+                      title: 'legalInformation'.translate(context),
+                      svgImagePath: AppIcons.terms,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          Routes.legalInformationScreen,
+                        );
+                      },
+                    ),
+                  ] else ...[
+                    customTile(
+                      context,
+                      title: "faqsLbl".translate(context),
+                      svgImagePath: AppIcons.faqsIcon,
+                      onTap: () {
+                        UiUtils.checkUser(
+                            onNotGuest: () {
+                              Navigator.pushNamed(
+                                context,
+                                Routes.faqsScreen,
+                              );
+                            },
+                            context: context);
+                      },
+                    ),
+                    customTile(
+                      context,
+                      title: "contactUs".translate(context),
+                      svgImagePath: AppIcons.contactUs,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          Routes.contactUs,
+                        );
+                      },
+                    ),
+                    customTile(
+                      context,
+                      title: "aboutUs".translate(context),
+                      svgImagePath: AppIcons.aboutUs,
+                      onTap: () {
+                        Navigator.pushNamed(context, Routes.profileSettings,
+                            arguments: {
+                              'title': "aboutUs".translate(context),
+                              'param': Api.aboutUs
+                            });
+                      },
+                    ),
+                    customTile(
+                      context,
+                      title: "termsConditions".translate(context),
+                      svgImagePath: AppIcons.terms,
+                      onTap: () {
+                        Navigator.pushNamed(context, Routes.profileSettings,
+                            arguments: {
+                              'title': "termsConditions".translate(context),
+                              'param': Api.termsAndConditions
+                            });
+                      },
+                    ),
+                    customTile(
+                      context,
+                      title: "privacyPolicy".translate(context),
+                      svgImagePath: AppIcons.privacy,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          Routes.profileSettings,
+                          arguments: {
+                            'title': "privacyPolicy".translate(context),
+                            'param': Api.privacyPolicy
                           },
-                          context: context);
-                    },
-                  ),
-
-                  // customTile(
-                  //   context,
-                  //   title: "shareApp".translate(context),
-                  //   svgImagePath: AppIcons.shareApp,
-                  //   onTap: shareApp,
-                  // ),
+                        );
+                      },
+                    ),
+                  ],
                   customTile(
                     context,
                     title: "rateUs".translate(context),
                     svgImagePath: AppIcons.rateUs,
                     onTap: rateUs,
-                  ),
-                  customTile(
-                    context,
-                    title: "contactUs".translate(context),
-                    svgImagePath: AppIcons.contactUs,
-                    onTap: () {
-                      Navigator.pushNamed(
-                        context,
-                        Routes.contactUs,
-                      );
-                      // Navigator.pushNamed(context, Routes.ab);
-                    },
-                  ),
-                  customTile(
-                    context,
-                    title: "aboutUs".translate(context),
-                    svgImagePath: AppIcons.aboutUs,
-                    onTap: () {
-                      Navigator.pushNamed(context, Routes.profileSettings,
-                          arguments: {
-                            'title': "aboutUs".translate(context),
-                            'param': Api.aboutUs
-                          });
-                      // Navigator.pushNamed(context, Routes.ab);
-                    },
-                  ),
-                  customTile(
-                    context,
-                    title: "termsConditions".translate(context),
-                    svgImagePath: AppIcons.terms,
-                    onTap: () {
-                      Navigator.pushNamed(context, Routes.profileSettings,
-                          arguments: {
-                            'title': "termsConditions".translate(context),
-                            'param': Api.termsAndConditions
-                          });
-                    },
-                  ),
-                  customTile(
-                    context,
-                    title: "privacyPolicy".translate(context),
-                    svgImagePath: AppIcons.privacy,
-                    onTap: () {
-                      Navigator.pushNamed(
-                        context,
-                        Routes.profileSettings,
-                        arguments: {
-                          'title': "privacyPolicy".translate(context),
-                          'param': Api.privacyPolicy
-                        },
-                      );
-                    },
                   ),
                   if (Constant.isUpdateAvailable == true) ...[
                     updateTile(
@@ -1175,9 +1231,18 @@ class _ProfileScreenState extends State<ProfileScreen>
         svgImagePath: AppIcons.deleteIcon,
         isAcceptContainerPush: true,
         onAccept: () async {
-          (_auth.currentUser != null)
-              ? proceedToDeleteProfile()
-              : askToLoginAgain();
+          if (_auth.currentUser == null) {
+            askToLoginAgain();
+            return;
+          }
+          final details = HiveUtils.getUserDetails();
+          final isPhoneAccount = details.type == 'phone' &&
+              (details.mobile?.trim().isNotEmpty ?? false);
+          if (AppConfig.enableDeleteAccountOtpVerification && isPhoneAccount) {
+            Navigator.pushNamed(context, Routes.deleteAccountVerification);
+            return;
+          }
+          proceedToDeleteProfile();
         },
       ),
     );
@@ -1239,7 +1304,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         });
       });
     } on FirebaseAuthException catch (error) {
-      if (error.code == "requires-recent-login") {
+      if (error.code == 'requires-recent-login') {
+        final details = HiveUtils.getUserDetails();
+        final isPhoneAccount = details.type == 'phone' &&
+            (details.mobile?.trim().isNotEmpty ?? false);
+        if (AppConfig.enableDeleteAccountOtpVerification && isPhoneAccount) {
+          Navigator.pushNamed(context, Routes.deleteAccountVerification);
+          return;
+        }
         for (int i = 0; i < AuthenticationType.values.length; i++) {
           if (AuthenticationType.values[i].name ==
               HiveUtils.getUserDetails().type) {

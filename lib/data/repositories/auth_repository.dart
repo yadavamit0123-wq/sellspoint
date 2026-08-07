@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthRepository {
@@ -101,6 +103,51 @@ class AuthRepository {
     UserCredential userCredential =
         await _auth.signInWithCredential(credential);
     return userCredential;
+  }
+
+  /// Whether a phone account exists (2.14 `user-exists`; optional on older admin).
+  Future<bool> checkUserExists({
+    required String phoneNumber,
+    required String countryCode,
+    bool isFromForgotPassword = false,
+  }) async {
+    try {
+      final response = await Api.get(
+        url: Api.userExistsApi,
+        queryParameters: {
+          Api.mobile: phoneNumber,
+          Api.countryCode: countryCode,
+          if (isFromForgotPassword) 'forgot_password': '1',
+        },
+      );
+      final data = response['data'];
+      if (data is Map && data['user_exists'] is bool) {
+        return data['user_exists'] as bool;
+      }
+      return false;
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> resetPassword({
+    required String phoneNumber,
+    required String countryCode,
+    required String newPassword,
+    required String jwtToken,
+  }) async {
+    await Api.post(
+      url: Api.resetPasswordApi,
+      parameter: {
+        'number': phoneNumber,
+        Api.countryCode: countryCode,
+        'new_password': newPassword,
+      },
+      options: Options(
+        headers: {'Authorization': 'Bearer $jwtToken'},
+      ),
+    );
   }
 }
 

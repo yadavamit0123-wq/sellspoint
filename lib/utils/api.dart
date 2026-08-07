@@ -26,6 +26,9 @@ class ApiException implements Exception {
 }
 
 class Api {
+  /// Live admin API base (`…/api/`). Same as [Constant.baseUrl].
+  static String get baseUrl => Constant.baseUrl;
+
   static Map<String, dynamic> headers() {
     if (!HiveUtils.isUserAuthenticated()) {
       if (HiveUtils.getLanguage() != null ||
@@ -115,6 +118,46 @@ class Api {
   static String walletQuestionApi = "questions/Wallet";
   static String walletTransHistoryApi = "transaction-history";
 
+  // --- eClassify 2.14 endpoints (for merge; unused until feature ports) ---
+  static String logoutApi = "logout";
+  static String userExistsApi = "user-exists";
+  static String resetPasswordApi = "reset-password";
+  static String userProfileApi = "get-user-info";
+  static String getActivePackagesApi = "get-user-purchased-packages";
+  static String getCurrenciesApi = "get-currencies";
+  static String uploadMediaApi = "upload-media";
+  static String bankTransferUpdateApi = "bank-transfer-update";
+  static String applyForJobApi = "job-apply";
+  static String getJobApplicationsApi = "get-job-applications";
+  static String myJobApplicationsApi = "my-job-applications";
+  static String updateJobApplicationsStatusApi =
+      "update-job-applications-status";
+  static String getLocationApi = "get-location";
+  static String contactUsApi = "contact-us";
+  static String deleteChatApi = "delete-chat";
+  static String deleteChatMessagesApi = "delete-chat-messages";
+  static String followUserApi = "follow-user";
+  static String unFollowUserApi = "unfollow-user";
+  static String followersApi = "followers";
+  static String followingApi = "following";
+  static String chatItemOffersApi = "item-offer-list";
+  static String getItemStatusApi = "get-item-status";
+  static String getHomeConfigurationApi = "get-home-screen";
+  static String getPopularCategoriesApi = "get-popular-categories";
+  static String paymentReceiptApi = "get-payment-receipt";
+  static String getBannerAdsApi = "get-banner-ads";
+  static String generateMetaApi = "gemini/generate-meta";
+  static String generateDescriptionApi = "gemini/generate-description";
+  static String popularBlogsApi = "get-popular-blogs";
+  static String blogCategoriesApi = "get-blog-categories";
+  static String blogFeedbackApi = "set-blog-feedback";
+  static String blogTagsApi = "blog-tags";
+  static String getReelsApi = "get-reels";
+  static String getMyReelsApi = "get-my-reels";
+  static String getLikedReelsApi = "get-liked-reels";
+  static String manageReelLikeApi = "manage-reel-like";
+  static const String getTwilioOtpApi = "get-otp";
+  static const String verifyTwilioOtpApi = "verify-otp";
 
 //Chat module apis
   static String sendMessageApi = "send-message";
@@ -140,6 +183,13 @@ class Api {
 //params
   static String id = "id";
   static String itemId = "item_id";
+  static String userId = "user_id";
+  static String excludedItemId = "excluded_item_id";
+  static String slug = "slug";
+  static String itemOfferId = "item_offer_id";
+  static String messageIds = "message_ids";
+  static String messageId = "message_id";
+  static String blockedUserId = "blocked_user_id";
   static String mobile = "mobile";
   static String type = "type";
   static String firebaseId = "firebase_id";
@@ -185,6 +235,10 @@ class Api {
   static String gallery = "gallery";
   static String parameterTypes = "parameter_types";
   static String status = "status";
+  static String resume = "resume";
+  static String jobId = "job_id";
+  static String regionCode = "region_code";
+  static String phoneCode = "phone_code";
   static String totalView = "total_view";
   static String addedBy = "added_by";
   static String district = "district";
@@ -200,6 +254,7 @@ class Api {
   static String aboutUs = "about_us";
   static String termsAndConditions = "terms_conditions";
   static String privacyPolicy = "privacy_policy";
+  static String refundPolicy = "refund_policy";
   static String currencySymbol = "currency_symbol";
   static String company = "company";
   static String data = "data";
@@ -227,6 +282,9 @@ class Api {
   static String topRated = "top_rated";
   static String promoted = "promoted";
   static String packageId = "package_id";
+  static String paymentMethod = "payment_method";
+  static String paymentTransectionId = "payment_transection_id";
+  static String paymentReceipt = "payment_receipt";
   static String notification = "notification";
   static String v360degImage = "threeD_image";
   static String videoLink = "video_link";
@@ -292,7 +350,10 @@ class Api {
         data: formData,
         options: Options(
           contentType: "multipart/form-data",
-          headers: headers(),
+          headers: {
+            ...headers(),
+            ...?options?.headers,
+          },
         ),
       );
 
@@ -445,8 +506,6 @@ class Api {
           ((useBaseUrl ?? true) ? Constant.baseUrl : "") + url,
           queryParameters: queryParameters,
           options: Options(headers: headers()));
-      print('wallet res ------ ${response.data}');
-
       if (response.data['error'] == true) {
 /* if(kDebugMode&&response.data?['details']!=null){
 
@@ -466,6 +525,43 @@ class Api {
         throw "server-not-available";
       }
 
+      throw ApiException(e.error is SocketException
+          ? "no-internet"
+          : "Something went wrong with error ${e.response?.statusCode}");
+    } on ApiException catch (e) {
+      throw ApiException(e.errorMessage);
+    } catch (e, st) {
+      throw ApiException(st.toString());
+    }
+  }
+
+  /// Plain-text/HTML responses (e.g. payment receipt from admin 2.14).
+  static Future<String> getRaw({
+    required String url,
+    Map<String, dynamic>? queryParameters,
+    bool? useBaseUrl,
+  }) async {
+    try {
+      final Dio dio = Dio();
+      dio.interceptors.add(NetworkRequestInterceptor());
+
+      final response = await dio.get(
+        ((useBaseUrl ?? true) ? Constant.baseUrl : "") + url,
+        queryParameters: queryParameters,
+        options: Options(
+          headers: headers(),
+          responseType: ResponseType.plain,
+        ),
+      );
+
+      return response.data.toString();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        userExpired();
+      }
+      if (e.response?.statusCode == 503) {
+        throw "server-not-available";
+      }
       throw ApiException(e.error is SocketException
           ? "no-internet"
           : "Something went wrong with error ${e.response?.statusCode}");

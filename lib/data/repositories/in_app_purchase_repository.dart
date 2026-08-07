@@ -7,8 +7,8 @@ class InAppPurchaseRepository {
       required int packageId}) async {
     Map<String, dynamic> parameters = {
       "purchase_token": purchaseToken,
-      "payment_method": method,
-      "package_id": packageId
+      Api.paymentMethod: method,
+      Api.packageId: packageId,
     };
 
     Map<String, dynamic> response = await Api.post(

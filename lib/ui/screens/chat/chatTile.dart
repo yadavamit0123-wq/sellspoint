@@ -1,16 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:eClassify/data/cubits/chat/delete_message_cubit.dart';
-import 'package:eClassify/data/cubits/chat/load_chat_messages.dart';
-import 'package:eClassify/ui/screens/chat/chat_screen.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/app_icon.dart';
+import 'package:eClassify/utils/chat_navigation.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/notification/notification_service.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 class ChatTile extends StatelessWidget {
@@ -57,39 +52,24 @@ class ChatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, BlurredRouter(
-          builder: (context) {
-            currentlyChatingWith = id;
-            currentlyChatItemId = itemId;
-            return MultiBlocProvider(
-              providers: [
-                BlocProvider(
-                  create: (context) => LoadChatMessagesCubit(),
-                ),
-                BlocProvider(
-                  create: (context) => DeleteMessageCubit(),
-                ),
-              ],
-              child: ChatScreen(
-                profilePicture: profilePicture,
-                itemTitle: itemName,
-                userId: id,
-                itemImage: itemPicture,
-                userName: userName,
-                itemId: itemId,
-                date: date,
-                itemOfferId: itemOfferId,
-                itemPrice: itemPrice,
-                itemOfferPrice: itemAmount ?? null,
-                status: status,
-                buyerId: buyerId,
-                alreadyReview: alreadyReview,
-                isPurchased: isPurchased,
-                isFromBuyerList: isBuyerList,
-              ),
-            );
-          },
-        ));
+        ChatNavigation.openFromTile(
+          context,
+          profilePicture: profilePicture,
+          userName: userName,
+          itemPicture: itemPicture,
+          itemName: itemName,
+          itemId: itemId,
+          isBuyerList: isBuyerList,
+          id: id,
+          date: date,
+          itemOfferId: itemOfferId,
+          itemPrice: itemPrice,
+          itemAmount: itemAmount,
+          status: status,
+          buyerId: buyerId,
+          isPurchased: isPurchased,
+          alreadyReview: alreadyReview,
+        );
       },
       child: AbsorbPointer(
         absorbing: true,

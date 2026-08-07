@@ -23,6 +23,7 @@ class CategoryModel {
 
   //final String translatedName;
   final int? subcategoriesCount;
+  final bool isJobCategory;
 
   CategoryModel({
     this.id,
@@ -31,6 +32,7 @@ class CategoryModel {
     this.description,
     this.children,
     this.subcategoriesCount,
+    this.isJobCategory = false,
     //required this.translatedName,
   });
 
@@ -46,6 +48,7 @@ class CategoryModel {
           name: json['translated_name'],
           url: json['image'],
           subcategoriesCount: json['subcategories_count'] ?? 0,
+          isJobCategory: (json['is_job_category'] as int?) == 1,
           children: children,
           description: json['description'] ?? "");
     } catch (e) {
@@ -60,6 +63,7 @@ class CategoryModel {
       'translated_name': name,
       'image': url,
       'subcategories_count': subcategoriesCount,
+      'is_job_category': isJobCategory ? 1 : 0,
       "description": description,
       'subcategories': children!.map((child) => child.toJson()).toList(),
     };

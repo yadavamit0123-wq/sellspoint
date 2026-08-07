@@ -354,6 +354,9 @@ class User {
   String? updatedAt;
   int? showPersonalDetails;
   int? isVerified;
+  int? followersCount;
+  int? followingCount;
+  bool? isFollowingSeller;
 
   User(
       {this.id,
@@ -370,7 +373,10 @@ class User {
       this.createdAt,
       this.updatedAt,
       this.isVerified,
-      this.showPersonalDetails});
+      this.showPersonalDetails,
+      this.followersCount,
+      this.followingCount,
+      this.isFollowingSeller});
 
   User.fromJson(Map<String, dynamic> json) {
     id = json['id'];
@@ -388,6 +394,11 @@ class User {
     updatedAt = json['updated_at'];
     isVerified = json['is_verified'];
     showPersonalDetails = json['show_personal_details'];
+    followersCount = json['followers'] as int? ?? json['followers_count'] as int?;
+    followingCount = json['following'] as int? ?? json['following_count'] as int?;
+    isFollowingSeller = json['is_following'] == 1 ||
+        json['is_following'] == true ||
+        json['is_following'] == '1';
   }
 
   Map<String, dynamic> toJson() {

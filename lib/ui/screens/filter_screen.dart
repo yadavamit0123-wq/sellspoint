@@ -2,7 +2,7 @@
 
 import 'dart:developer';
 
-import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/utils/location_picker_launcher.dart';
 import 'package:eClassify/data/cubits/custom_field/fetch_custom_fields_cubit.dart';
 import 'package:eClassify/data/model/category_model.dart';
 import 'package:eClassify/data/model/item_filter_model.dart';
@@ -173,23 +173,21 @@ class FilterScreenState extends State<FilterScreen> {
 
   void _onTapChooseLocation() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    Navigator.pushNamed(context, Routes.countriesScreen,
-        arguments: {"from": "filter"}).then((value) {
-      if (value != null) {
-        Map<String, dynamic> location = value as Map<String, dynamic>;
+    final value = await LocationPickerLauncher.open(context, from: 'filter');
+    if (value != null) {
+      Map<String, dynamic> location = value as Map<String, dynamic>;
 
-        setState(() {
-          area = location["area"] ?? "";
-          city = location["city"] ?? "";
-          areaId = location["area_id"] ?? null;
-          radius = location["radius"] ?? null;
-          country = location["country"] ?? "";
-          _state = location["state"] ?? "";
-          latitude = location["latitude"] ?? null;
-          longitude = location["longitude"] ?? null;
-        });
-      }
-    });
+      setState(() {
+        area = location['area'] ?? '';
+        city = location['city'] ?? '';
+        areaId = location['area_id'] ?? null;
+        radius = location['radius'] ?? null;
+        country = location['country'] ?? '';
+        _state = location['state'] ?? '';
+        latitude = location['latitude'] ?? null;
+        longitude = location['longitude'] ?? null;
+      });
+    }
   }
 
   Map<String, dynamic> convertToCustomFields(Map<dynamic, dynamic> fieldsData) {
