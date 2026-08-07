@@ -551,7 +551,7 @@ class UiUtils {
         isAcceptContainerPush: false,
         onAccept: () async {
           Future.delayed(Duration(seconds: 1), () {
-            SubscriptionNavigation.openPackageCatalog(context);
+            SubscriptionNavigation.openPrimaryAdListingCatalog(context);
           });
         },
       ),

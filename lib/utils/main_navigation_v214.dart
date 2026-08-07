@@ -20,6 +20,8 @@ abstract final class MainNavigationV214 {
 
   static int get videoAdsTabIndex => usesFiveTabs ? 2 : -1;
 
+  static int get profileTabIndex => usesFiveTabs ? 4 : 3;
+
   static void openHomeTab() {
     MainActivity.globalKey.currentState?.onItemTapped(homeTabIndex);
   }

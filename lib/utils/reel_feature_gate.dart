@@ -13,9 +13,24 @@ abstract final class ReelFeatureGate {
     if (!AppConfig.enableReelSubscriptionGateV214) {
       return true;
     }
-    final allowed = await ReelSubscriptionAccess.canUseReelFeatures();
+
+    final snap = await ReelSubscriptionAccess.fetchGateSnapshot();
     if (!context.mounted) return false;
-    if (!allowed) {
+
+    if (AppConfig.enableReelGateRequiresListingPlanV214 &&
+        !snap.hasActiveListingPlan) {
+      if (AppConfig.enableReelSubscriptionUpgradePromptV214) {
+        await _showListingPlanRequiredDialog(context);
+      } else {
+        UiUtils.showSnackBarMessage(
+          context,
+          'reelNeedsListingPlanBody'.translate(context),
+        );
+      }
+      return false;
+    }
+
+    if (!snap.reelFeaturesAllowed) {
       if (AppConfig.enableReelSubscriptionUpgradePromptV214) {
         await _showUpgradeDialog(context);
       } else {
@@ -27,6 +42,29 @@ abstract final class ReelFeatureGate {
       return false;
     }
     return true;
+  }
+
+  static Future<void> _showListingPlanRequiredDialog(BuildContext context) {
+    return UiUtils.showBlurredDialoge(
+      context,
+      dialoge: BlurredDialogBox(
+        title: 'reelNeedsListingPlanTitle'.translate(context),
+        acceptButtonName: 'subscribe'.translate(context),
+        cancelButtonName: 'cancelLbl'.translate(context),
+        acceptButtonColor: context.color.territoryColor,
+        acceptTextColor: context.color.secondaryColor,
+        content: CustomText('reelNeedsListingPlanBody'.translate(context)),
+        isAcceptContainerPush: false,
+        onAccept: () async {
+          if (!context.mounted) return;
+          if (AppConfig.enableReelGateDirectListingCatalogV214) {
+            SubscriptionNavigation.openItemListingPackages(context);
+          } else {
+            SubscriptionNavigation.openPrimaryAdListingCatalog(context);
+          }
+        },
+      ),
+    );
   }
 
   static Future<void> _showUpgradeDialog(BuildContext context) {
@@ -45,7 +83,7 @@ abstract final class ReelFeatureGate {
           if (AppConfig.enableReelSubscriptionDirectListingV214) {
             SubscriptionNavigation.openItemListingPackagesForReels(context);
           } else {
-            SubscriptionNavigation.openPackageCatalog(context);
+            SubscriptionNavigation.openPrimaryAdListingCatalog(context);
           }
         },
       ),

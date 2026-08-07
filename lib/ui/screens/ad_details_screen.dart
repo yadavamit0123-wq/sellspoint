@@ -35,6 +35,8 @@ import 'package:eClassify/data/model/safety_tips_model.dart';
 import 'package:eClassify/data/model/subscription_pacakage_model.dart';
 import 'package:eClassify/ui/screens/ad_banner_screen.dart';
 import 'package:eClassify/utils/chat_navigation.dart';
+import 'package:eClassify/utils/subscription_navigation.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/ui/screens/google_map_screen.dart';
 import 'package:eClassify/ui/screens/home/home_screen.dart';
 import 'package:eClassify/ui/screens/home/widgets/grid_list_adapter.dart';
@@ -56,6 +58,8 @@ import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
 import 'package:eClassify/utils/item_job_helper.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/widgets/buyer_reel_view_section.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/widgets/buyer_reel_view_section.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/seller_reel_owner_section.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
@@ -183,6 +187,7 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
       }
     } else {
       context.read<FetchAdsListingSubscriptionPackagesCubit>().fetchPackages();
+      ReelSubscriptionRefresh.onAdDetailsOwnerVisible();
     }
     categoryId = model.category != null ? model.category?.id : model.categoryId;
 
@@ -543,6 +548,7 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                       ),
                       setPriceAndStatus(),
                       if (isAddedByMe) SellerReelOwnerSection(item: model),
+                      if (!isAddedByMe) BuyerReelViewSection(item: model),
                       if (isAddedByMe) setRejectedReason(),
                       if (model.address != null) setAddress(isDate: true),
                       const SizedBox(
@@ -1311,8 +1317,9 @@ class AdDetailsScreenState extends CloudState<AdDetailsScreen> {
                         Navigator.pop(context);
                         HelperUtils.showSnackBarMessage(context,
                             "pleasePurchasePackage".translate(context));
-                        Navigator.pushNamed(
-                            context, Routes.subscriptionPackageListRoute);
+                        SubscriptionNavigation.openPrimaryAdListingCatalog(
+                          context,
+                        );
                       }
                     },
                         radius: 10,

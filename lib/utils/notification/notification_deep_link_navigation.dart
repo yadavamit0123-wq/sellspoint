@@ -4,8 +4,11 @@ import 'package:eClassify/data/repositories/item/item_repository.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
 import 'package:eClassify/utils/notification/reel_notification_payload.dart';
+import 'package:eClassify/utils/notification/subscription_notification_payload.dart';
 import 'package:eClassify/utils/reel_deep_link_intent.dart';
+import 'package:eClassify/utils/reel_notification_refresh.dart';
 import 'package:eClassify/utils/main_navigation_v214.dart';
+import 'package:eClassify/utils/subscription_navigation.dart';
 import 'package:eClassify/utils/chat_navigation.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
@@ -15,6 +18,11 @@ import 'package:flutter/material.dart';
 ///
 /// Reel-related `type` values and keys: [ReelNotificationPayload].
 abstract final class NotificationDeepLinkNavigation {
+  static bool _notificationWantsAdDetails(Map<String, dynamic> data) {
+    final nav = data['navigate']?.toString() ?? data['destination']?.toString();
+    return nav == 'ad_details' || nav == 'adDetails';
+  }
+
   static Future<void> openFromData(
     BuildContext context,
     Map<String, dynamic> data, {
@@ -47,12 +55,54 @@ abstract final class NotificationDeepLinkNavigation {
     if (type == 'item-update') {
       HelperUtils.goToNextPage(Routes.main, context, false);
       MainNavigationV214.openMyAdsTab();
+      if (AppConfig.enableItemUpdateNotificationRefreshV214) {
+        ReelNotificationRefresh.afterReelDeepLinkHandled();
+      }
+      return;
+    }
+
+    if (AppConfig.enableReelUploadFailedNotificationV214 &&
+        ReelNotificationPayload.isReelUploadFailedType(type)) {
+      await _openReelUploadFailed(context, data);
+      ReelNotificationRefresh.afterReelDeepLinkHandled();
+      return;
+    }
+
+    if (AppConfig.enableReelUploadProgressNotificationV214 &&
+        ReelNotificationPayload.isReelUploadProgressType(type)) {
+      await _openReelUploadProgress(context, data);
+      ReelNotificationRefresh.afterReelDeepLinkHandled();
+      return;
+    }
+
+    if (AppConfig.enableReelNotificationDestinationAdDetailsV214 &&
+        _notificationWantsAdDetails(data) &&
+        AppConfig.enableReelNotificationDeepLinkV214 &&
+        ReelNotificationPayload.isReelsTabType(type)) {
+      await _openOwnerAdDetailsForItemNotification(context, data);
+      ReelNotificationRefresh.afterReelDeepLinkHandled();
       return;
     }
 
     if (AppConfig.enableReelNotificationDeepLinkV214 &&
         ReelNotificationPayload.isReelsTabType(type)) {
       await _openReelsFeed(context, data);
+      ReelNotificationRefresh.afterReelDeepLinkHandled();
+      return;
+    }
+
+    if (AppConfig.enableSubscriptionNotificationDeepLinkV214 &&
+        SubscriptionNotificationPayload.isSubscriptionType(type)) {
+      if (HiveUtils.isUserAuthenticated()) {
+        if (AppConfig.enableSubscriptionExpiredActivePlansDeepLinkV214 &&
+            type == 'package-expired') {
+          SubscriptionNavigation.openActivePlans(context);
+        } else {
+          SubscriptionNavigation.openPrimaryAdListingCatalog(context);
+        }
+      } else {
+        HelperUtils.goToNextPage(Routes.notificationPage, context, false);
+      }
       return;
     }
 
@@ -73,10 +123,24 @@ abstract final class NotificationDeepLinkNavigation {
 
     if (type == 'payment') {
       if (HiveUtils.isUserAuthenticated()) {
-        await Navigator.pushNamed(
-          context,
-          Routes.subscriptionPackageListRoute,
-        );
+        if (AppConfig.enableSubscriptionFlowV214) {
+          SubscriptionNavigation.openPrimaryAdListingCatalog(context);
+        } else {
+          await Navigator.pushNamed(
+            context,
+            Routes.subscriptionPackageListRoute,
+          );
+        }
+      } else {
+        HelperUtils.goToNextPage(Routes.notificationPage, context, false);
+      }
+      return;
+    }
+
+    if (AppConfig.enablePaymentSuccessActivePlansDeepLinkV214 &&
+        type == 'payment-success') {
+      if (HiveUtils.isUserAuthenticated()) {
+        SubscriptionNavigation.openActivePlans(context);
       } else {
         HelperUtils.goToNextPage(Routes.notificationPage, context, false);
       }
@@ -115,5 +179,53 @@ abstract final class NotificationDeepLinkNavigation {
         if (itemId != null) 'item_id': itemId,
       },
     );
+  }
+
+  static Future<void> _openReelUploadFailed(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) async {
+    await _openOwnerAdDetailsForItemNotification(context, data);
+  }
+
+  static Future<void> _openReelUploadProgress(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) async {
+    await _openOwnerAdDetailsForItemNotification(context, data);
+  }
+
+  static Future<void> _openOwnerAdDetailsForItemNotification(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) async {
+    if (!HiveUtils.isUserAuthenticated()) {
+      HelperUtils.goToNextPage(Routes.notificationPage, context, false);
+      return;
+    }
+
+    final itemId = int.tryParse(
+      data[ReelNotificationPayload.itemIdKey]?.toString() ?? '',
+    );
+    if (itemId == null) {
+      HelperUtils.goToNextPage(Routes.main, context, false);
+      MainNavigationV214.openMyAdsTab();
+      return;
+    }
+
+    try {
+      final item = await ItemRepository().fetchItemFromItemId(itemId);
+      if (!context.mounted) return;
+      HelperUtils.goToNextPage(Routes.main, context, false);
+      await Navigator.pushNamed(
+        context,
+        Routes.adDetailsScreen,
+        arguments: {'model': item.modelList.first},
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      HelperUtils.goToNextPage(Routes.main, context, false);
+      MainNavigationV214.openMyAdsTab();
+    }
   }
 }

@@ -17,16 +17,24 @@ abstract final class VideoAdEditorLauncher {
   }
 
   /// Leaves in-app post-ad wizard for the video editor stub.
-  static void openFromAdPostingWizard(BuildContext context) {
+  static Future<Object?> openFromAdPostingWizard(BuildContext context) {
     if (AppConfig.enableVideoAdEditorRouteV214) {
+      if (AppConfig.enableAdPostingVideoEditorReturnToWizardV214) {
+        return Navigator.pushNamed(
+          context,
+          Routes.videoAdEditor,
+          arguments: const {'from': 'adPostingWizard'},
+        );
+      }
       Navigator.pushReplacementNamed(
         context,
         Routes.videoAdEditor,
         arguments: const {'from': 'adPostingWizard'},
       );
-      return;
+      return Future.value(null);
     }
     open(context);
+    return Future.value(null);
   }
 
   /// Trim + background upload for an existing listing ([Api.uploadMediaApi]).

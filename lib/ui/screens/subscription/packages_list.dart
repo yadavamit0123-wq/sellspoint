@@ -18,10 +18,13 @@ import 'package:eClassify/ui/screens/widgets/intertitial_ads_screen.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/payment/gateaways/inapp_purchase_manager.dart';
 import 'package:eClassify/utils/reel_subscription_admin.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
+import 'package:eClassify/utils/subscription_navigation.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -92,6 +95,7 @@ class _SubscriptionPackageListScreenState
   @override
   void initState() {
     super.initState();
+    ReelSubscriptionRefresh.onSubscriptionCatalogVisible();
     AdHelper.loadInterstitialAd();
     if (HiveUtils.isUserAuthenticated()) {
       context.read<GetApiKeysCubit>().fetch();
@@ -154,9 +158,21 @@ class _SubscriptionPackageListScreenState
             ? 'reelListingPlansTitle'.translate(context)
             : widget.categoryName?.isNotEmpty == true
                 ? widget.categoryName!
-                : 'subsctiptionPlane'.translate(context),
+                : AppConfig.enableSubscriptionListingScreenTitleV214
+                    ? 'adsListingPlansTitle'.translate(context)
+                    : 'subsctiptionPlane'.translate(context),
         bottomHeight: isFreeAdListingEnabled ? 0 : 49,
         actions: [
+          if (AppConfig.enableSubscriptionPackageListActivePlansV214)
+            TextButton(
+              onPressed: () =>
+                  SubscriptionNavigation.openActivePlans(context),
+              child: CustomText(
+                'activePlanLbl'.translate(context),
+                color: context.color.territoryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           if (Platform.isIOS)
             CupertinoButton(
                 child: Text("restore".translate(context)),
@@ -293,13 +309,12 @@ class _SubscriptionPackageListScreenState
                       .where((p) => p.isReelAllowed == true)
                       .toList();
                   if (packages.isEmpty) {
-                    return NoDataFound(
-                      onTap: () {
+                    return _ReelPlansEmptyState(
+                      onRetry: () {
                         context
                             .read<FetchAdsListingSubscriptionPackagesCubit>()
                             .fetchPackages(categoryId: widget.categoryId);
                       },
-                      mainMessage: 'reelNoReelPlansAvailable'.translate(context),
                     );
                   }
                 }
@@ -395,5 +410,46 @@ class _SubscriptionPackageListScreenState
             return Container();
           });
     });
+  }
+}
+
+class _ReelPlansEmptyState extends StatelessWidget {
+  const _ReelPlansEmptyState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            NoDataFound(
+              onTap: onRetry,
+              mainMessage: 'reelNoReelPlansAvailable'.translate(context),
+              subMessage: AppConfig.enableReelPlansEmptyAllListingCtaV214
+                  ? 'reelNoReelPlansBrowseAllHint'.translate(context)
+                  : null,
+            ),
+            if (AppConfig.enableReelPlansEmptyAllListingCtaV214) ...[
+              const SizedBox(height: 20),
+              UiUtils.buildButton(
+                context,
+                height: 44,
+                radius: 10,
+                buttonTitle: 'browseAdListingPlans'.translate(context),
+                buttonColor: context.color.territoryColor,
+                textColor: context.color.secondaryColor,
+                onPressed: () {
+                  SubscriptionNavigation.openItemListingPackages(context);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

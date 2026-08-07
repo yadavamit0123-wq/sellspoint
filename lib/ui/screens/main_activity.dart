@@ -10,6 +10,10 @@ import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
 import 'package:eClassify/ui/screens/item/video_ads_screen/video_ads_screen.dart';
 import 'package:eClassify/ui/screens/widgets/bottom_navigation/custom_bottom_navigation_bar_v214.dart';
 import 'package:eClassify/ui/screens/widgets/bottom_navigation/main_fab_v214.dart';
+import 'package:eClassify/utils/main_navigation_v214.dart';
+import 'package:eClassify/utils/my_ads_refresh.dart';
+import 'package:eClassify/utils/reel_feed_refresh.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/utils/reel_deep_link_intent.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/app/routes.dart';
@@ -234,6 +238,7 @@ class MainActivityState extends State<MainActivity>
         key: ValueKey('reels-${intent.reelId}-${intent.itemId}'),
         reelId: intent.reelId,
         itemId: intent.itemId,
+        embeddedInMainShell: AppConfig.enableReelsTabEmbeddedShellV214,
       ),
     );
   }
@@ -346,6 +351,15 @@ class MainActivityState extends State<MainActivity>
   void onItemTapped(int index) {
     if (AppConfig.enableFiveTabNavV214 && index == currentTab) {
       context.read<BottomNavCubit>().changeTabByIndex(index);
+      if (index == MainNavigationV214.profileTabIndex) {
+        ReelSubscriptionRefresh.onProfileTabVisible();
+      }
+      if (index == MainNavigationV214.videoAdsTabIndex) {
+        ReelFeedRefresh.onReelsTabRepeatTap();
+      }
+      if (index == MainNavigationV214.myAdsTabIndex) {
+        MyAdsRefresh.onRepeatTap();
+      }
       return;
     }
 
@@ -372,6 +386,15 @@ class MainActivityState extends State<MainActivity>
             setState(
               () {},
             );
+            if (index == MainNavigationV214.profileTabIndex) {
+              ReelSubscriptionRefresh.onProfileTabVisible();
+            }
+            if (index == MainNavigationV214.videoAdsTabIndex) {
+              ReelSubscriptionRefresh.onReelsTabVisible();
+            }
+            if (index == MainNavigationV214.myAdsTabIndex) {
+              ReelSubscriptionRefresh.onMyAdsTabVisible();
+            }
           },
           context: context);
     } else {
@@ -379,6 +402,15 @@ class MainActivityState extends State<MainActivity>
       pageController.jumpToPage(currentTab);
 
       setState(() {});
+      if (index == MainNavigationV214.profileTabIndex) {
+        ReelSubscriptionRefresh.onProfileTabVisible();
+      }
+      if (index == MainNavigationV214.videoAdsTabIndex) {
+        ReelSubscriptionRefresh.onReelsTabVisible();
+      }
+      if (index == MainNavigationV214.myAdsTabIndex) {
+        ReelSubscriptionRefresh.onMyAdsTabVisible();
+      }
     }
 
     if (AppConfig.enableFiveTabNavV214) {

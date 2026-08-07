@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/background_upload_utility.dart';
+import 'package:eClassify/utils/my_ads_refresh.dart';
+import 'package:eClassify/utils/reel_feed_refresh.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/utils/reel_upload_constants.dart';
 import 'package:eClassify/utils/hive_keys.dart';
 import 'package:eClassify/utils/log.dart';
@@ -64,6 +67,11 @@ abstract final class ReelUploadTracker {
       if (update.status == TaskStatus.complete) {
         records.remove(entry.key);
         changed = true;
+        if (AppConfig.enableReelUploadCompleteFeedRefreshV214) {
+          MyAdsRefresh.revision.value++;
+          ReelFeedRefresh.revision.value++;
+        }
+        ReelSubscriptionRefresh.onReelUploadComplete();
       } else if (update.status == TaskStatus.failed ||
           update.status == TaskStatus.notFound) {
         map['status'] = ReelUploadStatus.failed.name;

@@ -32,6 +32,7 @@ class _ActivePlanScreenState extends State<ActivePlanScreen> {
   @override
   void initState() {
     super.initState();
+    ReelSubscriptionRefresh.onActivePlansScreenVisible();
     ReelSubscriptionRefresh.activePlansRevision.addListener(_refetchActivePlans);
   }
 
@@ -60,8 +61,11 @@ class _ActivePlanScreenState extends State<ActivePlanScreen> {
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: UiUtils.buildButton(
           context,
-          onPressed: () => SubscriptionNavigation.openPackageCatalog(context),
-          buttonTitle: 'browseAllPackages'.translate(context),
+          onPressed: () =>
+              SubscriptionNavigation.openPrimaryAdListingCatalog(context),
+          buttonTitle: AppConfig.enableSubscriptionPrimaryListingCatalogV214
+              ? 'browseAdListingPlans'.translate(context)
+              : 'browseAllPackages'.translate(context),
         ),
       ),
       body: BlocBuilder<ActiveSubscriptionPackageCubit,
@@ -76,11 +80,13 @@ class _ActivePlanScreenState extends State<ActivePlanScreen> {
           }
           if (state is ActiveSubscriptionPackageSuccess) {
             if (state.activePackages.isEmpty) {
-              return NoDataFound(onTap: () {
-                context
-                    .read<ActiveSubscriptionPackageCubit>()
-                    .fetchActivePackages();
-              });
+              return _ActivePlansEmptyState(
+                onRetry: () {
+                  context
+                      .read<ActiveSubscriptionPackageCubit>()
+                      .fetchActivePackages();
+                },
+              );
             }
             return ListView.separated(
               padding: const EdgeInsets.all(16),
@@ -95,6 +101,63 @@ class _ActivePlanScreenState extends State<ActivePlanScreen> {
           }
           return const SizedBox.shrink();
         },
+      ),
+    );
+  }
+}
+
+class _ActivePlansEmptyState extends StatelessWidget {
+  const _ActivePlansEmptyState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            NoDataFound(
+              onTap: onRetry,
+              mainMessage: 'nodatafound'.translate(context),
+              subMessage: AppConfig.enableActivePlanEmptyReelCtaV214
+                  ? 'activePlanEmptyReelHint'.translate(context)
+                  : null,
+            ),
+            if (AppConfig.enableActivePlanEmptyReelCtaV214) ...[
+              const SizedBox(height: 20),
+              UiUtils.buildButton(
+                context,
+                height: 44,
+                radius: 10,
+                buttonTitle: AppConfig.enableSubscriptionPrimaryListingCatalogV214
+                    ? 'browseAdListingPlans'.translate(context)
+                    : 'browseAllPackages'.translate(context),
+                buttonColor: context.color.secondaryColor,
+                textColor: context.color.textDefaultColor,
+                onPressed: () {
+                  SubscriptionNavigation.openPrimaryAdListingCatalog(context);
+                },
+              ),
+              const SizedBox(height: 10),
+              UiUtils.buildButton(
+                context,
+                height: 44,
+                radius: 10,
+                buttonTitle: 'reelListingPlansTitle'.translate(context),
+                buttonColor: context.color.territoryColor,
+                textColor: context.color.secondaryColor,
+                onPressed: () {
+                  SubscriptionNavigation.openItemListingPackagesForReels(
+                    context,
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

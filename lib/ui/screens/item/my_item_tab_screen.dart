@@ -5,6 +5,7 @@ import 'package:eClassify/data/cubits/item/fetch_my_item_cubit.dart';
 import 'package:eClassify/data/helper/designs.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/reel_upload_badge.dart';
+import 'package:eClassify/utils/my_ads_refresh.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
 import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
@@ -19,13 +20,22 @@ import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
 import 'package:eClassify/utils/helper_utils.dart';
-import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/item_video_helper.dart';
+import 'package:eClassify/utils/main_navigation_v214.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 Map<String, FetchMyItemsCubit> myAdsCubitReference = {};
+
+bool _requiresPlayableMediaForReelsShortcut(ItemModel item) {
+  return AppConfig.enableMyAdsVideoReelsShortcutRequiresPlayableMediaV214;
+}
+
+bool _hasPlayableReelMedia(ItemModel item) {
+  return ItemVideoHelper.isPlayableForReelsShortcut(item);
+}
 
 class MyItemTab extends StatefulWidget {
   //final bool? getActiveItems;
@@ -49,8 +59,28 @@ class _MyItemTabState extends CloudState<MyItemTab> {
       _pageScrollController.addListener(_pageScroll);
       setReferenceOfCubit();
     }
+    if (AppConfig.enableMyAdsTabRepeatTapRefreshV214) {
+      MyAdsRefresh.revision.addListener(_onMyAdsRefreshSignal);
+    }
 
     super.initState();
+  }
+
+  void _onMyAdsRefreshSignal() {
+    if (!mounted || !HiveUtils.isUserAuthenticated()) return;
+    context.read<FetchMyItemsCubit>().fetchMyItems(
+          getItemsWithStatus: widget.getItemsWithStatus,
+        );
+  }
+
+  @override
+  void dispose() {
+    if (AppConfig.enableMyAdsTabRepeatTapRefreshV214) {
+      MyAdsRefresh.revision.removeListener(_onMyAdsRefreshSignal);
+    }
+    _pageScrollController.removeListener(_pageScroll);
+    _pageScrollController.dispose();
+    super.dispose();
   }
 
   void _pageScroll() {
@@ -398,6 +428,85 @@ class _MyItemTabState extends CloudState<MyItemTab> {
                                           maxLines: 2,
                                           firstUpperCaseWidget: true,
                                         ),
+                                        if (AppConfig
+                                                .enableMyAdsVideoListingLabelV214 &&
+                                            ItemVideoHelper.isVideoListing(
+                                              item,
+                                            ))
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 6,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.videocam_outlined,
+                                                  size: 14,
+                                                  color: context
+                                                      .color.territoryColor,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                CustomText(
+                                                  'videoListingTypeLabel'
+                                                      .translate(context),
+                                                  fontSize: context.font.small,
+                                                  color: context
+                                                      .color.territoryColor,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (AppConfig.enableMyAdsVideoReelsShortcutV214 &&
+                                            AppConfig.enableFiveTabNavV214 &&
+                                            item.id != null &&
+                                            ItemVideoHelper.isVideoListing(
+                                              item,
+                                            ) &&
+                                            (!_requiresPlayableMediaForReelsShortcut(
+                                                item) ||
+                                                _hasPlayableReelMedia(item)))
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8,
+                                            ),
+                                            child: Align(
+                                              alignment:
+                                                  Alignment.centerLeft,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  MainNavigationV214
+                                                      .openReelsTab(
+                                                    itemId: item.id,
+                                                  );
+                                                },
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .play_circle_outline,
+                                                      size: 18,
+                                                      color: context.color
+                                                          .territoryColor,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    CustomText(
+                                                      'viewReelForListing'
+                                                          .translate(context),
+                                                      fontSize:
+                                                          context.font.small,
+                                                      color: context.color
+                                                          .territoryColor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         //SizedBox(height: 12,),
                                         Row(
                                           crossAxisAlignment:

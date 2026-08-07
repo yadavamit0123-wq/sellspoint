@@ -46,6 +46,8 @@ class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
 
   bool get _attachMode => widget.attachItemId != null;
 
+  bool get _fromAdPostingWizard => widget.from == 'adPostingWizard';
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +99,17 @@ class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
       context,
       'somethingWentWrong'.translate(context),
     );
+  }
+
+  void _returnToWizard() {
+    if (!VideoAdEditorDraft.hasVideo) {
+      UiUtils.showSnackBarMessage(
+        context,
+        'selectVideo'.translate(context),
+      );
+      return;
+    }
+    Navigator.pop(context, 'reel_draft');
   }
 
   void _openListingWizard() {
@@ -174,14 +187,20 @@ class _VideoAdEditorScreenState extends State<VideoAdEditorScreen> {
               radius: 10,
               buttonTitle: _attachMode
                   ? 'uploadReelToListing'.translate(context)
-                  : 'postAdTitle'.translate(context),
+                  : _fromAdPostingWizard
+                      ? 'continue'.translate(context)
+                      : 'postAdTitle'.translate(context),
               buttonColor: context.color.territoryColor,
               textColor: context.color.secondaryColor,
               onPressed: _uploading
                   ? () {}
-                  : (_attachMode ? _uploadToExistingListing : _openListingWizard),
+                  : (_attachMode
+                      ? _uploadToExistingListing
+                      : _fromAdPostingWizard
+                          ? _returnToWizard
+                          : _openListingWizard),
             ),
-            if (!_attachMode) ...[
+            if (!_attachMode && !_fromAdPostingWizard) ...[
               const SizedBox(height: 12),
               UiUtils.buildButton(
                 context,

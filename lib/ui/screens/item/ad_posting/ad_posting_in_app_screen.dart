@@ -12,9 +12,11 @@ import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_media_st
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_form_buttons.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_header.dart';
+import 'package:eClassify/utils/ad_posting_reel_draft_bridge.dart';
 import 'package:eClassify/utils/video_ad_editor_draft.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/ad_posting_wizard_cleanup.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -56,6 +58,7 @@ class _AdPostingInAppScreenState extends State<AdPostingInAppScreen> {
   @override
   void initState() {
     super.initState();
+    ReelSubscriptionRefresh.onAdPostingWizardVisible();
     if (AppConfig.enableAdPostingWizardSessionResetV214) {
       AdPostingWizardCleanup.prepareForNewSession();
     }
@@ -77,13 +80,7 @@ class _AdPostingInAppScreenState extends State<AdPostingInAppScreen> {
     }
 
     if (VideoAdEditorDraft.hasVideo) {
-      cubit.updateData(
-        (d) => d.copyWith(
-          adType: AdItemType.videoAd,
-          reelVideoFile: VideoAdEditorDraft.trimmedVideo,
-          reelThumbnailFile: VideoAdEditorDraft.thumbnailFile,
-        ),
-      );
+      AdPostingReelDraftBridge.applyToCubit(cubit);
     }
 
     final skipAdType = args['skipAdTypeStep'] == true;

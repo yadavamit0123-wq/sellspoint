@@ -1,4 +1,6 @@
+import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/repositories/item/item_repository.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
@@ -46,6 +48,26 @@ class _ReelUploadBadgeState extends State<ReelUploadBadge> {
     setState(() {
       _status = ReelUploadTracker.statusForItem(widget.itemId);
     });
+  }
+
+  Future<void> _openAdDetails() async {
+    final id = int.tryParse(widget.itemId);
+    if (id == null) return;
+    try {
+      final result = await ItemRepository().fetchItemFromItemId(id);
+      if (!mounted || result.modelList.isEmpty) return;
+      await Navigator.pushNamed(
+        context,
+        Routes.adDetailsScreen,
+        arguments: {'model': result.modelList.first},
+      );
+    } catch (_) {
+      if (!mounted) return;
+      UiUtils.showSnackBarMessage(
+        context,
+        'somethingWentWrong'.translate(context),
+      );
+    }
   }
 
   Future<void> _onRetryTap() async {
@@ -121,10 +143,20 @@ class _ReelUploadBadgeState extends State<ReelUploadBadge> {
     );
 
     if (isFailed && !widget.compact) {
+      if (AppConfig.enableMyAdsReelFailedBadgeOpensDetailsV214) {
+        return GestureDetector(onTap: _openAdDetails, child: chip);
+      }
       return GestureDetector(onTap: _retrying ? null : _onRetryTap, child: chip);
     }
     if (isFailed && widget.compact) {
+      if (AppConfig.enableMyAdsReelFailedBadgeOpensDetailsV214) {
+        return InkWell(onTap: _openAdDetails, child: chip);
+      }
       return InkWell(onTap: _retrying ? null : _onRetryTap, child: chip);
+    }
+    if (status == ReelUploadStatus.running &&
+        AppConfig.enableMyAdsReelPendingBadgeOpensDetailsV214) {
+      return InkWell(onTap: _openAdDetails, child: chip);
     }
     return chip;
   }

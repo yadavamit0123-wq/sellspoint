@@ -109,6 +109,22 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
     }
   }
 
+  void _navigateToMyAds() {
+    if (!AppConfig.enableAdPostingSuccessStackCleanupV214) {
+      _navigateBackToHome();
+      return;
+    }
+    AdPostingSuccessNavigation.exitToMyAds(context);
+  }
+
+  void _navigateToReelsFeed() {
+    if (!AppConfig.enableAdPostingSuccessStackCleanupV214) {
+      _navigateBackToHome();
+      return;
+    }
+    AdPostingSuccessNavigation.exitToReelsFeed(context);
+  }
+
   void _navigateToAdDetailsScreen() {
     if (AppConfig.enableAdPostingSuccessStackCleanupV214) {
       AdPostingSuccessNavigation.exitToAdDetails(
@@ -194,6 +210,60 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
                                 ReelUploadStatusBanner(
                                   itemId: widget.model.id.toString(),
                                 ),
+                              if (widget.reelUploadQueued &&
+                                  AppConfig
+                                      .enableAdPostingSuccessReelUploadCtasV214 &&
+                                  !widget.isEdit) ...[
+                                const SizedBox(height: 24),
+                                InkWell(
+                                  onTap: _navigateToMyAds,
+                                  child: Container(
+                                    height: 48,
+                                    alignment: AlignmentDirectional.center,
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 65,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: context.color.territoryColor,
+                                    ),
+                                    child: CustomText(
+                                      'adPostingSuccessViewMyAds'
+                                          .translate(context),
+                                      textAlign: TextAlign.center,
+                                      fontSize: context.font.larger,
+                                      color: context.color.secondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                if (AppConfig.enableFiveTabNavV214)
+                                  InkWell(
+                                    onTap: _navigateToReelsFeed,
+                                    child: Container(
+                                      height: 48,
+                                      alignment: AlignmentDirectional.center,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 65,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: context.color.territoryColor,
+                                        ),
+                                        color: context.color.secondaryColor,
+                                      ),
+                                      child: CustomText(
+                                        'adPostingSuccessViewReels'
+                                            .translate(context),
+                                        textAlign: TextAlign.center,
+                                        fontSize: context.font.larger,
+                                        color: context.color.territoryColor,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                               SizedBox(height: 60),
                               InkWell(
                                 onTap: () {

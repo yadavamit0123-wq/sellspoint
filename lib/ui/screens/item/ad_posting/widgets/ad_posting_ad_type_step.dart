@@ -5,7 +5,10 @@ import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_con
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/ad_posting_reel_draft_bridge.dart';
 import 'package:eClassify/utils/reel_feature_gate.dart';
+import 'package:eClassify/utils/reel_subscription_access.dart';
+import 'package:eClassify/utils/reel_subscription_refresh.dart';
 import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +21,48 @@ class AdPostingAdTypeStep extends StatefulWidget {
 }
 
 class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
+  String? _videoAdSubtitle;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVideoAdHint();
+    if (AppConfig.enableAdPostingVideoAdReelHintV214) {
+      ReelSubscriptionRefresh.profileHintRevision
+          .addListener(_onSubscriptionHintChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (AppConfig.enableAdPostingVideoAdReelHintV214) {
+      ReelSubscriptionRefresh.profileHintRevision
+          .removeListener(_onSubscriptionHintChanged);
+    }
+    super.dispose();
+  }
+
+  void _onSubscriptionHintChanged() {
+    _loadVideoAdHint();
+  }
+
+  Future<void> _loadVideoAdHint() async {
+    if (!AppConfig.enableAdPostingVideoAdReelHintV214 ||
+        !AppConfig.enableAdPostingVideoAdTypeV214 ||
+        !AppConfig.enableReelSubscriptionGateV214) {
+      return;
+    }
+    final snap = await ReelSubscriptionAccess.fetchGateSnapshot();
+    if (!mounted) return;
+    String? hint;
+    if (!snap.hasActiveListingPlan) {
+      hint = 'profileNeedsListingPlanHint'.translate(context);
+    } else if (!snap.reelFeaturesAllowed) {
+      hint = 'profileReelUpgradeHint'.translate(context);
+    }
+    setState(() => _videoAdSubtitle = hint);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -38,7 +83,16 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
         AppConfig.enableAdPostingVideoAdTypeV214) {
       if (!await ReelFeatureGate.ensureAllowed(context)) return;
       if (!context.mounted) return;
-      VideoAdEditorLauncher.openFromAdPostingWizard(context);
+      if (AppConfig.enableAdPostingVideoEditorReturnToWizardV214) {
+        await VideoAdEditorLauncher.openFromAdPostingWizard(context);
+        if (!context.mounted) return;
+        if (AdPostingReelDraftBridge.hasDraft) {
+          AdPostingReelDraftBridge.applyToCubit(cubit);
+          cubit.nextStep();
+        }
+        return;
+      }
+      await VideoAdEditorLauncher.openFromAdPostingWizard(context);
       return;
     }
     cubit.nextStep();
@@ -74,12 +128,18 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
               const SizedBox(height: 16),
               _TypeCard(
                 title: 'videoAds'.translate(context),
-                subtitle: 'postAdSubtitle'.translate(context),
+                subtitle: _videoAdSubtitle ??
+                    'postAdSubtitle'.translate(context),
                 icon: Icons.play_circle_outline,
                 isSelected: selected == AdItemType.videoAd,
                 enabled: AppConfig.enableAdPostingVideoAdTypeV214,
-                onTap: () {
+                onTap: () async {
                   if (!AppConfig.enableAdPostingVideoAdTypeV214) return;
+                  if (AppConfig.enableAdPostingVideoAdGateOnSelectV214 &&
+                      AppConfig.enableReelSubscriptionGateV214) {
+                    if (!await ReelFeatureGate.ensureAllowed(context)) return;
+                    if (!context.mounted) return;
+                  }
                   cubit.updateData(
                     (d) => d.copyWith(adType: AdItemType.videoAd),
                   );
@@ -87,6 +147,7 @@ class _AdPostingAdTypeStepState extends State<AdPostingAdTypeStep> {
                     onNext: () => _onContinue(context),
                     showNext: true,
                   );
+                  _loadVideoAdHint();
                 },
               ),
             ],

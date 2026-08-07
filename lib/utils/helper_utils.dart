@@ -94,6 +94,65 @@ class HelperUtils {
     return "https://${AppSettings.shareNavigationWebUrl}/product-details/$itemSlug?share=true";
   }
 
+  static String nativeDeepLinkUrlOfReel(int reelId) {
+    return "https://${AppSettings.shareNavigationWebUrl}/video-ads?reel_id=$reelId&share=true";
+  }
+
+  static void shareReel(BuildContext context, int reelId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.color.backgroundColor,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: CustomText("copylink".translate(context)),
+                onTap: () async {
+                  var deepLink = '';
+                  if (AppSettings.deepLinkingType == DeepLinkType.native) {
+                    deepLink = nativeDeepLinkUrlOfReel(reelId);
+                  }
+
+                  await Clipboard.setData(ClipboardData(text: deepLink));
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  HelperUtils.showSnackBarMessage(
+                    context,
+                    "copied".translate(context),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: CustomText("share".translate(context)),
+                onTap: () async {
+                  var deepLink = '';
+                  if (AppSettings.deepLinkingType == DeepLinkType.native) {
+                    deepLink = nativeDeepLinkUrlOfReel(reelId);
+                  }
+
+                  final box = context.findRenderObject() as RenderBox?;
+                  final text =
+                      "${'reelShareMessage'.translate(context)}\n$deepLink";
+                  await Share.share(
+                    text,
+                    sharePositionOrigin: box != null
+                        ? box.localToGlobal(Offset.zero) & box.size
+                        : null,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   static void share(BuildContext context, String itemSlug) {
     showModalBottomSheet(
       context: context,

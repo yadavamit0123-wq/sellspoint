@@ -7,6 +7,8 @@ import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/data/model/item_filter_model.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/background_upload_utility.dart';
+import 'package:eClassify/utils/my_ads_refresh.dart';
+import 'package:eClassify/utils/reel_feed_refresh.dart';
 import 'package:eClassify/utils/reel_upload_tracker.dart';
 import 'package:path/path.dart' as path;
 
@@ -136,6 +138,12 @@ class ItemRepository {
         files: files,
         taskId: taskId,
       );
+      if (AppConfig.enableMyAdsRefreshAfterReelUploadV214) {
+        MyAdsRefresh.revision.value++;
+      }
+      if (AppConfig.enableReelFeedRefreshAfterReelUploadV214) {
+        ReelFeedRefresh.revision.value++;
+      }
     }
     return taskId != null;
   }

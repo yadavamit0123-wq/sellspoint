@@ -32,6 +32,7 @@ class ItemModel {
   int? userId;
   int? categoryId;
   bool? isAlreadyOffered;
+  int? itemOfferId;
   bool? isAlreadyReported;
   String? allCategoryIds;
   String? rejectedReason;
@@ -97,6 +98,7 @@ class ItemModel {
       this.userId,
       this.categoryId,
       this.isAlreadyOffered,
+      this.itemOfferId,
       this.isAlreadyReported,
       this.rejectedReason,
       this.allCategoryIds,
@@ -140,6 +142,7 @@ class ItemModel {
       String? itemType,
       int? userId,
       bool? isAlreadyOffered,
+      int? itemOfferId,
       bool? isAlreadyReported,
       String? allCategoryIds,
       int? categoryId,
@@ -180,6 +183,7 @@ class ItemModel {
       userId: userId ?? this.userId,
       categoryId: categoryId ?? this.categoryId,
       isAlreadyOffered: isAlreadyOffered ?? this.isAlreadyOffered,
+      itemOfferId: itemOfferId ?? this.itemOfferId,
       isAlreadyReported: isAlreadyReported ?? this.isAlreadyReported,
       allCategoryIds: allCategoryIds ?? this.allCategoryIds,
       rejectedReason: rejectedReason ?? this.rejectedReason,
@@ -241,6 +245,12 @@ class ItemModel {
     userId = json['user_id'];
     categoryId = json['category_id'];
     isAlreadyOffered = json['is_already_offered'];
+    final rawOfferItemId = json['offer_item_id'];
+    if (rawOfferItemId != null) {
+      itemOfferId = rawOfferItemId is int
+          ? rawOfferItemId
+          : int.tryParse(rawOfferItemId.toString());
+    }
     isAlreadyReported = json['is_already_reported'];
     allCategoryIds = json['all_category_ids'];
     rejectedReason = json['rejected_reason'];

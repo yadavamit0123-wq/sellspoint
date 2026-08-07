@@ -1,15 +1,20 @@
 import 'package:eClassify/data/cubits/item/video_ads/reel_like_cubit.dart';
 import 'package:eClassify/data/cubits/item/video_ads/video_ads_cubit.dart';
+import 'package:eClassify/data/repositories/item/item_repository.dart';
+import 'package:eClassify/data/cubits/subscription/fetch_user_package_limit_cubit.dart';
 import 'package:eClassify/ui/screens/item/video_ads_screen/widgets/reel_video_page.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
 import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
 import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/utils/ad_posting_launcher.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/reel_deep_link_intent.dart';
 import 'package:eClassify/utils/reel_feature_gate.dart';
+import 'package:eClassify/utils/reel_feed_refresh.dart';
 import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
@@ -21,11 +26,13 @@ class VideoAdsScreen extends StatefulWidget {
     this.reelId,
     this.itemId,
     this.showCurrentUserReel = false,
+    this.embeddedInMainShell = false,
   });
 
   final int? reelId;
   final int? itemId;
   final bool showCurrentUserReel;
+  final bool embeddedInMainShell;
 
   static Route<dynamic> route(RouteSettings settings) {
     final args = settings.arguments as Map<String, dynamic>?;
@@ -70,6 +77,32 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
     }
     _load();
     _pageController.addListener(_onScroll);
+    if (widget.embeddedInMainShell &&
+        AppConfig.enableReelsTabRepeatTapRefreshV214) {
+      ReelFeedRefresh.revision.addListener(_onFeedRefreshSignal);
+    }
+  }
+
+  void _onFeedRefreshSignal() {
+    if (!mounted) return;
+    _load();
+  }
+
+  void _onPostVideoAdTap() {
+    UiUtils.checkUser(
+      onNotGuest: () async {
+        if (AppConfig.enableReelsTabPostAdReelGateV214 &&
+            AppConfig.enableReelSubscriptionGateV214) {
+          if (!await ReelFeatureGate.ensureAllowed(context)) return;
+          if (!mounted) return;
+        }
+        if (!mounted) return;
+        context.read<FetchUserPackageLimitCubit>().fetchUserPackageLimit(
+              packageType: 'item_listing',
+            );
+      },
+      context: context,
+    );
   }
 
   void _load() {
@@ -98,6 +131,10 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
 
   @override
   void dispose() {
+    if (widget.embeddedInMainShell &&
+        AppConfig.enableReelsTabRepeatTapRefreshV214) {
+      ReelFeedRefresh.revision.removeListener(_onFeedRefreshSignal);
+    }
     _pageController.removeListener(_onScroll);
     _pageController.dispose();
     _isMuted.dispose();
@@ -107,18 +144,30 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final embedded = widget.embeddedInMainShell &&
+        AppConfig.enableReelsTabEmbeddedShellV214;
+    final showPostCta =
+        embedded && AppConfig.enableReelsTabPostAdCtaV214;
+
+    Widget child = Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        automaticallyImplyLeading: !embedded,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           'videoAds'.translate(context),
           style: const TextStyle(color: Colors.white),
         ),
         actions: [
+          if (showPostCta)
+            IconButton(
+              tooltip: 'reelsTabPostVideoAdCta'.translate(context),
+              onPressed: _onPostVideoAdTap,
+              icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+            ),
           if (widget.showCurrentUserReel &&
               AppConfig.enableVideoAdEditorRouteV214)
             IconButton(
@@ -146,6 +195,41 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
           }
           if (state is VideoAdsSuccess) {
             if (state.ads.isEmpty) {
+              if (_itemId != null &&
+                  AppConfig.enableReelsFeedEmptyItemAdDetailsCtaV214) {
+                return _ReelsEmptyForItemState(
+                  itemId: _itemId!,
+                  onRetry: _load,
+                );
+              }
+              if (embedded && AppConfig.enableReelsTabEmptyPostCtaV214) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        NoDataFound(
+                          onTap: _load,
+                          mainMessage:
+                              'reelsFeedEmptyHint'.translate(context),
+                        ),
+                        const SizedBox(height: 20),
+                        UiUtils.buildButton(
+                          context,
+                          height: 44,
+                          radius: 10,
+                          buttonTitle:
+                              'reelsTabPostVideoAdCta'.translate(context),
+                          buttonColor: context.color.territoryColor,
+                          textColor: context.color.secondaryColor,
+                          onPressed: _onPostVideoAdTap,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
               return NoDataFound(onTap: _load);
             }
             return Stack(
@@ -181,6 +265,79 @@ class _VideoAdsScreenState extends State<VideoAdsScreen> {
           }
           return const SizedBox.shrink();
         },
+      ),
+    );
+
+    if (showPostCta) {
+      child = BlocListener<FetchUserPackageLimitCubit,
+          FetchUserPackageLimitState>(
+        listener: (context, state) {
+          if (state is FetchUserPackageLimitFailure) {
+            UiUtils.noPackageAvailableDialog(context);
+          }
+          if (state is FetchUserPackageLimitInSuccess) {
+            AdPostingLauncher.openVideoAdPosting(context);
+          }
+        },
+        child: child,
+      );
+    }
+
+    return child;
+  }
+}
+
+class _ReelsEmptyForItemState extends StatelessWidget {
+  const _ReelsEmptyForItemState({
+    required this.itemId,
+    required this.onRetry,
+  });
+
+  final int itemId;
+  final VoidCallback onRetry;
+
+  Future<void> _openListing(BuildContext context) async {
+    try {
+      final result = await ItemRepository().fetchItemFromItemId(itemId);
+      if (!context.mounted || result.modelList.isEmpty) return;
+      await Navigator.pushNamed(
+        context,
+        Routes.adDetailsScreen,
+        arguments: {'model': result.modelList.first},
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      UiUtils.showSnackBarMessage(
+        context,
+        'somethingWentWrong'.translate(context),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            NoDataFound(
+              onTap: onRetry,
+              mainMessage: 'reelsFeedEmptyForItemHint'.translate(context),
+            ),
+            const SizedBox(height: 20),
+            UiUtils.buildButton(
+              context,
+              height: 44,
+              radius: 10,
+              buttonTitle: 'reelFeedViewListing'.translate(context),
+              buttonColor: context.color.territoryColor,
+              textColor: context.color.secondaryColor,
+              onPressed: () => _openListing(context),
+            ),
+          ],
+        ),
       ),
     );
   }

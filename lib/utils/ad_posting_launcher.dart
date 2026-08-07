@@ -1,5 +1,6 @@
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/model/item/ad_item_type.dart';
 import 'package:eClassify/utils/ad_posting_wizard_cleanup.dart';
 import 'package:flutter/material.dart';
 
@@ -22,6 +23,24 @@ abstract final class AdPostingLauncher {
       return;
     }
     Navigator.pushNamed(context, Routes.selectCategoryScreen, arguments: args);
+  }
+
+  /// Reels tab / video CTAs → in-app wizard with video ad type preselected.
+  static void openVideoAdPosting(
+    BuildContext context, {
+    Map<String, dynamic>? arguments,
+  }) {
+    if (!AppConfig.enableAdPostingLaunchVideoAdFromReelsV214) {
+      openCategoryStep(context, arguments: arguments);
+      return;
+    }
+    final args = <String, dynamic>{
+      ...?arguments,
+      'initialAdType': AdItemType.videoAd.value,
+      if (AppConfig.enableReelsTabPostAdSkipsTypeStepV214)
+        'skipAdTypeStep': true,
+    };
+    openCategoryStep(context, arguments: args);
   }
 
   static void openSuccess(

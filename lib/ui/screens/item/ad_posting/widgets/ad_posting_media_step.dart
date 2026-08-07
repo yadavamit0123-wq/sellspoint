@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/model/item/ad_item_type.dart';
+import 'package:eClassify/utils/ad_posting_reel_draft_bridge.dart';
 import 'package:eClassify/utils/ad_posting_video_link_policy.dart';
 import 'package:eClassify/utils/video_ad_thumbnail_utility.dart';
 import 'package:eClassify/data/cubits/item/ad_posting_cubit.dart';
@@ -15,6 +16,8 @@ import 'package:eClassify/utils/ad_posting_wizard_progress.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/image_picker.dart';
+import 'package:eClassify/utils/reel_feature_gate.dart';
+import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -75,6 +78,15 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
     setState(() => _usedReelThumbnail = true);
   }
 
+  Future<void> _applyDraftFromEditor() async {
+    if (!AdPostingReelDraftBridge.hasDraft) return;
+    AdPostingReelDraftBridge.applyToCubit(context.read<AdPostingCubit>());
+    _mainImagePicker.pickedFile = null;
+    _usedReelThumbnail = false;
+    await _prefillMainImageFromReel();
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _videoLinkController.dispose();
@@ -93,7 +105,7 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
     );
   }
 
-  void _onNext() {
+  void _onNext() async {
     if (_mainImagePicker.pickedFile == null) {
       UiUtils.showBlurredDialoge(
         context,
@@ -106,6 +118,17 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
     }
 
     final data = context.read<AdPostingCubit>().state.adPostingData;
+
+    if (data.adType == AdItemType.videoAd &&
+        AppConfig.enableAdPostingMediaStepRequireReelVideoV214 &&
+        !AdPostingVideoLinkPolicy.hasLocalReel(data) &&
+        !AdPostingVideoLinkPolicy.shouldShowLinkField(data)) {
+      UiUtils.showSnackBarMessage(
+        context,
+        'adPostingReelVideoRequired'.translate(context),
+      );
+      return;
+    }
 
     if (AdPostingVideoLinkPolicy.shouldShowLinkField(data)) {
       final videoLink = _videoLinkController.text.trim();
@@ -215,12 +238,81 @@ class _AdPostingMediaStepState extends State<AdPostingMediaStep> {
     final mainFile = _mainImagePicker.pickedFile;
     final data = context.watch<AdPostingCubit>().state.adPostingData;
     final showVideoLink = AdPostingVideoLinkPolicy.shouldShowLinkField(data);
+    final hasReel = AdPostingVideoLinkPolicy.hasLocalReel(data);
+    final showReelAttach = data.adType == AdItemType.videoAd &&
+        !hasReel &&
+        AppConfig.enableAdPostingMediaStepVideoEditorCtaV214;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasReel &&
+              AppConfig.enableAdPostingMediaStepReelAttachedLabelV214) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.videocam_outlined,
+                  size: 20,
+                  color: context.color.territoryColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomText(
+                    'adPostingReelVideoAttached'.translate(context),
+                    fontWeight: FontWeight.w600,
+                    color: context.color.territoryColor,
+                  ),
+                ),
+              ],
+            ),
+            if (AppConfig.enableAdPostingMediaStepReplaceReelV214) ...[
+              const SizedBox(height: 10),
+              UiUtils.buildButton(
+                context,
+                height: 40,
+                radius: 10,
+                buttonTitle: 'adPostingReplaceReelVideoCta'.translate(context),
+                buttonColor: context.color.secondaryColor,
+                textColor: context.color.textDefaultColor,
+                onPressed: () async {
+                  if (!await ReelFeatureGate.ensureAllowed(context)) return;
+                  if (!context.mounted) return;
+                  await VideoAdEditorLauncher.openFromAdPostingWizard(
+                    context,
+                  );
+                  if (!mounted) return;
+                  await _applyDraftFromEditor();
+                },
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
+          if (showReelAttach) ...[
+            CustomText(
+              'adPostingAttachReelVideoHint'.translate(context),
+              fontSize: context.font.small,
+              color: context.color.textLightColor,
+            ),
+            const SizedBox(height: 10),
+            UiUtils.buildButton(
+              context,
+              height: 44,
+              radius: 10,
+              buttonTitle: 'adPostingAttachReelVideoCta'.translate(context),
+              buttonColor: context.color.territoryColor,
+              textColor: context.color.secondaryColor,
+              onPressed: () async {
+                if (!await ReelFeatureGate.ensureAllowed(context)) return;
+                if (!context.mounted) return;
+                await VideoAdEditorLauncher.openFromAdPostingWizard(context);
+                if (!mounted) return;
+                await _applyDraftFromEditor();
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
           if (_usedReelThumbnail) ...[
             CustomText(
               'reelThumbnailHint'.translate(context),

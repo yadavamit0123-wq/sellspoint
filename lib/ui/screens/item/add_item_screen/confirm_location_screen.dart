@@ -554,6 +554,18 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
                     textAlign: TextAlign.center,
                   ),
                 ),
+                if (widget.inAppWizardHandoff &&
+                    AppConfig.enableConfirmLocationPendingReelHintV214 &&
+                    getCloudData('pending_reel_upload') != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(25, 12, 25, 0),
+                    child: CustomText(
+                      'confirmLocationPendingReelHint'.translate(context),
+                      textAlign: TextAlign.center,
+                      fontSize: context.font.small,
+                      color: context.color.textLightColor,
+                    ),
+                  ),
                 Padding(
                   padding: EdgeInsets.only(top: 20, right: 15, left: 15),
                   child: UiUtils.buildButton(context, height: 48,

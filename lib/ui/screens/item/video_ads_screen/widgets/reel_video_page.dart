@@ -2,13 +2,18 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/cubits/item/video_ads/reel_like_cubit.dart';
 import 'package:eClassify/data/cubits/item/video_ads/video_ads_cubit.dart';
 import 'package:eClassify/data/model/item/video_ad.dart';
 import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/ui/screens/item/video_ads_screen/widgets/reel_chat_button.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
+import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/owner_listing_navigation.dart';
+import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -120,6 +125,22 @@ class _ReelVideoPageState extends State<ReelVideoPage> {
     _controller = null;
   }
 
+  bool get _isOwnListing {
+    final uid = HiveUtils.getUserId();
+    if (uid == null || uid.isEmpty) return false;
+    final sellerId = widget.ad.item.user?.id?.toString() ??
+        widget.ad.item.userId?.toString();
+    return sellerId != null && sellerId == uid;
+  }
+
+  void _openAdDetails() {
+    Navigator.pushNamed(
+      context,
+      Routes.adDetailsScreen,
+      arguments: {'model': widget.ad.item},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<ReelLikeCubit, ReelLikeState>(
@@ -174,13 +195,7 @@ class _ReelVideoPageState extends State<ReelVideoPage> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          Routes.adDetailsScreen,
-                          arguments: {'model': widget.ad.item},
-                        );
-                      },
+                      onTap: _openAdDetails,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,6 +233,48 @@ class _ReelVideoPageState extends State<ReelVideoPage> {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (AppConfig.enableReelFeedOwnerManageCtaV214 &&
+                          _isOwnListing)
+                        IconButton(
+                          tooltip: 'reelFeedManageListing'.translate(context),
+                          onPressed: () {
+                            if (AppConfig.enableReelFeedOwnerEditListingV214) {
+                              OwnerListingNavigation.openEditListing(
+                                context,
+                                widget.ad.item,
+                              );
+                            } else {
+                              _openAdDetails();
+                            }
+                          },
+                          icon: const Icon(Icons.edit_outlined,
+                              color: Colors.white),
+                        ),
+                      if (AppConfig.enableReelFeedBuyerContactCtaV214 &&
+                          !_isOwnListing)
+                        AppConfig.enableReelFeedBuyerDirectChatV214
+                            ? ReelChatButton(ad: widget.ad)
+                            : IconButton(
+                                tooltip:
+                                    'reelFeedContactSeller'.translate(context),
+                                onPressed: () {
+                                  UiUtils.checkUser(
+                                    onNotGuest: _openAdDetails,
+                                    context: context,
+                                  );
+                                },
+                                icon: const Icon(Icons.chat_bubble_outline,
+                                    color: Colors.white),
+                              ),
+                      if (AppConfig.enableReelFeedShareActionV214)
+                        IconButton(
+                          tooltip: 'reelFeedShareReel'.translate(context),
+                          onPressed: () {
+                            HelperUtils.shareReel(context, widget.ad.id);
+                          },
+                          icon: const Icon(Icons.share_outlined,
+                              color: Colors.white),
+                        ),
                       IconButton(
                         onPressed: _toggleLike,
                         icon: Icon(

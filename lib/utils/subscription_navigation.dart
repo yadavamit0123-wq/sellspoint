@@ -48,4 +48,22 @@ abstract final class SubscriptionNavigation {
       arguments: args,
     );
   }
+
+  /// Global ad listing packages (all plans, not reel-filtered).
+  static void openItemListingPackages(BuildContext context) {
+    if (AppConfig.enableSubscriptionFlowV214) {
+      Navigator.pushNamed(context, Routes.subscriptionPackageScreen);
+      return;
+    }
+    Navigator.pushNamed(context, Routes.subscriptionPackageListRoute);
+  }
+
+  /// Default “browse plans” entry (hub vs direct listing catalog).
+  static void openPrimaryAdListingCatalog(BuildContext context) {
+    if (AppConfig.enableSubscriptionPrimaryListingCatalogV214) {
+      openItemListingPackages(context);
+      return;
+    }
+    openPackageCatalog(context);
+  }
 }

@@ -4,6 +4,7 @@ import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/select_category.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
 import 'package:eClassify/utils/ad_posting_wizard_cleanup.dart';
+import 'package:eClassify/utils/main_navigation_v214.dart';
 import 'package:flutter/material.dart';
 
 /// Pops post-ad routes (confirm, success, wizard) back to home or ad details.
@@ -19,6 +20,18 @@ abstract final class AdPostingSuccessNavigation {
     _prepareExit();
     Navigator.popUntil(context, (route) => route.isFirst);
     MainActivity.globalKey.currentState?.onItemTapped(0);
+  }
+
+  static void exitToMyAds(BuildContext context) {
+    _prepareExit();
+    Navigator.popUntil(context, (route) => route.isFirst);
+    MainNavigationV214.openMyAdsTab();
+  }
+
+  static void exitToReelsFeed(BuildContext context) {
+    _prepareExit();
+    Navigator.popUntil(context, (route) => route.isFirst);
+    MainNavigationV214.openReelsTab();
   }
 
   static void exitToAdDetails(BuildContext context, {required ItemModel model}) {

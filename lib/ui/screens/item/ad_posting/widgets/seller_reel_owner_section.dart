@@ -13,13 +13,39 @@ import 'package:eClassify/utils/video_ad_editor_launcher.dart';
 import 'package:flutter/material.dart';
 
 /// Owner-only reel upload status + CTA on [AdDetailsScreen].
-class SellerReelOwnerSection extends StatelessWidget {
+class SellerReelOwnerSection extends StatefulWidget {
   const SellerReelOwnerSection({super.key, required this.item});
 
   final ItemModel item;
 
   @override
+  State<SellerReelOwnerSection> createState() => _SellerReelOwnerSectionState();
+}
+
+class _SellerReelOwnerSectionState extends State<SellerReelOwnerSection> {
+  @override
+  void initState() {
+    super.initState();
+    if (AppConfig.enableReelUploadTrackerV214) {
+      ReelUploadTracker.revision.addListener(_onUploadRevision);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (AppConfig.enableReelUploadTrackerV214) {
+      ReelUploadTracker.revision.removeListener(_onUploadRevision);
+    }
+    super.dispose();
+  }
+
+  void _onUploadRevision() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     if (!AppConfig.enableSellerReelOwnerSectionV214 || item.id == null) {
       return const SizedBox.shrink();
     }
@@ -27,6 +53,11 @@ class SellerReelOwnerSection extends StatelessWidget {
     final itemId = item.id.toString();
     final uploadStatus = ReelUploadTracker.statusForItem(itemId);
     final isVideo = ItemVideoHelper.isVideoListing(item);
+    final missingReelMedia = isVideo && !ItemVideoHelper.hasVideoUrl(item);
+    final showUploadCta = isVideo &&
+        uploadStatus == null &&
+        (!AppConfig.enableSellerReelUploadOnlyWhenMissingMediaV214 ||
+            missingReelMedia);
     if (!isVideo && uploadStatus == null) {
       return const SizedBox.shrink();
     }
@@ -67,7 +98,7 @@ class SellerReelOwnerSection extends StatelessWidget {
             const SizedBox(height: 10),
             ReelUploadStatusBanner(itemId: itemId),
           ],
-          if (isVideo && uploadStatus == null) ...[
+          if (showUploadCta) ...[
             const SizedBox(height: 10),
             UiUtils.buildButton(
               context,
@@ -79,15 +110,20 @@ class SellerReelOwnerSection extends StatelessWidget {
               onPressed: () async {
                 if (!await ReelFeatureGate.ensureAllowed(context)) return;
                 if (!context.mounted) return;
-                VideoAdEditorLauncher.openForExistingItem(
+                final result = await VideoAdEditorLauncher.openForExistingItem(
                   context,
                   itemId: item.id!,
                 );
+                if (!context.mounted) return;
+                if (AppConfig.enableAdDetailsRefreshAfterReelEditorV214 &&
+                    result == 'reel_upload') {
+                  setState(() {});
+                }
               },
             ),
           ],
           if (isVideo &&
-              (item.status == 'active' || item.status == 'approved')) ...[
+              ItemVideoHelper.isPlayableForReelsShortcut(item)) ...[
             const SizedBox(height: 8),
             UiUtils.buildButton(
               context,
