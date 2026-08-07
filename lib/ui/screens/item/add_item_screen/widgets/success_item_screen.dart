@@ -1,5 +1,6 @@
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/ui/screens/item/add_item_screen/select_category.dart';
 import 'package:eClassify/ui/screens/main_activity.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
@@ -101,6 +102,7 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
   }
 
   void _navigateToAdDetailsScreen() {
+    screenStack = 0;
     Navigator.popUntil(context, (route) => route.isFirst);
     Navigator.pushNamed(
       context,
@@ -116,7 +118,10 @@ class _SuccessItemScreenState extends State<SuccessItemScreen>
       Future.delayed(
         Duration(milliseconds: 500),
         () {
-          if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+          if (mounted) {
+            screenStack = 0;
+            Navigator.popUntil(context, (route) => route.isFirst);
+          }
           MainActivity.globalKey.currentState?.onItemTapped(0);
         },
       );

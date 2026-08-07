@@ -16,7 +16,10 @@ import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/ad_posting_progress_header.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/utils/ad_posting_wizard_cleanup.dart';
 import 'package:eClassify/utils/ad_posting_launcher.dart';
+import 'package:eClassify/utils/leaf_location_bridge.dart';
 import 'package:eClassify/utils/location_picker_launcher.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -36,12 +39,14 @@ class ConfirmLocationScreen extends StatefulWidget {
   final bool? isEdit;
   final File? mainImage;
   final List<File>? otherImage;
+  final bool inAppWizardHandoff;
 
   const ConfirmLocationScreen({
     Key? key,
     required this.isEdit,
     required this.mainImage,
     required this.otherImage,
+    this.inAppWizardHandoff = false,
   }) : super(key: key);
 
   static BlurredRouter route(RouteSettings settings) {
@@ -55,6 +60,7 @@ class ConfirmLocationScreen extends StatefulWidget {
             isEdit: arguments?['isEdit'] ?? false,
             mainImage: arguments?['mainImage'],
             otherImage: arguments?['otherImage'],
+            inAppWizardHandoff: arguments?['inAppWizardHandoff'] == true,
           ),
         );
       },
@@ -136,6 +142,9 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
         position: LatLng(itemModel.latitude!, itemModel.longitude!),
       ));
     } else {
+      if (_preFillWizardLeafLocation()) {
+        return;
+      }
       currentLocation = [
         HiveUtils.getCurrentAreaName(),
         HiveUtils.getCurrentCityName(),
@@ -182,6 +191,101 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
     }
 
     setState(() {});
+  }
+
+  /// Wizard handoff: prefer 2.14 [LeafLocation] (incl. area_id) over legacy current-location keys.
+  bool _preFillWizardLeafLocation() {
+    if (widget.inAppWizardHandoff != true ||
+        !AppConfig.enableAdPostingWizardLocationPrefillV214) {
+      return false;
+    }
+
+    final leaf = LeafLocationBridge.current;
+    if (leaf.isEmpty && !leaf.hasCoordinates) {
+      return false;
+    }
+
+    currentLocation = [
+      leaf.area,
+      leaf.city,
+      leaf.state,
+      leaf.country,
+    ].where((part) => part != null && part!.isNotEmpty).join(', ');
+
+    formatedAddress = AddressComponent(
+      area: leaf.area,
+      areaId: leaf.areaId,
+      city: leaf.city,
+      country: leaf.country,
+      state: leaf.state,
+    );
+
+    if (leaf.hasCoordinates) {
+      latitude = leaf.latitude;
+      longitude = leaf.longitude;
+    } else {
+      latitude = HiveUtils.getCurrentLatitude();
+      longitude = HiveUtils.getCurrentLongitude();
+    }
+
+    if (latitude != null && longitude != null) {
+      _cameraPosition = CameraPosition(
+        target: LatLng(latitude!, longitude!),
+        zoom: 14.4746,
+        bearing: 0,
+      );
+      _markers.add(Marker(
+        markerId: const MarkerId('currentLocation'),
+        position: LatLng(latitude!, longitude!),
+      ));
+      if (currentLocation.isEmpty) {
+        getLocationFromLatitudeLongitude(
+          latLng: LatLng(latitude!, longitude!),
+        );
+      }
+      setState(() {});
+      return true;
+    }
+
+    if (currentLocation.isNotEmpty) {
+      setState(() {});
+    }
+    return false;
+  }
+
+  void _applyPickedLocation(Map<String, dynamic> location) {
+    currentLocation = [
+      location['area'],
+      location['city'],
+      location['state'],
+      location['country'],
+    ].where((part) => part != null && part.toString().isNotEmpty).join(', ');
+
+    formatedAddress = AddressComponent(
+      area: location['area'],
+      areaId: location['area_id'],
+      city: location['city'],
+      country: location['country'],
+      state: location['state'],
+    );
+    latitude = location['latitude'];
+    longitude = location['longitude'];
+    if (latitude == null || longitude == null) return;
+
+    _cameraPosition = CameraPosition(
+      target: LatLng(latitude!, longitude!),
+      zoom: 14.4746,
+      bearing: 0,
+    );
+    _markers
+      ..clear()
+      ..add(Marker(
+        markerId: const MarkerId('currentLocation'),
+        position: LatLng(latitude!, longitude!),
+      ));
+    _mapController.animateCamera(
+      CameraUpdate.newCameraPosition(_cameraPosition!),
+    );
   }
 
   void getLocationFromLatitudeLongitude({LatLng? latLng}) async {
@@ -268,6 +372,9 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
       child: Scaffold(
           resizeToAvoidBottomInset: false,
           appBar: UiUtils.buildAppBar(context, onBackPress: () {
+            if (widget.inAppWizardHandoff) {
+              AdPostingWizardCleanup.onWizardLocationAborted();
+            }
             Future.delayed(Duration(milliseconds: 500), () {
               Navigator.pop(context);
             });
@@ -356,7 +463,10 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (widget.isEdit != true)
-                const AdPostingProgressHeader(currentStep: 4),
+                AdPostingProgressHeader(
+                  currentStep: widget.inAppWizardHandoff ? 5 : 4,
+                  totalSteps: widget.inAppWizardHandoff ? 5 : 4,
+                ),
               Expanded(child: bodyData()),
             ],
           ),
@@ -374,12 +484,15 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
         Widgets.hideLoder(context);
         //This will locally update item model
         myAdsCubitReference[getCloudData("edit_from")]?.edit(state.model);
+        if (widget.inAppWizardHandoff) {
+          AdPostingWizardCleanup.afterSuccessfulPost();
+        }
         Future.delayed(Duration(milliseconds: 500), () {
           if (mounted) {
             AdPostingLauncher.openSuccess(
               context,
               model: state.model,
-              isEdit: widget.isEdit,
+              isEdit: widget.isEdit ?? false,
             );
           }
         });
@@ -418,37 +531,7 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
 
                       if (mounted) {
                         setState(() {
-                          currentLocation = [
-                            location['area'] ?? null,
-                            location['city'] ?? null,
-                            location['state'] ?? null,
-                            location['country'] ?? null,
-                          ]
-                              .where(
-                                  (part) => part != null && part.isNotEmpty)
-                              .join(', ');
-
-                            formatedAddress = AddressComponent(
-                                area: location["area"] ?? null,
-                                areaId: location["area_id"] ?? null,
-                                city: location["city"] ?? null,
-                                country: location["country"] ?? null,
-                                state: location["state"] ?? null);
-                            latitude = location["latitude"] ?? null;
-                            longitude = location["longitude"] ?? null;
-                            _cameraPosition = CameraPosition(
-                              target: LatLng(latitude!, longitude!),
-                              zoom: 14.4746,
-                              bearing: 0,
-                            );
-
-                            _mapController.animateCamera(
-                              CameraUpdate.newCameraPosition(_cameraPosition!),
-                            );
-                            _markers.add(Marker(
-                              markerId: const MarkerId('currentLocation'),
-                              position: LatLng(latitude!, longitude!),
-                            ));
+                          _applyPickedLocation(location);
                         });
                       }
                     }
@@ -463,6 +546,38 @@ class _ConfirmLocationScreenState extends CloudState<ConfirmLocationScreen>
                           width: 1.5),
                       radius: 5),
                 ),
+                if (widget.inAppWizardHandoff &&
+                    AppConfig.enableAdPostingWizardMapPickerV214) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, right: 15, left: 15),
+                    child: UiUtils.buildButton(
+                      context,
+                      height: 48,
+                      onPressed: () async {
+                        final value = await LocationPickerLauncher.openMapPicker(
+                          context,
+                          from: 'addItem',
+                        );
+                        if (value != null && mounted) {
+                          setState(() {
+                            _applyPickedLocation(
+                              Map<String, dynamic>.from(value as Map),
+                            );
+                          });
+                        }
+                      },
+                      fontSize: 14,
+                      buttonTitle: "pickOnMap".translate(context),
+                      textColor: context.color.territoryColor,
+                      buttonColor: context.color.secondaryColor,
+                      border: BorderSide(
+                        color: context.color.territoryColor.withValues(alpha: 0.5),
+                        width: 1.5,
+                      ),
+                      radius: 5,
+                    ),
+                  ),
+                ],
                 SizedBox(
                   height: 20,
                 ),

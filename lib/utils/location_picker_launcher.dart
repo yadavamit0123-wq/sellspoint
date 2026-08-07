@@ -32,4 +32,19 @@ abstract final class LocationPickerLauncher {
     context.read<LeafLocationCubit>().syncFromLegacyHive();
     return result;
   }
+
+  static Future<Object?> openMapPicker(
+    BuildContext context, {
+    String from = 'addItem',
+  }) async {
+    if (!AppConfig.enableLocationMapPickerV214) return null;
+    final result = await Navigator.pushNamed(
+      context,
+      Routes.locationMapPicker,
+      arguments: {'from': from},
+    );
+    if (!context.mounted) return result;
+    context.read<LeafLocationCubit>().syncFromLegacyHive();
+    return result;
+  }
 }

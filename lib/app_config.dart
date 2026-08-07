@@ -114,4 +114,10 @@ class AppConfig {
 
   /// After wizard photos, seed cloud payload and open [Routes.confirmLocationScreen].
   static const bool enableAdPostingWizardDirectLocationV214 = true;
+
+  /// Prefill confirm-location map from [LeafLocationBridge] on wizard handoff.
+  static const bool enableAdPostingWizardLocationPrefillV214 = true;
+
+  /// "Pin on map" shortcut on wizard confirm location ([Routes.locationMapPicker]).
+  static const bool enableAdPostingWizardMapPickerV214 = true;
 }
