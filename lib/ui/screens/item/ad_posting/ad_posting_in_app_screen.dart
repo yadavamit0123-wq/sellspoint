@@ -7,6 +7,7 @@ import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_ad_type_
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_basic_details_step.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_category_step.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_custom_fields_step.dart';
+import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_media_step.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_form_buttons.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_header.dart';
@@ -66,11 +67,14 @@ class _AdPostingInAppScreenState extends State<AdPostingInAppScreen> {
         return AdPostingBasicDetailsStep(extraArguments: widget.arguments);
       case AdPostingStep.customFields:
         return AdPostingCustomFieldsStep(extraArguments: widget.arguments);
+      case AdPostingStep.mediaUpload:
+        return AdPostingMediaStep(extraArguments: widget.arguments);
     }
   }
 
   void _onBack(AdPostingState state) {
     switch (state.activeStep) {
+      case AdPostingStep.mediaUpload:
       case AdPostingStep.customFields:
       case AdPostingStep.baseDetails:
         context.read<AdPostingCubit>().previousStep();

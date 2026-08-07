@@ -5,7 +5,6 @@ import 'package:eClassify/ui/screens/item/add_item_screen/widgets/ai_generate_bu
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/screens/widgets/custom_text_form_field.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/ad_posting_legacy_handoff.dart';
 import 'package:eClassify/utils/ad_posting_wizard_utils.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
@@ -133,22 +132,7 @@ class _AdPostingBasicDetailsStepState extends State<AdPostingBasicDetailsStep> {
         phone: _phoneController.text.trim(),
       ),
     );
-
-    final steps = cubit.state.steps;
-    final baseIndex = steps.indexOf(AdPostingStep.baseDetails);
-    if (baseIndex >= 0 && baseIndex + 1 < steps.length) {
-      cubit.nextStep();
-      return;
-    }
-
-    final data = cubit.state.adPostingData;
-    AdPostingLegacyHandoff.openDetails(
-      context,
-      categoryPath: data.categoryPath,
-      wizardDraft: data.wizardDraft,
-      inAppWizardHandoff: true,
-      extraArguments: widget.extraArguments,
-    );
+    cubit.nextStep();
   }
 
   @override

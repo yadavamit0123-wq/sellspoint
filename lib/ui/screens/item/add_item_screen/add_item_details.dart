@@ -34,6 +34,9 @@ class AddItemDetails extends StatefulWidget {
   final bool? isEdit;
   final Map<String, dynamic>? wizardDraft;
   final bool inAppWizardHandoff;
+  final bool inAppWizardPhotosDone;
+  final File? wizardMainImage;
+  final List<File>? wizardGalleryImages;
 
   const AddItemDetails({
     super.key,
@@ -41,6 +44,9 @@ class AddItemDetails extends StatefulWidget {
     required this.isEdit,
     this.wizardDraft,
     this.inAppWizardHandoff = false,
+    this.inAppWizardPhotosDone = false,
+    this.wizardMainImage,
+    this.wizardGalleryImages,
   });
 
   static Route route(RouteSettings settings) {
@@ -58,6 +64,10 @@ class AddItemDetails extends StatefulWidget {
             isEdit: arguments?['isEdit'],
             wizardDraft: arguments?['wizardDraft'] as Map<String, dynamic>?,
             inAppWizardHandoff: arguments?['inAppWizardHandoff'] == true,
+            inAppWizardPhotosDone: arguments?['inAppWizardPhotosDone'] == true,
+            wizardMainImage: arguments?['wizardMainImage'] as File?,
+            wizardGalleryImages:
+                (arguments?['wizardGalleryImages'] as List?)?.cast<File>(),
           ),
         );
       },
@@ -210,6 +220,13 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
 
       setState(() {});
     });
+
+    if (widget.inAppWizardPhotosDone && widget.wizardMainImage != null) {
+      _pickTitleImage.pickedFile = widget.wizardMainImage;
+      if (widget.wizardGalleryImages != null) {
+        mixedItemImageList.addAll(widget.wizardGalleryImages!);
+      }
+    }
   }
 
   void updateSlug() {
@@ -424,9 +441,11 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomText(
-                        widget.inAppWizardHandoff
-                            ? "uploadPictures".translate(context)
-                            : "youAreAlmostThere".translate(context),
+                        widget.inAppWizardPhotosDone
+                            ? "videoLink".translate(context)
+                            : widget.inAppWizardHandoff
+                                ? "uploadPictures".translate(context)
+                                : "youAreAlmostThere".translate(context),
                         fontSize: context.font.large,
                         fontWeight: FontWeight.w600,
                         color: context.color.textColorDark,
@@ -434,8 +453,12 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 16,
                       ),
-                      if (widget.inAppWizardHandoff) ...[
+                      if (widget.inAppWizardHandoff && !widget.inAppWizardPhotosDone) ...[
                         _wizardBasicsSummary(context),
+                        const SizedBox(height: 16),
+                      ],
+                      if (widget.inAppWizardPhotosDone) ...[
+                        _wizardPhotosPreview(context),
                         const SizedBox(height: 16),
                       ],
                       if (widget.breadCrumbItems != null)
@@ -579,6 +602,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                         height: 15,
                       ),
                       ],
+                      if (!widget.inAppWizardPhotosDone) ...[
                       Row(
                         children: [
                           CustomText("mainPicture".translate(context)),
@@ -627,6 +651,7 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
                       SizedBox(
                         height: 10,
                       ),
+                      ],
                       if (!widget.inAppWizardHandoff) ...[
                       CustomText("price".translate(context)),
                       SizedBox(
@@ -745,6 +770,27 @@ class _AddItemDetailsState extends CloudState<AddItemDetails> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _wizardPhotosPreview(BuildContext context) {
+    final main = _pickTitleImage.pickedFile;
+    final gallery = mixedItemImageList.whereType<File>().toList();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (main != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(main, width: 72, height: 72, fit: BoxFit.cover),
+          ),
+        for (final file in gallery)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(file, width: 72, height: 72, fit: BoxFit.cover),
+          ),
+      ],
     );
   }
 

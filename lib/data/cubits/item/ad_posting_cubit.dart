@@ -34,6 +34,7 @@ class AdPostingCubit extends Cubit<AdPostingState> {
       AdPostingStep.adType,
       AdPostingStep.category,
       AdPostingStep.baseDetails,
+      AdPostingStep.mediaUpload,
     ];
     return AdPostingState(
       activeStep: steps.first,

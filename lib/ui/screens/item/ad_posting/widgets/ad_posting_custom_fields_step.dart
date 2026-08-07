@@ -7,7 +7,6 @@ import 'package:eClassify/ui/screens/item/add_item_screen/custom_filed_structure
 import 'package:eClassify/ui/screens/item/ad_posting/widgets/ad_posting_step_controller.dart';
 import 'package:eClassify/ui/screens/widgets/dynamic_field.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/ad_posting_legacy_handoff.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -72,15 +71,7 @@ class _AdPostingCustomFieldsStepState extends State<AdPostingCustomFieldsStep> {
             customFieldFiles: files,
           ),
         );
-
-    final data = context.read<AdPostingCubit>().state.adPostingData;
-    AdPostingLegacyHandoff.openDetails(
-      context,
-      categoryPath: data.categoryPath,
-      wizardDraft: data.wizardDraft,
-      inAppWizardHandoff: true,
-      extraArguments: widget.extraArguments,
-    );
+    context.read<AdPostingCubit>().nextStep();
   }
 
   @override

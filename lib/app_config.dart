@@ -111,4 +111,7 @@ class AppConfig {
 
   /// Home block order from admin `get-home-screen`; falls back to fixed order on failure.
   static const bool enableHomeConfigurationV214 = true;
+
+  /// After wizard photos, seed cloud payload and open [Routes.confirmLocationScreen].
+  static const bool enableAdPostingWizardDirectLocationV214 = true;
 }

@@ -3,7 +3,8 @@ enum AdPostingStep {
   adType('adListing', 'postAdSubtitle'),
   category('selectTheCategory', 'postAdStepDetails'),
   baseDetails('postAdStepDetails', 'description'),
-  customFields('additionals', 'description');
+  customFields('additionals', 'description'),
+  mediaUpload('uploadPictures', 'max5Images');
 
   const AdPostingStep(this.titleKey, this.subtitleKey);
 
