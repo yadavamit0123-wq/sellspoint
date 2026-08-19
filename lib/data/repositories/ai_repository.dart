@@ -4,7 +4,9 @@ import 'package:eClassify/utils/log.dart';
 class AIRepository {
   AIRepository._internal();
 
-  static final AIRepository instance = AIRepository._internal();
+  static final AIRepository _instance = AIRepository._internal();
+
+  static AIRepository get instance => _instance;
 
   Future<Map<String, dynamic>> generateMeta({
     required String title,
@@ -15,7 +17,7 @@ class AIRepository {
   }) async {
     try {
       final response = await Api.post(
-        url: Api.generateMetaApi,
+        url: Api.generateMeta,
         parameter: {
           'title': title,
           'price': price,
@@ -24,7 +26,7 @@ class AIRepository {
           'category_name': category,
         },
       );
-      return Map<String, dynamic>.from(response['data'] as Map);
+      return response['data'];
     } on Exception catch (e, st) {
       Log.error(e.toString(), e, st);
       rethrow;
@@ -40,7 +42,7 @@ class AIRepository {
   }) async {
     try {
       final response = await Api.post(
-        url: Api.generateDescriptionApi,
+        url: Api.generateDescription,
         parameter: {
           'title': title,
           'price': price,
@@ -49,7 +51,7 @@ class AIRepository {
           'currency_iso_code': currencyISOCode,
         },
       );
-      return response['data']['description'].toString();
+      return response['data']['description'];
     } on Exception catch (e, st) {
       Log.error(e.toString(), e, st);
       rethrow;

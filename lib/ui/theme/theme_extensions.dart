@@ -33,10 +33,14 @@ extension TextStyleExtensions on TextStyle {
   TextStyle withColor(Color c) => copyWith(color: c);
 }
 
-extension HslColorExtension on Color {
+extension ColorExtension on Color {
+  /// Lightens the color with the given integer percentage amount.
+  /// Defaults to 10%.
   Color lighten([final int amount = 10]) {
     if (amount <= 0) return this;
     if (amount > 100) return Colors.white;
+    // HSLColor returns saturation 1 for black, we want 0 instead to be able
+    // lighten black color up along the grey scale from black.
     final HSLColor hsl = this == const Color(0xFF000000)
         ? HSLColor.fromColor(this).withSaturation(0)
         : HSLColor.fromColor(this);
@@ -45,7 +49,9 @@ extension HslColorExtension on Color {
         .toColor();
   }
 
-  Color darkenPercent([final int amount = 10]) {
+  /// Darkens the color with the given integer percentage amount.
+  /// Defaults to 10%.
+  Color darken([final int amount = 10]) {
     if (amount <= 0) return this;
     if (amount > 100) return Colors.black;
     final HSLColor hsl = HSLColor.fromColor(this);

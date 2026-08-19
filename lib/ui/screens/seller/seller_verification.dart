@@ -1,20 +1,25 @@
+import 'dart:convert';
+
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/seller/fetch_seller_verification_field.dart';
 import 'package:eClassify/data/cubits/seller/fetch_verification_request_cubit.dart';
 import 'package:eClassify/data/cubits/seller/send_verification_field_cubit.dart';
-import 'package:eClassify/data/helper/widgets.dart';
-import 'package:eClassify/data/model/verification_request_model.dart';
-import 'package:eClassify/ui/screens/home/home_screen.dart';
+import 'package:eClassify/data/model/core/language.dart';
+import 'package:eClassify/data/model/user/verification_request.dart';
 import 'package:eClassify/ui/screens/item/add_item_screen/custom_filed_structure/custom_field.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/screens/widgets/custom_text_form_field.dart';
 import 'package:eClassify/ui/screens/widgets/dynamic_field.dart';
+import 'package:eClassify/ui/screens/widgets/phone_input.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/cloud_state/cloud_state.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
+import 'package:eClassify/utils/app_icons.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/loading_overlay.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,12 +30,12 @@ class SellerVerificationScreen extends StatefulWidget {
   SellerVerificationScreen({super.key, required this.isResubmitted});
 
   @override
-  CloudState<SellerVerificationScreen> createState() =>
+  State<SellerVerificationScreen> createState() =>
       _SellerVerificationScreenState();
 
   static Route route(RouteSettings settings) {
     Map? arguments = settings.arguments as Map?;
-    return BlurredRouter(
+    return MaterialPageRoute(
       builder: (context) {
         return SellerVerificationScreen(
           isResubmitted: arguments?["isResubmitted"],
@@ -40,48 +45,57 @@ class SellerVerificationScreen extends StatefulWidget {
   }
 }
 
-class _SellerVerificationScreenState
-    extends CloudState<SellerVerificationScreen> {
+class _SellerVerificationScreenState extends State<SellerVerificationScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController addressController = TextEditingController();
+  final PhoneInputController _phoneInputController = PhoneInputController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   double fillValue = 0.5;
   int page = 1;
   bool isBack = false;
   List<CustomFieldBuilder> moreDetailDynamicFields = [];
   final _scrollController = ScrollController();
 
+  // For multi-language support
+  int selectedLangIndex = 0;
+  List<Language> languages = [];
+  String defaultLangCode = '';
+  TabController? _tabController;
+
   @override
   void initState() {
     super.initState();
     AbstractField.fieldsData.clear();
+    AbstractField.files.clear();
 
-    Future.delayed(Duration.zero, () {
-      if (widget.isResubmitted == true) {
-        context
-            .read<FetchVerificationRequestsCubit>()
-            .fetchVerificationRequests();
-      }
-    });
+    if (widget.isResubmitted == true) {
+      context.read<VerificationRequestCubit>().fetchVerificationRequest();
+    }
 
-    nameController.text = (HiveUtils.getUserDetails().name) ?? "";
-    emailController.text = HiveUtils.getUserDetails().email ?? "";
-    addressController.text = HiveUtils.getUserDetails().address ?? "";
-    phoneController.text = HiveUtils.getUserDetails().mobile ?? "";
+    // Initialize language settings after the first build
+    languages = Constant.systemSettings.languages;
+    // Set defaultLangCode from system settings
+    defaultLangCode = Constant.systemSettings.defaultLanguageCode;
+
+    final user = HiveUtils.getUserDetails();
+
+    _nameController.text = user.name ?? '';
+    _emailController.text = user.email ?? '';
+    _phoneInputController.phoneNumber = user.mobile;
+    _phoneInputController.regionCode = user.regionCode;
+    _phoneInputController.phoneCode = user.countryCode;
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    super.dispose();
-    phoneController.dispose();
-    nameController.dispose();
-    emailController.dispose();
-    addressController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
     _scrollController.dispose();
+    _tabController?.dispose();
+    super.dispose();
   }
 
   void _onScroll() {
@@ -96,27 +110,22 @@ class _SellerVerificationScreenState
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: isBack,
+      canPop: page != 2,
       onPopInvokedWithResult: (bool didPop, Object? result) async {
-        if (didPop) {
-          return;
-        }
+        if (didPop) return;
         if (page == 2) {
           setState(() {
             page = 1;
             fillValue = 0.5;
-            isBack = false;
-          });
-        } else {
-          setState(() {
-            isBack = true;
           });
         }
       },
       child: Scaffold(
-          backgroundColor: context.color.backgroundColor,
-          appBar: UiUtils.buildAppBar(context, showBackButton: true,
-              onBackPress: () {
+        backgroundColor: context.color.backgroundColor,
+        appBar: UiUtils.buildAppBar(
+          context,
+          showBackButton: true,
+          onBackPress: () {
             if (page == 2) {
               setState(() {
                 page = 1;
@@ -125,86 +134,142 @@ class _SellerVerificationScreenState
             } else {
               Navigator.pop(context);
             }
-          }),
-          bottomNavigationBar: bottomBar(),
-          body: mainBody()),
+          },
+        ),
+        bottomNavigationBar: bottomBar(),
+        body: mainBody(),
+      ),
     );
   }
 
-/*  Map<String, dynamic> convertToCustomFields(Map<dynamic, dynamic> fieldsData) {
-     return fieldsData.map((key, value) {
-      return MapEntry('verification_field[$key]', value);
-    });
-  }*/
-
   Map<String, dynamic> convertToCustomFields(Map<dynamic, dynamic> fieldsData) {
-    return fieldsData.map((key, value) {
-      // Check if the value is not empty and join the list elements if necessary
+    // Create a map to store translations for each field and language
+    Map<String, Map<String, List>> verificationFieldTranslations = {};
 
-      return MapEntry('verification_field[$key]', value.join(', '));
-    })
+    print(fieldsData);
+
+    // Process fieldsData to separate language-specific entries
+    fieldsData.forEach((key, value) {
+      // Check if this is a composite key (fieldId_languageId)
+      if (key.toString().contains('_')) {
+        List<String> parts = key.toString().split('_');
+        if (parts.length == 2) {
+          String fieldId = parts[0];
+          String langId = parts[1];
+
+          // Initialize the language map if it doesn't exist
+          verificationFieldTranslations[langId] ??= {};
+
+          // Add the field value to the appropriate language map
+          verificationFieldTranslations[langId]![fieldId] = value is List
+              ? value
+              : [value];
+        }
+      } else {
+        // For non-textbox fields, add them to default language map
+        String defaultLangId = languages[0].id.toString();
+        verificationFieldTranslations[defaultLangId] ??= {};
+        verificationFieldTranslations[defaultLangId]![key.toString()] =
+            value is List ? value : [value];
+      }
+    });
+
+    // Create the final data map
+    Map<String, dynamic> data = {};
+
+    // Add verification_field_translations if we have any
+    if (verificationFieldTranslations.isNotEmpty) {
+      data['verification_field_translations'] = json.encode(
+        verificationFieldTranslations,
+      );
+    }
+
+    print(data);
+
+    return data
       ..removeWhere((key, value) => value == null); // Remove null entries
   }
 
   Widget bottomBar() {
-    return Padding(
-      padding:
-          const EdgeInsets.symmetric(horizontal: sidePadding, vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          UiUtils.buildButton(context, height: 46, radius: 8, onPressed: () {
-            if (page == 1) {
-              setState(() {
-                page = 2;
-                fillValue = 1.0;
-                Future.delayed(Duration.zero, () {
-                  context
-                      .read<FetchSellerVerificationFieldsCubit>()
-                      .fetchSellerVerificationFields();
-                });
-              });
-            } else {
-              if (_formKey.currentState?.validate() ?? false) {
-                Map<String, dynamic> data =
-                    convertToCustomFields(AbstractField.fieldsData);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+        child: Column(
+          spacing: 30,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BlocBuilder<
+              FetchSellerVerificationFieldsCubit,
+              FetchSellerVerificationFieldState
+            >(
+              builder: (context, state) {
+                return UiUtils.buildButton(
+                  context,
+                  height: 46,
+                  radius: 8,
+                  onPressed: () {
+                    if (page == 1) {
+                      setState(() {
+                        page = 2;
+                        fillValue = 1.0;
+                        context
+                            .read<FetchSellerVerificationFieldsCubit>()
+                            .fetchSellerVerificationFields();
+                      });
+                    } else if (_formKey.currentState?.validate() ?? false) {
+                      Map<String, dynamic> data = convertToCustomFields(
+                        AbstractField.fieldsData,
+                      );
 
-                Map<String, dynamic> files = AbstractField.files;
+                      Map<String, dynamic> files = AbstractField.files;
 
-                files.forEach((key, value) {
-                  if (key.startsWith('custom_field_files[') &&
-                      key.endsWith(']')) {
-                    String index = key.substring(
-                        'custom_field_files['.length, key.length - 1);
-                    String newKey = 'verification_field_files[$index]';
-                    data[newKey] = value;
-                  } else {
-                    // For other keys, add them unchanged
-                    data[key] = value;
-                  }
-                });
-                context.read<SendVerificationFieldCubit>().send(data: data);
-              }
-            }
-          }, buttonTitle: "continue".translate(context)),
-          SizedBox(
-            height: 30,
-          ),
-          Center(
-            child: InkWell(
-              child: Text(
-                "skipForLater".translate(context),
-                style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                    decoration: TextDecoration.underline,
-                    color: context.color.textDefaultColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
+                      files.forEach((key, value) {
+                        if (value is String) {
+                          final uri = Uri.tryParse(value);
+                          if (uri != null &&
+                              uri.host.startsWith(RegExp(r'(https|http)'))) {
+                            return;
+                          }
+                        }
+                        if (key.startsWith('custom_field_files[') &&
+                            key.endsWith(']')) {
+                          String index = key.substring(
+                            'custom_field_files['.length,
+                            key.length - 1,
+                          );
+                          String newKey = 'verification_field_files[$index]';
+                          data[newKey] = value;
+                        } else {
+                          // For other keys, add them unchanged
+                          data[key] = value;
+                        }
+                      });
+                      context.read<SendVerificationFieldCubit>().send(
+                        data: data,
+                      );
+                    }
+                  },
+                  buttonTitle: "continue".translate(context),
+                );
               },
             ),
-          )
-        ],
+            Center(
+              child: InkWell(
+                child: Text(
+                  "skipForLater".translate(context),
+                  style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                    decoration: TextDecoration.underline,
+                    color: context.color.textDefaultColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -213,10 +278,9 @@ class _SellerVerificationScreenState
     return BlocListener<SendVerificationFieldCubit, SendVerificationFieldState>(
       listener: (context, state) {
         if (state is SendVerificationFieldInProgress) {
-          Widgets.showLoader(context);
-        }
-        if (state is SendVerificationFieldSuccess) {
-          Widgets.hideLoder(context);
+          LoadingOverlay.show(context);
+        } else if (state is SendVerificationFieldSuccess) {
+          LoadingOverlay.hide();
 
           Future.delayed(Duration(milliseconds: 500), () {
             if (mounted) {
@@ -226,44 +290,36 @@ class _SellerVerificationScreenState
               );
             }
           });
-        }
-
-        if (state is SendVerificationFieldFail) {
+        } else if (state is SendVerificationFieldFail) {
           HelperUtils.showSnackBarMessage(context, state.error.toString());
-          Widgets.hideLoder(context);
+          LoadingOverlay.hide();
         }
       },
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical: 20),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            shrinkWrap: true,
-            /* crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,*/
-            children: <Widget>[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CustomText(
-                    'userVerification'.translate(context),
-                    color: context.color.textDefaultColor,
-                    fontSize: context.font.extraLarge,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  Spacer(),
-                  CustomText(
-                    '${"stepLbl".translate(context)}\t$page\t${"of2Lbl".translate(context)}',
-                    color: context.color.textLightColor,
-                  )
-                ],
-              ),
-              linearIndicator(),
-              page == 1 ? firstPageVerification() : secondPageVerification(),
-            ],
-          ),
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          shrinkWrap: true,
+          children: <Widget>[
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'userVerification'.translate(context),
+                  style: context.titleMedium,
+                ),
+                Spacer(),
+                Text(
+                  '${"stepLbl".translate(context)}\t$page\t${"of2Lbl".translate(context)}',
+                  style: context.bodySmall.withColor(context.mutedColor),
+                ),
+              ],
+            ),
+            linearIndicator(),
+            page == 1 ? firstPageVerification() : secondPageVerification(),
+          ],
         ),
       ),
     );
@@ -282,8 +338,9 @@ class _SellerVerificationScreenState
               // 50% of the total progress
               backgroundColor: Colors.grey[300],
               // Background color for the first part
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(context.color.backgroundColor),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                context.color.backgroundColor,
+              ),
               // Color for the first 50%
               minHeight: 4.0,
             ),
@@ -301,7 +358,8 @@ class _SellerVerificationScreenState
                     backgroundColor: Colors.transparent,
                     // No background for the overlay
                     valueColor: AlwaysStoppedAnimation<Color>(
-                        context.color.textDefaultColor),
+                      context.color.textDefaultColor,
+                    ),
                     // Color for the second 50%
                     minHeight: 4.0,
                   ),
@@ -320,48 +378,36 @@ class _SellerVerificationScreenState
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 16),
-        CustomText(
+        Text(
           'personalInformation'.translate(context),
-          color: context.color.textDefaultColor,
-          fontSize: context.font.larger,
-          fontWeight: FontWeight.bold,
+          style: context.titleMedium,
         ),
         SizedBox(height: 8),
-        CustomText(
+        Text(
           'pleaseProvideYourAccurateInformation'.translate(context),
-          color: context.color.textDefaultColor,
-          fontSize: context.font.large,
+          style: context.bodySmall,
         ),
         SizedBox(height: 10),
         buildTextField(
           context,
           title: "fullName",
           hintText: "provideFullNameHere".translate(context),
-          controller: nameController,
+          controller: _nameController,
           //validator: CustomTextFieldValidator.nullCheck,
           readOnly: true,
         ),
-        buildTextField(
-          context,
-          title: "addressLbl",
-          hintText: "homeAddressHere".translate(context),
-          controller: addressController,
-          //validator: CustomTextFieldValidator.nullCheck,
-          readOnly: true,
+        SizedBox(height: 10),
+        CustomText(
+          'phoneNumber'.translate(context),
+          color: context.color.textDefaultColor,
         ),
-        buildTextField(
-          context,
-          title: "phoneNumber",
-          hintText: "phoneNumberHere".translate(context),
-          controller: phoneController,
-          readOnly: true,
-          //validator: CustomTextFieldValidator.phoneNumber,
-        ),
+        SizedBox(height: 10),
+        PhoneInput(controller: _phoneInputController, readOnly: true),
         buildTextField(
           context,
           title: "emailAddress",
           hintText: "emailAddressHere".translate(context),
-          controller: emailController,
+          controller: _emailController,
           readOnly: true,
           //validator: CustomTextFieldValidator.email,
         ),
@@ -369,24 +415,22 @@ class _SellerVerificationScreenState
     );
   }
 
-  Widget buildTextField(BuildContext context,
-      {required String title,
-      required TextEditingController controller,
-      //CustomTextFieldValidator? validator,
-      bool? readOnly,
-      required String hintText}) {
+  Widget buildTextField(
+    BuildContext context, {
+    required String title,
+    required TextEditingController controller,
+    //CustomTextFieldValidator? validator,
+    bool? readOnly,
+    required String hintText,
+  }) {
     return Column(
+      spacing: 10,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 10,
-        ),
+        SizedBox(height: 10),
         CustomText(
           title.translate(context),
           color: context.color.textDefaultColor,
-        ),
-        SizedBox(
-          height: 10,
         ),
         CustomTextFormField(
           controller: controller,
@@ -399,7 +443,119 @@ class _SellerVerificationScreenState
     );
   }
 
+  // Helper method to update dynamic fields based on selected language
+  void updateDynamicFields() {
+    for (var field in moreDetailDynamicFields) {
+      if (field.field['type'] == 'textbox' && languages.length > 1) {
+        // Update field parameters
+        field.field['language_name'] = languages[selectedLangIndex].name;
+        field.field['required'] =
+            (selectedLangIndex == 0 && field.field['required'] == 1) ? 1 : 0;
+        field.field['language_id'] = languages[selectedLangIndex].id;
+        field.field['isEdit'] = widget.isResubmitted;
+
+        // Set value for the selected language in edit mode
+        if (widget.isResubmitted) {
+          var verificationState = context
+              .read<VerificationRequestCubit>()
+              .state;
+          if (verificationState is VerificationRequestSuccess) {
+            List<VerificationFieldValues> verificationList =
+                verificationState.request.verificationFieldValues!;
+
+            var matchingFields = verificationList.where((e) {
+              return e.verificationFieldId == field.field['id'] &&
+                  e.languageId == field.field['language_id'];
+            }).toList();
+
+            if (matchingFields.isNotEmpty) {
+              // Also set the value in the parameters for init
+              field.field['value'] = [matchingFields[0].value!];
+            } else {
+              field.field['value'] = [];
+            }
+          }
+        }
+
+        // Force re-init to update value
+        field.init(); // Initialize with updated parameters
+      }
+    }
+    setState(() {}); // Trigger rebuild with updated fields
+  }
+
   Widget secondPageVerification() {
+    // Get languages from system settings
+    languages = Constant.systemSettings.languages;
+    // Set defaultLangCode from system settings
+    defaultLangCode = Constant.systemSettings.defaultLanguageCode;
+
+    // Ensure default language is first in the list
+    if (languages.isNotEmpty &&
+        languages[0].languageCode.toString() != defaultLangCode) {
+      final defIndex = languages.indexWhere(
+        (l) => l.languageCode == defaultLangCode,
+      );
+      if (defIndex > 0) {
+        final defLang = languages.removeAt(defIndex);
+        languages.insert(0, defLang);
+      }
+    }
+
+    // Check if there are any textbox fields
+    final hasTextboxFields = moreDetailDynamicFields.any(
+      (field) => field.field['type'] == 'textbox',
+    );
+
+    if (hasTextboxFields && languages.length > 1) {
+      if (_tabController == null) {
+        _tabController = TabController(
+          length: languages.length,
+          vsync: this,
+          initialIndex: selectedLangIndex,
+        );
+
+        _tabController!.addListener(() {
+          if (!_tabController!.indexIsChanging) {
+            setState(() {
+              selectedLangIndex = _tabController!.index;
+              updateDynamicFields();
+            });
+          }
+        });
+      } else if (_tabController!.length != languages.length) {
+        // Dispose old controller if language count changed
+        _tabController!.dispose();
+        _tabController = TabController(
+          length: languages.length,
+          vsync: this,
+          initialIndex: selectedLangIndex < languages.length
+              ? selectedLangIndex
+              : 0,
+        );
+
+        _tabController!.addListener(() {
+          if (!_tabController!.indexIsChanging) {
+            setState(() {
+              selectedLangIndex = _tabController!.index;
+              updateDynamicFields();
+            });
+          }
+        });
+      }
+    } else {
+      if (_tabController != null) {
+        _tabController!.dispose();
+        _tabController = null;
+      }
+      selectedLangIndex = 0;
+    }
+
+    String selectedLangCode = languages.isNotEmpty
+        ? languages[selectedLangIndex].languageCode
+        : '';
+    bool isDefault = selectedLangCode == defaultLangCode;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -412,40 +568,150 @@ class _SellerVerificationScreenState
           fontWeight: FontWeight.bold,
         ),
         SizedBox(height: 8),
-        CustomText('selectDocumentToConfirmIdentity'.translate(context),
-            color: context.color.textDefaultColor,
-            fontSize: context.font.large),
+        CustomText(
+          'selectDocumentToConfirmIdentity'.translate(context),
+          color: context.color.textDefaultColor,
+          fontSize: context.font.large,
+        ),
         SizedBox(height: 10),
-        BlocBuilder<FetchVerificationRequestsCubit,
-            FetchVerificationRequestState>(
+        // Language tabs if needed
+        if (hasTextboxFields && languages.length > 1)
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: context.color.territoryColor,
+            unselectedLabelColor: context.color.textColorDark.withValues(
+              alpha: 0.5,
+            ),
+            indicatorColor: context.color.territoryColor,
+            indicatorWeight: 3,
+            indicatorSize: TabBarIndicatorSize.label,
+            tabAlignment: TabAlignment.start,
+            onTap: (index) {
+              // Only validate when leaving the default language tab (index 0)
+              if (selectedLangIndex == 0 && index != 0) {
+                if (!(_formKey.currentState?.validate() ?? false)) {
+                  // Prevent tab change if not valid
+                  _tabController?.animateTo(selectedLangIndex);
+                  return;
+                }
+              }
+              setState(() {
+                selectedLangIndex = index;
+                updateDynamicFields();
+              });
+            },
+            tabs: languages.map((lang) {
+              final isDef = lang.languageCode == defaultLangCode;
+              return Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(lang.name),
+                    if (isDef) ...[
+                      SizedBox(width: 4),
+                      Icon(
+                        AppIcons.checkSquareFill,
+                        color: context.color.territoryColor,
+                        size: 18,
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        if (hasTextboxFields && languages.length > 1) SizedBox(height: 18),
+        // Warning message for default language
+        if (languages.length > 1 && hasTextboxFields && isDefault) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8.0),
+            child: Row(
+              children: [
+                Icon(AppIcons.info, color: Colors.orange, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "allRequiredDefaultLangFilled".translate(context),
+                    style: TextStyle(color: Colors.orange, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        BlocBuilder<VerificationRequestCubit, VerificationRequestState>(
           builder: (context, verificationState) {
-            return BlocConsumer<FetchSellerVerificationFieldsCubit,
-                FetchSellerVerificationFieldState>(
+            return BlocConsumer<
+              FetchSellerVerificationFieldsCubit,
+              FetchSellerVerificationFieldState
+            >(
               listener: (context, state) {
                 if (state is FetchSellerVerificationFieldSuccess) {
-                  moreDetailDynamicFields = state.fields.map((field) {
+                  moreDetailDynamicFields = state.fields.map<CustomFieldBuilder>((
+                    field,
+                  ) {
+                    print(field);
                     Map<String, dynamic> fieldData = field.toMap();
-                    if (widget.isResubmitted == true) {
-                      if (verificationState
-                          is FetchVerificationRequestSuccess) {
-                        List<VerificationFieldValues> verificationList =
-                            verificationState.data.verificationFieldValues!;
+                    if (widget.isResubmitted &&
+                        verificationState is VerificationRequestSuccess) {
+                      List<VerificationFieldValues> verificationList =
+                          verificationState.request.verificationFieldValues!;
 
+                      // For textbox fields with multiple languages, we need to find values for each language
+                      if (field.type == 'textbox' && languages.length > 1) {
+                        // First set default value to empty to avoid showing default language value for all tabs
+                        fieldData['value'] = [];
+
+                        // Find matching field for current language
+                        var matchingFields = verificationList
+                            .where(
+                              (e) =>
+                                  e.verificationFieldId == field.id &&
+                                  e.languageId ==
+                                      languages[selectedLangIndex].id,
+                            )
+                            .toList();
+
+                        if (matchingFields.isNotEmpty) {
+                          print(matchingFields);
+                          fieldData['value'] = [matchingFields[0].value!];
+                          fieldData['isEdit'] = widget.isResubmitted;
+                        }
+                      } else {
+                        // For non-textbox fields or when only one language
                         VerificationFieldValues? matchingField =
                             verificationList.any(
-                                    (e) => e.verificationFieldId == field.id)
-                                ? verificationList.firstWhere(
-                                    (e) => e.verificationFieldId == field.id)
-                                : null;
+                              (e) => e.verificationFieldId == field.id,
+                            )
+                            ? verificationList.firstWhere(
+                                (e) => e.verificationFieldId == field.id,
+                              )
+                            : null;
                         if (matchingField != null) {
-                          fieldData['value'] = matchingField.value!.split(',');
-                          fieldData['isEdit'] = true;
-                        } // Use null-aware operator '?.' for safety
+                          fieldData['value'] = [matchingField.value!];
+                          fieldData['isEdit'] = widget.isResubmitted;
+                        }
                       }
                     }
 
-                    CustomFieldBuilder customFieldBuilder =
-                        CustomFieldBuilder(fieldData);
+                    // Set language-specific properties for textbox fields
+                    if (field.type == 'textbox' && languages.length > 1) {
+                      fieldData['language_name'] =
+                          languages[selectedLangIndex].name;
+                      fieldData['language_id'] =
+                          languages[selectedLangIndex].id;
+                      // Only make fields required in default language
+                      fieldData['required'] =
+                          (selectedLangIndex == 0 && fieldData['required'] == 1)
+                          ? 1
+                          : 0;
+                      fieldData['isEdit'] = widget.isResubmitted;
+                    }
+
+                    CustomFieldBuilder customFieldBuilder = CustomFieldBuilder(
+                      fieldData,
+                    );
                     customFieldBuilder.stateUpdater(setState);
                     customFieldBuilder.init();
                     return customFieldBuilder;
@@ -454,6 +720,9 @@ class _SellerVerificationScreenState
                 }
               },
               builder: (context, state) {
+                if (state is FetchSellerVerificationFieldInProgress) {
+                  return Center(child: UiUtils.progress());
+                }
                 if (moreDetailDynamicFields.isNotEmpty) {
                   return ListView.builder(
                     shrinkWrap: true,
@@ -462,6 +731,12 @@ class _SellerVerificationScreenState
                     itemBuilder: (context, index) {
                       final field = moreDetailDynamicFields[index];
                       field.stateUpdater(setState);
+
+                      // In non-default languages, only show textbox fields
+                      if (!isDefault && field.field['type'] != 'textbox') {
+                        return SizedBox.shrink();
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 9.0),
                         child: field.build(context),

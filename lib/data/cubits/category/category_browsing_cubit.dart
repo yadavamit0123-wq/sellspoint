@@ -1,189 +1,157 @@
-import 'package:eClassify/data/model/category_model.dart';
-import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/repositories/category_repository.dart';
+import 'package:eClassify/data/cubits/category/category_path_notifier.dart';
+import 'package:eClassify/data/model/core/category.dart';
+import 'package:eClassify/data/repositories/category/category_store.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class CategoryBrowsingState {}
 
 class CategoryBrowsingInitial extends CategoryBrowsingState {}
 
-class CategoryBrowsingInProgress extends CategoryBrowsingState {}
+class CategoryBrowsingLoading extends CategoryBrowsingState {}
 
 class CategoryBrowsingSuccess extends CategoryBrowsingState {
-  CategoryBrowsingSuccess({
-    required this.path,
-    required this.categories,
-    required this.page,
-    required this.total,
-    required this.isLoadingMore,
-    required this.usesApiPagination,
-  });
+  CategoryBrowsingSuccess({required this.categories, required this.hasMore});
 
-  final List<CategoryModel> path;
-  final List<CategoryModel> categories;
-  final int page;
-  final int total;
-  final bool isLoadingMore;
-  final bool usesApiPagination;
-
-  CategoryBrowsingSuccess copyWith({
-    List<CategoryModel>? path,
-    List<CategoryModel>? categories,
-    int? page,
-    int? total,
-    bool? isLoadingMore,
-    bool? usesApiPagination,
-  }) {
-    return CategoryBrowsingSuccess(
-      path: path ?? this.path,
-      categories: categories ?? this.categories,
-      page: page ?? this.page,
-      total: total ?? this.total,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      usesApiPagination: usesApiPagination ?? this.usesApiPagination,
-    );
-  }
+  final List<Category> categories;
+  final bool hasMore;
 }
 
 class CategoryBrowsingFailure extends CategoryBrowsingState {
-  CategoryBrowsingFailure(this.message);
+  CategoryBrowsingFailure(this.error);
 
-  final String message;
+  final Object error;
 }
 
-/// Hierarchical category browser (2.14-style) using legacy [CategoryModel] APIs.
+/// Terminal state for hierarchy selection.
+class CategorySelected extends CategoryBrowsingState {
+  CategorySelected({required this.categoryTree});
+
+  final List<Category> categoryTree;
+}
+
+/// Cubit responsible for hierarchical navigation and category selection.
 class CategoryBrowsingCubit extends Cubit<CategoryBrowsingState> {
-  CategoryBrowsingCubit({List<CategoryModel> initialPath = const []})
-      : _path = List<CategoryModel>.from(initialPath),
-        super(CategoryBrowsingInitial());
+  CategoryBrowsingCubit({
+    this.initialPath = const [],
+    this.showLastCategory = false,
+  }) : pathNotifier = CategoryPathNotifier(List.unmodifiable(initialPath)),
+       super(CategoryBrowsingInitial());
 
-  final CategoryRepository _repository = CategoryRepository();
-  final List<CategoryModel> _path;
+  final List<Category> initialPath;
+  final bool showLastCategory;
 
-  List<CategoryModel> get path => List.unmodifiable(_path);
+  final CategoryStore _store = CategoryStore.instance;
 
-  static bool hasSubCategories(CategoryModel category) {
-    final childCount = category.children?.length ?? 0;
-    return childCount > 0 || (category.subcategoriesCount ?? 0) > 0;
-  }
+  /// Reactive path tracking.
+  final CategoryPathNotifier pathNotifier;
 
-  Future<void> start() async {
-    if (_path.isEmpty) {
-      await _fetchLevel(parentId: null);
-      return;
+  /// Fetches categories for the current level (current tail of path).
+  Future<void> fetchCategories({bool forceRefresh = true}) async {
+    final parentId = pathNotifier.value.lastOrNull?.id;
+    try {
+      emit(CategoryBrowsingLoading());
+
+      final result = await _store.fetchCategories(
+        parentId: parentId,
+        forceRefresh: forceRefresh,
+      );
+
+      if (isClosed) return;
+
+      // Check if the path changed while fetching (e.g., from rapid navigation)
+      final currentParentId = pathNotifier.value.lastOrNull?.id;
+      if (currentParentId != parentId) return;
+
+      // Update parent category in path if selfCategory details are returned
+      final selfCategory = result.extraData?.data as Category?;
+      if (selfCategory != null && pathNotifier.isNotEmpty) {
+        pathNotifier.updateLast(selfCategory);
+      }
+
+      emit(
+        CategoryBrowsingSuccess(
+          categories: result.modelList,
+          hasMore: _store.hasMore(parentId),
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      final currentParentId = pathNotifier.value.lastOrNull?.id;
+      if (currentParentId != parentId) return;
+
+      emit(CategoryBrowsingFailure(e));
     }
-    final tail = _path.last;
-    await _showLevelForCategory(tail);
   }
 
-  Future<void> openCategory(CategoryModel category) async {
-    _path.add(category);
-    await _showLevelForCategory(category);
-  }
-
-  Future<void> navigateToRoot() async {
-    _path.clear();
-    await _fetchLevel(parentId: null);
-  }
-
-  Future<void> navigateToIndex(int index) async {
-    if (index < 0) {
-      await navigateToRoot();
-      return;
+  Future<void> selectCategory(Category category) async {
+    // Leaf categories are not stored in the path since they are not needed for breadcrumb navigation.
+    if (showLastCategory) {
+      pathNotifier.push(category);
     }
-    if (index >= _path.length) return;
-    _path.removeRange(index + 1, _path.length);
-    if (_path.isEmpty) {
-      await _fetchLevel(parentId: null);
+    emit(
+      CategorySelected(
+        categoryTree: [...pathNotifier.value, if (!showLastCategory) category],
+      ),
+    );
+  }
+
+  /// Automatically decides whether to drill down (if subcategories exist) or select the category.
+  Future<void> processCategory(Category category) async {
+    if (category.hasSubCategories) {
+      pathNotifier.push(category);
+      await fetchCategories();
     } else {
-      await _showLevelForCategory(_path.last);
+      selectCategory(category);
     }
   }
 
-  Future<void> popLevel() async {
-    if (_path.isEmpty) return;
-    _path.removeLast();
-    if (_path.isEmpty) {
-      await _fetchLevel(parentId: null);
-    } else {
-      await _showLevelForCategory(_path.last);
-    }
+  /// Navigates to a specific node in the hierarchy (or root if null).
+  Future<void> navigateBackTo(Category? category) async {
+    pathNotifier.navigateTo(category);
+    await fetchCategories();
   }
 
-  bool canPopLevel() => _path.isNotEmpty;
+  Future<void> pop() async {
+    pathNotifier.pop();
+    await fetchCategories();
+  }
 
+  /// Reset the selection and navigation.
+  Future<void> clearSelection() async {
+    pathNotifier.replaceAll(initialPath);
+  }
+
+  /// Infinite scroll support for the current level.
   Future<void> fetchMore() async {
     if (state is! CategoryBrowsingSuccess) return;
-    final current = state as CategoryBrowsingSuccess;
-    if (!current.usesApiPagination ||
-        current.isLoadingMore ||
-        current.categories.length >= current.total) {
-      return;
-    }
-    emit(current.copyWith(isLoadingMore: true));
-    try {
-      final parentId = _path.isEmpty ? null : _path.last.id;
-      final result = await _repository.fetchCategories(
-        page: current.page + 1,
-        categoryId: parentId,
-      );
-      if (isClosed) return;
-      final merged = [...current.categories, ...result.modelList];
-      emit(
-        CategoryBrowsingSuccess(
-          path: List.from(_path),
-          categories: merged,
-          page: current.page + 1,
-          total: result.total,
-          isLoadingMore: false,
-          usesApiPagination: true,
-        ),
-      );
-    } catch (e) {
-      if (isClosed) return;
-      emit(current.copyWith(isLoadingMore: false));
-    }
-  }
+    final currentState = state as CategoryBrowsingSuccess;
+    if (!currentState.hasMore) return;
 
-  Future<void> _showLevelForCategory(CategoryModel category) async {
-    final embedded = category.children ?? [];
-    if (embedded.isNotEmpty) {
-      emit(
-        CategoryBrowsingSuccess(
-          path: List.from(_path),
-          categories: embedded,
-          page: 1,
-          total: embedded.length,
-          isLoadingMore: false,
-          usesApiPagination: false,
-        ),
-      );
-      return;
-    }
-    await _fetchLevel(parentId: category.id);
-  }
-
-  Future<void> _fetchLevel({required int? parentId}) async {
-    emit(CategoryBrowsingInProgress());
+    final parentId = pathNotifier.value.lastOrNull?.id;
     try {
-      final DataOutput<CategoryModel> result = await _repository.fetchCategories(
-        page: 1,
-        categoryId: parentId,
-      );
-      if (isClosed) return;
+      final result = await _store.fetchMore(parentId: parentId);
+
+      // Update parent category in path if selfCategory details are returned
+      final selfCategory = result.extraData?.data as Category?;
+      if (selfCategory != null && pathNotifier.isNotEmpty) {
+        pathNotifier.updateLast(selfCategory);
+      }
+
       emit(
         CategoryBrowsingSuccess(
-          path: List.from(_path),
           categories: result.modelList,
-          page: 1,
-          total: result.total,
-          isLoadingMore: false,
-          usesApiPagination: true,
+          hasMore: _store.hasMore(parentId),
         ),
       );
-    } catch (e) {
-      if (isClosed) return;
-      emit(CategoryBrowsingFailure(e.toString()));
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
     }
+  }
+
+  @override
+  Future<void> close() {
+    pathNotifier.dispose();
+    return super.close();
   }
 }

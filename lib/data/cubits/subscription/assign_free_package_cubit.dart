@@ -1,4 +1,5 @@
-import 'package:eClassify/data/repositories/advertisement_repository.dart';
+import 'package:eClassify/data/repositories/item/advertisement_repository.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class AssignFreePackageState {}
@@ -21,17 +22,20 @@ class AssignFreePackageFailure extends AssignFreePackageState {
 
 class AssignFreePackageCubit extends Cubit<AssignFreePackageState> {
   AssignFreePackageCubit() : super(AssignFreePackageInitial());
-  AdvertisementRepository repository = AdvertisementRepository();
+  AdvertisementRepository repository = AdvertisementRepository.instance;
 
   void assignFreePackage({
     required int packageId,
   }) async {
-    emit(AssignFreePackageInProgress());
+    try {
+      emit(AssignFreePackageInProgress());
 
-    repository.assignFreePackages(packageId: packageId).then((value) {
-      emit(AssignFreePackageInSuccess(value['message']));
-    }).catchError((e) {
+      final response = await AdvertisementRepository.instance.assignFreePackages(packageId: packageId);
+
+      emit(AssignFreePackageInSuccess(response['message']));
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
       emit(AssignFreePackageFailure(e.toString()));
-    });
+    }
   }
 }

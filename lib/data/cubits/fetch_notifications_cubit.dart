@@ -1,6 +1,6 @@
 import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/model/notification_data.dart';
-import 'package:eClassify/data/repositories/notifications_repository_repository.dart';
+import 'package:eClassify/data/model/notification_model.dart';
+import 'package:eClassify/data/repositories/notifications_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class FetchNotificationsState {}
@@ -12,14 +12,14 @@ class FetchNotificationsInProgress extends FetchNotificationsState {}
 class FetchNotificationsSuccess extends FetchNotificationsState {
   final bool isLoadingMore;
   final bool loadingMoreError;
-  final List<NotificationData> notificationdata;
+  final List<NotificationData> notificationData;
   final int page;
   final int total;
 
   FetchNotificationsSuccess({
     required this.isLoadingMore,
     required this.loadingMoreError,
-    required this.notificationdata,
+    required this.notificationData,
     required this.page,
     required this.total,
   });
@@ -27,14 +27,14 @@ class FetchNotificationsSuccess extends FetchNotificationsState {
   FetchNotificationsSuccess copyWith({
     bool? isLoadingMore,
     bool? loadingMoreError,
-    List<NotificationData>? notificationdata,
+    List<NotificationData>? notificationData,
     int? page,
     int? total,
   }) {
     return FetchNotificationsSuccess(
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       loadingMoreError: loadingMoreError ?? this.loadingMoreError,
-      notificationdata: notificationdata ?? this.notificationdata,
+      notificationData: notificationData ?? this.notificationData,
       page: page ?? this.page,
       total: total ?? this.total,
     );
@@ -42,9 +42,9 @@ class FetchNotificationsSuccess extends FetchNotificationsState {
 }
 
 class FetchNotificationsFailure extends FetchNotificationsState {
-  final dynamic errorMessage;
+  FetchNotificationsFailure(this.error);
+  final Object error;
 
-  FetchNotificationsFailure(this.errorMessage);
 }
 
 class FetchNotificationsCubit extends Cubit<FetchNotificationsState> {
@@ -57,14 +57,17 @@ class FetchNotificationsCubit extends Cubit<FetchNotificationsState> {
     try {
       emit(FetchNotificationsInProgress());
 
-      DataOutput<NotificationData> result =
-          await _notificationsRepository.fetchNotifications(page: 1);
-      emit(FetchNotificationsSuccess(
+      DataOutput<NotificationData> result = await _notificationsRepository
+          .fetchNotifications(page: 1);
+      emit(
+        FetchNotificationsSuccess(
           isLoadingMore: false,
           loadingMoreError: false,
-          notificationdata: result.modelList,
+          notificationData: result.modelList,
           page: 1,
-          total: result.total));
+          total: result.total,
+        ),
+      );
     } catch (e) {
       emit(FetchNotificationsFailure(e));
     }
@@ -77,31 +80,39 @@ class FetchNotificationsCubit extends Cubit<FetchNotificationsState> {
           return;
         }
         emit(
-            (state as FetchNotificationsSuccess).copyWith(isLoadingMore: true));
-        DataOutput<NotificationData> result =
-            await _notificationsRepository.fetchNotifications(
-          page: (state as FetchNotificationsSuccess).page + 1,
+          (state as FetchNotificationsSuccess).copyWith(isLoadingMore: true),
         );
+        DataOutput<NotificationData> result = await _notificationsRepository
+            .fetchNotifications(
+              page: (state as FetchNotificationsSuccess).page + 1,
+            );
 
-        FetchNotificationsSuccess notificationdataState =
+        FetchNotificationsSuccess notificationState =
             (state as FetchNotificationsSuccess);
-        notificationdataState.notificationdata.addAll(result.modelList);
-        emit(FetchNotificationsSuccess(
+        notificationState.notificationData.addAll(result.modelList);
+        emit(
+          FetchNotificationsSuccess(
             isLoadingMore: false,
             loadingMoreError: false,
-            notificationdata: notificationdataState.notificationdata,
+            notificationData: notificationState.notificationData,
             page: (state as FetchNotificationsSuccess).page + 1,
-            total: result.total));
+            total: result.total,
+          ),
+        );
       }
     } catch (e) {
-      emit((state as FetchNotificationsSuccess)
-          .copyWith(isLoadingMore: false, loadingMoreError: true));
+      emit(
+        (state as FetchNotificationsSuccess).copyWith(
+          isLoadingMore: false,
+          loadingMoreError: true,
+        ),
+      );
     }
   }
 
   bool hasMoreData() {
     if (state is FetchNotificationsSuccess) {
-      return (state as FetchNotificationsSuccess).notificationdata.length <
+      return (state as FetchNotificationsSuccess).notificationData.length <
           (state as FetchNotificationsSuccess).total;
     }
     return false;

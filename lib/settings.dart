@@ -1,13 +1,8 @@
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-///eClassify configuration file
-/// Configure your app from here
-/// Most of basic configuration will be from here
-/// For theme colors go to [lib/Ui/Theme/theme.dart]
-///
-///
-
+/// Sells Point configuration — production URLs, package id, and share text.
+/// Values here are read by [AppConfig]; do not duplicate URLs elsewhere.
 class PaymentGateway {
   final String name;
   final String key;

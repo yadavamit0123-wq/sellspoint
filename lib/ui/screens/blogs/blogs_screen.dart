@@ -1,30 +1,36 @@
-/*import 'package:eClassify/ui/screens/widgets/animatedRoutes/blur_page_route.dart'
-    show BlurredRouter;*/
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/data/cubits/fetch_blogs_cubit.dart';
-import 'package:eClassify/data/model/blog_model.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/screens/widgets/intertitial_ads_screen.dart';
-import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
-import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/api.dart';
-import 'package:eClassify/utils/custom_text.dart';
+import 'package:eClassify/data/cubits/blog/blog_category_cubit.dart';
+import 'package:eClassify/data/cubits/blog/blog_tag_cubit.dart';
+import 'package:eClassify/data/cubits/blog/popular_blog_list_cubit.dart';
+import 'package:eClassify/data/model/blog/blog_tag.dart';
+import 'package:eClassify/ui/screens/blogs/widgets/blog_category_tab_bar.dart';
+import 'package:eClassify/ui/screens/blogs/widgets/blog_list.dart';
+import 'package:eClassify/ui/screens/blogs/widgets/blog_list_shimmer.dart';
+import 'package:eClassify/ui/screens/blogs/widgets/blog_tag_list.dart';
+import 'package:eClassify/ui/screens/blogs/widgets/popular_blog_list.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class BlogsScreen extends StatefulWidget {
-  const BlogsScreen({super.key});
+  const BlogsScreen({this.blogId, super.key});
 
-  static Route route(RouteSettings settings) {
-    return BlurredRouter(
-      builder: (context) {
-        return const BlogsScreen();
-      },
+  final int? blogId;
+
+  static Route<dynamic> route(RouteSettings routeSettings) {
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => BlogCategoryCubit()),
+          BlocProvider(create: (_) => PopularBlogListCubit()),
+          BlocProvider(create: (_) => BlogTagCubit()),
+        ],
+        child: BlogsScreen(blogId: routeSettings.arguments as int?),
+      ),
     );
   }
 
@@ -32,202 +38,138 @@ class BlogsScreen extends StatefulWidget {
   State<BlogsScreen> createState() => _BlogsScreenState();
 }
 
-class _BlogsScreenState extends State<BlogsScreen> {
-  final ScrollController _pageScrollController = ScrollController();
+class _BlogsScreenState extends State<BlogsScreen>
+    with SingleTickerProviderStateMixin {
+  TabController? _controller;
+  final ValueNotifier<BlogTag?> _selectedTagNotifier = ValueNotifier<BlogTag?>(
+    null,
+  );
 
   @override
   void initState() {
-    AdHelper.loadInterstitialAd();
-    context.read<FetchBlogsCubit>().fetchBlogs();
-    _pageScrollController.addListener(pageScrollListen);
     super.initState();
-  }
-
-  void pageScrollListen() {
-    if (_pageScrollController.isEndReached()) {
-      if (context.read<FetchBlogsCubit>().hasMoreData()) {
-        context.read<FetchBlogsCubit>().fetchBlogsMore();
-      }
+    if (widget.blogId != null) {
+      Navigator.of(
+        context,
+      ).pushNamed(Routes.blogDetailsScreen, arguments: widget.blogId);
     }
   }
 
   @override
   void dispose() {
-    _pageScrollController.dispose();
+    _controller?.dispose();
+    _selectedTagNotifier.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    AdHelper.showInterstitialAd();
-    return RefreshIndicator(
-      color: context.color.territoryColor,
-      onRefresh: () async {
-        context.read<FetchBlogsCubit>().fetchBlogs();
+    return BlocListener<BlogCategoryCubit, BlogCategoryState>(
+      listener: (context, state) {
+        if (state is BlogCategorySuccess) {
+          _controller = TabController(
+            length: state.categories.length,
+            vsync: this,
+          );
+        }
       },
       child: Scaffold(
-        backgroundColor: context.color.primaryColor,
-        appBar: UiUtils.buildAppBar(context,
-            showBackButton: true, title: "blogs".translate(context)),
-        body: BlocBuilder<FetchBlogsCubit, FetchBlogsState>(
-          builder: (context, state) {
-            if (state is FetchBlogsInProgress) {
-              return buildBlogsShimmer();
-            }
-            if (state is FetchBlogsFailure) {
-              if (state.errorMessage is ApiException) {
-                if (state.errorMessage.error == "no-internet") {
-                  return NoInternet(
-                    onRetry: () {
-                      context.read<FetchBlogsCubit>().fetchBlogs();
-                    },
-                  );
-                }
-              }
-              return const SomethingWentWrong();
-            }
-            if (state is FetchBlogsSuccess) {
-              if (state.blogModel.isEmpty) {
-                return const NoDataFound();
-              }
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Expanded(
-                    child: ListView.builder(
-                        controller: _pageScrollController,
-                        shrinkWrap: true,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.all(16),
-                        itemCount: state.blogModel.length,
-                        itemBuilder: (context, index) {
-                          BlogModel blog = state.blogModel[index];
-
-                          return buildBlogCard(context, blog);
-
-                          // return blog(state, index);
-                        }),
+        appBar: AppBar(
+          title: Text('blogs'.translate(context)),
+          bottom: BlogCategoryTabBar(controllerProvider: () => _controller),
+        ),
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              context.read<BlogTagCubit>().getBlogTags();
+              context.read<BlogCategoryCubit>().getBlogCategories();
+              context.read<PopularBlogListCubit>().getPopularBlogs();
+            },
+            child: NestedScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  SliverToBoxAdapter(
+                    child: BlogTagList(
+                      onTagSelected: (tag) {
+                        _selectedTagNotifier.value = tag;
+                      },
+                    ),
                   ),
-                  if (state.isLoadingMore) const CircularProgressIndicator(),
-                  if (state.loadingMoreError)
-                    CustomText("somethingWentWrng".translate(context))
-                ],
-              );
-            }
-            return Container();
-          },
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  SliverToBoxAdapter(child: PopularBlogList()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  BlocBuilder<BlogCategoryCubit, BlogCategoryState>(
+                    builder: (context, state) {
+                      if (state is BlogCategorySuccess && _controller != null) {
+                        return SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Constant.horizontalPadding,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recent Blogs',
+                                  style: context.titleMedium,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    },
+                  ),
+                ];
+              },
+              body: BlocBuilder<BlogCategoryCubit, BlogCategoryState>(
+                builder: (context, state) {
+                  if (state is BlogCategoryFailure) {
+                    return QErrorWidget(
+                      error: state.error,
+                      onRetry: () {
+                        context.read<BlogCategoryCubit>().getBlogCategories();
+                      },
+                    );
+                  }
+                  if (state is BlogCategorySuccess && _controller != null) {
+                    return ListenableBuilder(
+                      listenable: Listenable.merge([
+                        _controller!,
+                        _selectedTagNotifier,
+                      ]),
+                      builder: (context, _) {
+                        return TabBarView(
+                          controller: _controller,
+                          children: [
+                            ...state.categories.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final category = entry.value;
+                              return BlogList(
+                                categoryId: category.id,
+                                selectedTag: _selectedTagNotifier.value,
+                                isActive: _controller!.index == index,
+                              );
+                            }),
+                          ],
+                        );
+                      },
+                    );
+                  }
+                  return Padding(
+                    padding: Constant.appContentPadding,
+                    child: const BlogListShimmer(),
+                  );
+                },
+              ),
+            ),
+          ),
         ),
       ),
     );
-  }
-
-  Widget buildBlogCard(BuildContext context, BlogModel blog) {
-    return Padding(
-        padding: const EdgeInsets.all(7.0),
-        child: GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                Routes.blogDetailsScreenRoute,
-                arguments: {
-                  "model": blog,
-                },
-              );
-            },
-            child: Container(
-                width: double.infinity,
-                // height: 290,
-                decoration: BoxDecoration(
-                  color: context.color.secondaryColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: context.color.borderColor.darken(40),
-                  ),
-                ),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsetsDirectional.fromSTEB(
-                            12.0, 12, 12, 0),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: UiUtils.getImage(
-                            blog.image!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: 151,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsetsDirectional.fromSTEB(
-                            12.0, 12, 12, 6),
-                        child: CustomText(blog.title ?? "",
-                            color: context.color.textColorDark
-                                .withValues(alpha: 0.5),
-                            fontSize: context.font.normal),
-                      )
-                    ]))));
-  }
-
-  String stripHtmlTags(String htmlString) {
-    RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-    String strippedString = htmlString.replaceAll(exp, '');
-    return strippedString;
-  }
-
-  Widget buildBlogsShimmer() {
-    return ListView.builder(
-        itemCount: 10,
-        shrinkWrap: true,
-        padding: const EdgeInsets.all(16),
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: ClipRRect(
-              clipBehavior: Clip.antiAlias,
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                width: double.infinity,
-                height: 287,
-                decoration: BoxDecoration(
-                    color: context.color.secondaryColor,
-                    border: Border.all(
-                        width: 1.5, color: context.color.borderColor)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomShimmer(
-                      width: double.infinity,
-                      height: 160,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: CustomShimmer(
-                        width: 100,
-                        height: 10,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: CustomShimmer(
-                        width: 160,
-                        height: 10,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: CustomShimmer(
-                        width: 150,
-                        height: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        });
   }
 }

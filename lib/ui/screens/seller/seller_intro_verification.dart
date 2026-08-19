@@ -1,8 +1,9 @@
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/ui/screens/home/home_screen.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/app_icon.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/utils/app_assets.dart';
+import 'package:eClassify/utils/color_mappers/primary_color_mapper.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -19,9 +20,11 @@ class SellerIntroVerificationScreen extends StatefulWidget {
 
   static Route route(RouteSettings routeSettings) {
     Map? arguments = routeSettings.arguments as Map?;
-    return BlurredRouter(
-        builder: (_) => SellerIntroVerificationScreen(
-            isResubmitted: arguments?["isResubmitted"]));
+    return MaterialPageRoute(
+      builder: (_) => SellerIntroVerificationScreen(
+        isResubmitted: arguments?["isResubmitted"],
+      ),
+    );
   }
 }
 
@@ -30,9 +33,10 @@ class _SellerIntroVerificationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: context.color.backgroundColor,
-        appBar: UiUtils.buildAppBar(context, showBackButton: true),
-        body: mainBody());
+      backgroundColor: context.color.backgroundColor,
+      appBar: UiUtils.buildAppBar(context, showBackButton: true),
+      body: SingleChildScrollView(child: mainBody()),
+    );
   }
 
   Widget mainBody() {
@@ -40,27 +44,22 @@ class _SellerIntroVerificationScreenState
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: context.screenHeight * 0.08,
-        ),
+        SizedBox(height: context.screenHeight * 0.08),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: sidePadding),
-          child: UiUtils.getSvg(
-            AppIcons.userVerificationIcon,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: CustomImage(
+            src: AppAssets.illustrators.userVerification,
+            svgColorMapper: PrimaryColorMapper(context.colorScheme.primary),
           ),
         ),
-        SizedBox(
-          height: 30,
-        ),
+        SizedBox(height: 30),
         CustomText(
           "userVerification".translate(context),
           fontSize: context.font.extraLarge,
           fontWeight: FontWeight.w600,
           color: context.color.textDefaultColor,
         ),
-        SizedBox(
-          height: 25,
-        ),
+        SizedBox(height: 25),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: context.screenWidth * 0.08),
           child: CustomText(
@@ -80,31 +79,36 @@ class _SellerIntroVerificationScreenState
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(
-          height: context.screenWidth * 0.25,
-        ),
+        SizedBox(height: context.screenWidth * 0.25),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: sidePadding),
-          child: UiUtils.buildButton(context, height: 46, radius: 8,
-              onPressed: () {
-            Navigator.pushNamed(context, Routes.sellerVerificationScreen,
-                arguments: {"isResubmitted": widget.isResubmitted});
-          }, buttonTitle: "startVerification".translate(context)),
+          padding: EdgeInsets.symmetric(horizontal: 10),
+          child: UiUtils.buildButton(
+            context,
+            height: 46,
+            radius: 8,
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                Routes.sellerVerificationScreen,
+                arguments: {"isResubmitted": widget.isResubmitted},
+              );
+            },
+            buttonTitle: "startVerification".translate(context),
+          ),
         ),
-        SizedBox(
-          height: 30,
-        ),
-        InkWell(
+        SizedBox(height: 30),
+        GestureDetector(
           child: Text(
             "skipForLater".translate(context),
             style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                decoration: TextDecoration.underline,
-                color: context.color.textDefaultColor),
+              decoration: TextDecoration.underline,
+              color: context.color.textDefaultColor,
+            ),
           ),
           onTap: () {
             Navigator.pop(context);
           },
-        )
+        ),
       ],
     );
   }

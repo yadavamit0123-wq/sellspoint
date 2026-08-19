@@ -1,43 +1,62 @@
 import 'package:eClassify/data/cubits/followers/follow_user_list_cubit.dart';
 import 'package:eClassify/data/model/user/follow_user.dart';
 import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/json_helper.dart';
+import 'package:eClassify/utils/log.dart';
 
 class FollowRepository {
+  FollowRepository._internal();
+
+  static final _instance = FollowRepository._internal();
+
+  static FollowRepository get instance => _instance;
+
   Future<void> followUser({required int userId}) async {
-    await Api.post(url: Api.followUserApi, parameter: {Api.userId: userId});
+    try {
+      await Api.post(url: Api.followUserApi, parameter: {Api.userId: userId});
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      rethrow;
+    }
   }
 
   Future<void> unFollowUser({required int userId}) async {
-    await Api.post(url: Api.unFollowUserApi, parameter: {Api.userId: userId});
+    try {
+      await Api.post(url: Api.unFollowUserApi, parameter: {Api.userId: userId});
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      rethrow;
+    }
   }
 
-  Future<({List<FollowUser> users, int total, bool hasMore})> getFollowUsers({
-    required FollowUserListType type,
-    int? userId,
-    int page = 1,
-  }) async {
-    final endpoint = type == FollowUserListType.followers
-        ? Api.followersApi
-        : Api.followingApi;
+  Future<Json> getFollowUsers({required FollowUserListType type, int? userId, int page = 1}) async {
+    try {
+      final endpoint = switch(type){
+        FollowUserListType.followers => Api.followersApi,
+        FollowUserListType.following => Api.followingApi,
+      };
 
-    final response = await Api.get(
-      url: endpoint,
-      queryParameters: {
-        if (userId != null) Api.userId: userId,
-        Api.page: page,
-      },
-    );
+      final response = await Api.get(
+        url: endpoint,
+        queryParameters: {Api.userId: ?userId, Api.page: page},
+      );
 
-    final data = response['data'] as Map? ?? {};
-    final rawList = data['data'] as List? ?? [];
-    final users = rawList
-        .map((e) => FollowUser.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-    final total = data['total'] as int? ?? users.length;
-    final perPage = data['per_page'] as int? ?? users.length;
-    final hasMore = page * (perPage > 0 ? perPage : users.length) < total ||
-        users.length >= (perPage > 0 ? perPage : 15);
+      final users = JsonHelper.parseList(
+        response['data']['data'] as List?,
+        FollowUser.fromJson,
+      );
 
-    return (users: users, total: total, hasMore: hasMore && users.isNotEmpty);
+      final hasMore = response['data']['per_page'] as int == users.length;
+      final followersCount = response['data']['total'] as int;
+
+      return {
+        'users': users,
+        'has_more': hasMore,
+        'total_count': followersCount,
+      };
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      rethrow;
+    }
   }
 }

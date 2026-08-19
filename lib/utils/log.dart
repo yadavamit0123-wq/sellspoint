@@ -29,7 +29,7 @@ class Log {
   static void debug(String message, {Object? error, StackTrace? trace}) {
     if (Platform.isIOS) {
       log(message);
-      if (error != null) log('$error $trace');
+      log('$error $trace');
       return;
     }
     _logger.d(message, error: error, stackTrace: trace);
@@ -50,5 +50,12 @@ class Log {
       return;
     }
     _logger.e(message, error: error, stackTrace: stack);
+  }
+
+  static void loggerCheck() {
+    info('This is info log');
+    debug('This is debug log');
+    warning('This is warning log');
+    error('This is error log', Exception(), StackTrace.current);
   }
 }

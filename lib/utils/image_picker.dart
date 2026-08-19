@@ -6,11 +6,14 @@ import 'dart:io';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+@Deprecated('Use FilePickerUtility instead')
 class PickImage {
-  final ImagePicker _picker = ImagePicker();
+  static const _allowedExtensions = ['jpg', 'jpeg', 'png'];
+  final _picker = ImagePicker();
   final StreamController _imageStreamController = StreamController.broadcast();
 
   Stream get imageStream => _imageStreamController.stream;
@@ -25,75 +28,92 @@ class PickImage {
     _pickedFile = pickedFile;
   }
 
-  void pick(
-      {ImageSource? source,
-      bool? pickMultiple,
-      int? imageLimit,
-      int? maxLength,
-      required BuildContext context}) async {
-    if (pickMultiple == false || pickMultiple == null) {
-      await _picker
-          .pickImage(
-        source: source ?? ImageSource.gallery,
-      )
-          .then((XFile? pickedFile) async {
+  Future<void> pick({
+    ImageSource? source,
+    bool? pickMultiple,
+    int? imageLimit,
+    int? maxLength,
+    required BuildContext context,
+  }) async {
+    try {
+      Log.info('Picking Image');
+      if (pickMultiple ?? false) {
+        List<XFile> list = await _picker.pickMultiImage(
+          imageQuality: Constant.uploadImageQuality,
+          requestFullMetadata: true,
+        );
+
+        var items = list.length;
+
+        list.removeWhere(
+          (file) => !_allowedExtensions.contains(file.name.split('.').last),
+        );
+
+        if (items != list.length) {
+          HelperUtils.showSnackBarMessage(
+            context,
+            "invalidImageWarning".translate(context),
+          );
+        }
+
+        if (imageLimit != null &&
+            maxLength != null &&
+            (list.length + maxLength) > imageLimit) {
+          HelperUtils.showSnackBarMessage(
+            context,
+            "max5ImagesAllowed".translate(context),
+          );
+          return;
+        } else {
+          Iterable<Future<File>> result = list.map((image) async {
+            File myImage = File(image.path);
+            return myImage;
+          });
+          List<File> templistFile = [];
+          await for (Future<File> futureFile in Stream.fromIterable(result)) {
+            File file = await futureFile;
+            templistFile.add(file);
+          }
+
+          _sink.add({"error": "", "file": templistFile});
+        }
+      } else {
+        final XFile? pickedFile = await _picker.pickImage(
+          source: source ?? ImageSource.gallery,
+          imageQuality: Constant.uploadImageQuality,
+          preferredCameraDevice: CameraDevice.rear,
+        );
+
+        final isValid = _allowedExtensions.contains(
+          pickedFile?.name.split('.').last,
+        );
+        Log.info('${pickedFile?.name.split('.').last}');
+        if (!isValid) {
+          HelperUtils.showSnackBarMessage(
+            context,
+            "invalidImageWarning".translate(context),
+          );
+          return;
+        }
+
         if (pickedFile != null) {
           File file = File(pickedFile.path);
-
-          if (await file.length() > Constant.maxSizeInBytes) {
-            file = await HelperUtils.compressImageFile(file);
-          }
 
           _sink.add({
             "error": "",
             "file": [file], // Wrapped in a list for consistency
           });
         }
-      }).catchError((error) {
-        _sink.add({
-          "error": error,
-          "file": [],
-        });
-      });
-    } else {
-      List<XFile> list = await _picker.pickMultiImage(
-          imageQuality: Constant.uploadImageQuality, requestFullMetadata: true);
-
-      if (imageLimit != null &&
-          maxLength != null &&
-          (list.length + maxLength) > imageLimit) {
-        HelperUtils.showSnackBarMessage(
-            context, "max5ImagesAllowed".translate(context));
-      } else {
-        Iterable<Future<File>> result = list.map((image) async {
-          File myImage = File(image.path);
-          if (await myImage.length() > Constant.maxSizeInBytes) {
-            myImage = await HelperUtils.compressImageFile(myImage);
-          } else {
-            myImage = File(image.path);
-          }
-          return myImage;
-        });
-        List<File> templistFile = [];
-        await for (Future<File> futureFile in Stream.fromIterable(result)) {
-          File file = await futureFile;
-          templistFile.add(file);
-        }
-
-        _sink.add({
-          "error": "",
-          "file": templistFile,
-        });
       }
+    } catch (error, st) {
+      Log.error(error.toString(), error, st);
+      _sink.add({"error": error.toString(), "file": []});
     }
   }
 
   /// This widget will listen changes in ui, it is wrapper around Stream builder
   Widget listenChangesInUI(
-    dynamic Function(
-      BuildContext context,
-      List<File>? images,
-    ) ondata,
+    dynamic Function(BuildContext context, List<File>? images) ondata,
   ) {
     return StreamBuilder(
       stream: imageStream,

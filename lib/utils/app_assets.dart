@@ -1,13 +1,13 @@
 class AppAssets {
   AppAssets._();
 
-  static const bottomNavigation = _BottomNavigation();
-  static const branding = _Branding();
-  static const illustrators = _Illustrators();
-  static const payment = _Payment();
-  static const profile = _Profile();
-  static const social = _Social();
-  static const common = _Common();
+  static const bottomNavigation = const _BottomNavigation();
+  static const branding = const _Branding();
+  static const illustrators = const _Illustrators();
+  static const payment = const _Payment();
+  static const profile = const _Profile();
+  static const social = const _Social();
+  static const common = const _Common();
 }
 
 class _BottomNavigation {

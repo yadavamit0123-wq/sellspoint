@@ -1,4 +1,4 @@
-import 'package:eClassify/data/repositories/chat_repository.dart';
+import 'package:eClassify/data/repositories/chat_history_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class DeleteChatState {}
@@ -23,15 +23,15 @@ class DeleteChatFailure extends DeleteChatState {
 class DeleteChatCubit extends Cubit<DeleteChatState> {
   DeleteChatCubit() : super(DeleteChatInitial());
 
-  final ChatRepository _repository = ChatRepository();
-
   Future<void> deleteChats({required List<int> itemOfferIds}) async {
     try {
       emit(DeleteChatInProgress());
-      await _repository.deleteChats(itemOfferIds: itemOfferIds);
+      await ChatHistoryRepository.instance.deleteChat(
+        itemOfferIds: itemOfferIds,
+      );
       emit(DeleteChatSuccess(itemOfferIds: itemOfferIds));
     } catch (e) {
-      emit(DeleteChatFailure(error: e, itemOfferIds: itemOfferIds));
+      emit(DeleteChatFailure(error: e.toString(), itemOfferIds: itemOfferIds));
     }
   }
 }

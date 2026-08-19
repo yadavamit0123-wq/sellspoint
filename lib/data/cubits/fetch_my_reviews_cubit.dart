@@ -1,6 +1,7 @@
 import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/model/my_review_model.dart';
-import 'package:eClassify/data/repositories/my_ratings_repository.dart';
+import 'package:eClassify/data/model/user/my_review_model.dart';
+import 'package:eClassify/data/repositories/review/review_repository.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class FetchMyRatingsState {}
@@ -10,8 +11,9 @@ class FetchMyRatingsInitial extends FetchMyRatingsState {}
 class FetchMyRatingsInProgress extends FetchMyRatingsState {}
 
 class FetchMyRatingsSuccess extends FetchMyRatingsState {
-  final double? averageRating; // Make my nullable
+  final double? averageRating;
   final List<MyReviewModel> ratings;
+  final Map<String, int> ratingsCount;
   final bool isLoadingMore;
   final bool loadingMoreError;
   final int page;
@@ -19,7 +21,8 @@ class FetchMyRatingsSuccess extends FetchMyRatingsState {
 
   FetchMyRatingsSuccess({
     required this.ratings,
-    this.averageRating, // Optional, can be null
+    required this.averageRating,
+    required this.ratingsCount,
     required this.isLoadingMore,
     required this.loadingMoreError,
     required this.page,
@@ -29,6 +32,7 @@ class FetchMyRatingsSuccess extends FetchMyRatingsState {
   FetchMyRatingsSuccess copyWith({
     List<MyReviewModel>? ratings,
     double? averageRating,
+    Map<String, int>? ratingsCount,
     bool? isLoadingMore,
     bool? loadingMoreError,
     int? page,
@@ -37,6 +41,7 @@ class FetchMyRatingsSuccess extends FetchMyRatingsState {
     return FetchMyRatingsSuccess(
       ratings: ratings ?? this.ratings,
       averageRating: averageRating ?? this.averageRating,
+      ratingsCount: ratingsCount ?? this.ratingsCount,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       loadingMoreError: loadingMoreError ?? this.loadingMoreError,
       page: page ?? this.page,
@@ -46,34 +51,38 @@ class FetchMyRatingsSuccess extends FetchMyRatingsState {
 }
 
 class FetchMyRatingsFail extends FetchMyRatingsState {
-  final dynamic error;
-
   FetchMyRatingsFail(this.error);
+
+  final Object error;
 }
 
 class FetchMyRatingsCubit extends Cubit<FetchMyRatingsState> {
   FetchMyRatingsCubit() : super(FetchMyRatingsInitial());
 
-  final MyRatingsRepository _myRatingsRepository = MyRatingsRepository();
+  final _repository = ReviewRepository.instance;
 
   void fetch() async {
     try {
       emit(FetchMyRatingsInProgress());
-      DataOutput<MyReviewModel> result =
-          await _myRatingsRepository.fetchMyRatingsAllRatings(page: 1);
-
+      DataOutput<MyReviewModel> result = await _repository
+          .fetchMyRatingsAllRatings(page: 1);
       emit(
         FetchMyRatingsSuccess(
           page: 1,
-          averageRating: result.extraData?.data,
+          averageRating:
+              (result.extraData?.data as Map)['average_rating'] as double?,
+          ratingsCount:
+              (result.extraData?.data as Map)['ratings_count']
+                  as Map<String, int>,
           isLoadingMore: false,
           loadingMoreError: false,
           ratings: result.modelList,
           total: result.total,
         ),
       );
-    } catch (e) {
-      emit(FetchMyRatingsFail(e.toString()));
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
+      emit(FetchMyRatingsFail(e));
     }
   }
 
@@ -84,26 +93,37 @@ class FetchMyRatingsCubit extends Cubit<FetchMyRatingsState> {
           return;
         }
         emit((state as FetchMyRatingsSuccess).copyWith(isLoadingMore: true));
-        DataOutput<MyReviewModel> result =
-            await _myRatingsRepository.fetchMyRatingsAllRatings(
-          page: (state as FetchMyRatingsSuccess).page + 1,
-        );
+        DataOutput<MyReviewModel> result = await _repository
+            .fetchMyRatingsAllRatings(
+              page: (state as FetchMyRatingsSuccess).page + 1,
+            );
 
         FetchMyRatingsSuccess myRatingsModelState =
             (state as FetchMyRatingsSuccess);
         myRatingsModelState.ratings.addAll(result.modelList);
-        emit(FetchMyRatingsSuccess(
+        emit(
+          FetchMyRatingsSuccess(
             isLoadingMore: false,
             loadingMoreError: false,
-            averageRating: result.extraData?.data,
-            // Handle nullable my
+            averageRating:
+                (result.extraData?.data as Map)['average_rating'] as double?,
+            ratingsCount:
+                (result.extraData?.data as Map)['ratings_count']
+                    as Map<String, int>,
             ratings: myRatingsModelState.ratings,
             page: (state as FetchMyRatingsSuccess).page + 1,
-            total: result.total));
+            total: result.total,
+          ),
+        );
       }
-    } catch (e) {
-      emit((state as FetchMyRatingsSuccess)
-          .copyWith(isLoadingMore: false, loadingMoreError: true));
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
+      emit(
+        (state as FetchMyRatingsSuccess).copyWith(
+          isLoadingMore: false,
+          loadingMoreError: true,
+        ),
+      );
     }
   }
 
@@ -124,7 +144,6 @@ class FetchMyRatingsCubit extends Cubit<FetchMyRatingsState> {
   }
 
   void updateIsExpanded(int index) {
-    //this will create new chat in chat list if there is no already
     if (state is FetchMyRatingsSuccess) {
       List<MyReviewModel> ratingsList =
           (state as FetchMyRatingsSuccess).ratings;
@@ -141,23 +160,18 @@ class FetchMyRatingsCubit extends Cubit<FetchMyRatingsState> {
   void updateReportReason(int itemReportId, String reportReason) {
     if (state is FetchMyRatingsSuccess) {
       final ratings = (state as FetchMyRatingsSuccess).ratings;
-      int indexToUpdate =
-          ratings.indexWhere((element) => element.id == itemReportId);
+      int indexToUpdate = ratings.indexWhere(
+        (element) => element.id == itemReportId,
+      );
       if (indexToUpdate != -1) {
-        // Update the myPurchase model at the specific index
         ratings[indexToUpdate].reportStatus = 'reported';
         ratings[indexToUpdate].reportReason = reportReason;
 
-        emit(
-          FetchMyRatingsSuccess(
-              ratings: List.from(ratings),
-              isLoadingMore: (state as FetchMyRatingsSuccess).isLoadingMore,
-              loadingMoreError:
-                  (state as FetchMyRatingsSuccess).loadingMoreError,
-              page: (state as FetchMyRatingsSuccess).page,
-              total: (state as FetchMyRatingsSuccess).total,
-              averageRating: (state as FetchMyRatingsSuccess).averageRating),
+        final successState = (state as FetchMyRatingsSuccess).copyWith(
+          ratings: ratings,
         );
+
+        emit(successState);
       }
     }
   }

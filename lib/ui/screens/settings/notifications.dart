@@ -1,39 +1,39 @@
+import 'dart:io';
+
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/fetch_notifications_cubit.dart';
-import 'package:eClassify/data/helper/custom_exception.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/data/model/notification_data.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/screens/widgets/intertitial_ads_screen.dart';
-import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
+import 'package:eClassify/data/model/notification_model.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/interstitial_ad_on_exit_mixin.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-late NotificationData selectedNotification;
-
 class Notifications extends StatefulWidget {
-  const Notifications({super.key});
+  const Notifications({this.id, super.key});
+
+  final String? id;
 
   @override
   NotificationsState createState() => NotificationsState();
 
   static Route route(RouteSettings routeSettings) {
-    return BlurredRouter(
-      builder: (_) => const Notifications(),
+    final args = routeSettings.arguments as Map?;
+
+    return MaterialPageRoute(
+      builder: (_) => Notifications(id: args?['notificationId'] as String?),
     );
   }
 }
 
-class NotificationsState extends State<Notifications> {
+class NotificationsState extends State<Notifications>
+    with InterstitialAdOnExitMixin {
   late final ScrollController _pageScrollController = ScrollController();
 
   List<ItemModel> itemData = [];
@@ -41,9 +41,16 @@ class NotificationsState extends State<Notifications> {
   @override
   void initState() {
     super.initState();
-    AdHelper.loadInterstitialAd();
     context.read<FetchNotificationsCubit>().fetchNotifications();
     _pageScrollController.addListener(_pageScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.id != null && widget.id != '') {
+        Navigator.of(context).pushNamed(
+          Routes.notificationDetailPage,
+          arguments: {'notificationId': widget.id},
+        );
+      }
+    });
   }
 
   void _pageScroll() {
@@ -56,12 +63,12 @@ class NotificationsState extends State<Notifications> {
 
   @override
   void dispose() {
+    _pageScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    AdHelper.showInterstitialAd();
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primaryColor,
       appBar: UiUtils.buildAppBar(
@@ -69,87 +76,65 @@ class NotificationsState extends State<Notifications> {
         title: "notifications".translate(context),
         showBackButton: true,
       ),
-      body: BlocBuilder<FetchNotificationsCubit, FetchNotificationsState>(
+      body: SafeArea(
+        bottom: Platform.isAndroid,
+        child: BlocBuilder<FetchNotificationsCubit, FetchNotificationsState>(
           builder: (context, state) {
-        if (state is FetchNotificationsInProgress) {
-          return buildNotificationShimmer();
-        }
-        if (state is FetchNotificationsFailure) {
-          if (state.errorMessage is ApiException) {
-            if (state.errorMessage.error == "no-internet") {
-              return NoInternet(
+            if (state is FetchNotificationsInProgress) {
+              return buildNotificationShimmer();
+            }
+            if (state is FetchNotificationsFailure) {
+              return QErrorWidget(
+                error: state.error,
                 onRetry: () {
                   context.read<FetchNotificationsCubit>().fetchNotifications();
                 },
               );
             }
-          }
 
-          return const SomethingWentWrong();
-        }
+            if (state is FetchNotificationsSuccess) {
+              if (state.notificationData.isEmpty) {
+                return const QErrorWidget.emptyData();
+              }
 
-        if (state is FetchNotificationsSuccess) {
-          if (state.notificationdata.isEmpty) {
-            return NoDataFound(
-              onTap: () {
-                context.read<FetchNotificationsCubit>().fetchNotifications();
-              },
-            );
-          }
+              return buildNotificationListWidget(state);
+            }
 
-          return buildNotificationListWidget(state);
-        }
-
-        return const SizedBox.square();
-      }),
+            return const SizedBox.square();
+          },
+        ),
+      ),
     );
   }
 
   Widget buildNotificationShimmer() {
     return ListView.separated(
-        padding: const EdgeInsets.all(10),
-        separatorBuilder: (context, index) => const SizedBox(
-              height: 10,
-            ),
-        itemCount: 20,
-        physics: const NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            height: 55,
-            child: Row(
-              children: <Widget>[
-                const CustomShimmer(
-                  width: 50,
-                  height: 50,
-                  borderRadius: 11,
-                ),
-                const SizedBox(
-                  width: 5,
-                ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    CustomShimmer(
-                      height: 7,
-                      width: 200,
-                    ),
-                    const SizedBox(height: 5),
-                    CustomShimmer(
-                      height: 7,
-                      width: 100,
-                    ),
-                    const SizedBox(height: 5),
-                    CustomShimmer(
-                      height: 7,
-                      width: 150,
-                    )
-                  ],
-                )
-              ],
-            ),
-          );
-        });
+      padding: const EdgeInsets.all(10),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemCount: 20,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        return SizedBox(
+          height: 55,
+          child: Row(
+            spacing: 5,
+            children: <Widget>[
+              const CustomShimmer(width: 50, height: 50, borderRadius: 11),
+              Column(
+                spacing: 5,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  CustomShimmer(height: 7, width: 200),
+                  CustomShimmer(height: 7, width: 100),
+                  CustomShimmer(height: 7, width: 150),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Column buildNotificationListWidget(FetchNotificationsSuccess state) {
@@ -157,108 +142,89 @@ class NotificationsState extends State<Notifications> {
       children: [
         Expanded(
           child: ListView.separated(
-              controller: _pageScrollController,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(10),
-              separatorBuilder: (context, index) => const SizedBox(
-                    height: 12,
-                  ),
-              itemCount: state.notificationdata.length,
-              itemBuilder: (context, index) {
-                NotificationData notificationData =
-                    state.notificationdata[index];
-                return GestureDetector(
-                  onTap: () {
-                    selectedNotification = notificationData;
-
-                    HelperUtils.goToNextPage(
-                        Routes.notificationDetailPage, context, false);
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondaryColor,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: context.color.borderColor.darken(50),
-                          width: 1),
+            controller: _pageScrollController,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(10),
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemCount: state.notificationData.length,
+            itemBuilder: (context, index) {
+              NotificationData notificationData = state.notificationData[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pushNamed(
+                    Routes.notificationDetailPage,
+                    arguments: {'notificationData': notificationData},
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: context.color.textLightColor.withValues(
+                        alpha: 0.28,
+                      ),
+                      width: 1,
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 12),
-                    child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          ClipRRect(
-                            clipBehavior: Clip.antiAliasWithSaveLayer,
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(15),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    spacing: 12,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      CustomImage(
+                        src: notificationData.image,
+                        size: Size.square(50),
+                        radius: 12,
+                      ),
+                      Expanded(
+                        child: Column(
+                          spacing: 3,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              notificationData.title!.firstUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium!
+                                  .merge(
+                                    const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                             ),
-                            child: UiUtils.getImage(notificationData.image!,
-                                height: 53, width: 53, fit: BoxFit.fill),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                Text(
-                                  notificationData.title!.firstUpperCase(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium!
-                                      .merge(const TextStyle(
-                                          fontWeight: FontWeight.w500)),
-                                ),
-                                Padding(
-                                    padding: const EdgeInsets.only(top: 3.0),
-                                    child: Text(
-                                      notificationData.message!
-                                          .firstUpperCase(),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall!
-                                          .copyWith(
-                                              color:
-                                                  context.color.textLightColor),
-                                    )),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: CustomText(
-                                    notificationData.createdAt!
-                                        .formatDate()
-                                        .toString(),
-                                    fontSize: context.font.smaller,
+                            Text(
+                              notificationData.message!.firstUpperCase(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall!
+                                  .copyWith(
                                     color: context.color.textLightColor,
                                   ),
-                                )
-                              ])),
-                        ]),
+                            ),
+                            CustomText(
+                              notificationData.createdAt!
+                                  .formatDate()
+                                  .toString(),
+                              fontSize: context.font.smaller,
+                              color: context.color.textLightColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              }),
+                ),
+              );
+            },
+          ),
         ),
-        if (state.isLoadingMore) UiUtils.progress()
+        if (state.isLoadingMore) UiUtils.progress(),
       ],
     );
-  }
-
-  Future<List<ItemModel>> getItemById() async {
-    Map<String, dynamic> body = {
-      // ApiParams.id: itemsId,//String itemsId
-    };
-
-    var response = await Api.get(url: Api.getItemApi, queryParameters: body);
-
-    if (!response[Api.error]) {
-      List list = response['data'];
-      itemData = list.map((model) => ItemModel.fromJson(model)).toList();
-    } else {
-      throw CustomException(response[Api.message]);
-    }
-    return itemData;
   }
 }

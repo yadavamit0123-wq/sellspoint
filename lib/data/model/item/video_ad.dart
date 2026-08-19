@@ -1,4 +1,5 @@
 import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/utils/json_helper.dart';
 
 class VideoAd {
   VideoAd({
@@ -11,22 +12,14 @@ class VideoAd {
     required this.item,
   });
 
-  factory VideoAd.fromJson(Map<String, dynamic> json) {
-    ItemModel? item;
-    final rawItem = json['item'];
-    if (rawItem is Map) {
-      item = ItemModel.fromJson(Map<String, dynamic>.from(rawItem));
-    }
-    return VideoAd(
-      id: (json['id'] as num).toInt(),
-      itemId: (json['item_id'] as num).toInt(),
-      video: (json['video'] ?? '').toString(),
-      thumbnail: (json['thumbnail'] ?? '').toString(),
-      likeCount: (json['liked_count'] as num?)?.toInt() ?? 0,
-      isLiked: json['is_liked'] == true || json['is_liked'] == 1,
-      item: item ?? ItemModel(id: json['item_id'] as int?),
-    );
-  }
+  VideoAd.fromJson(Json json)
+    : id = json['id'] as int,
+      itemId = json['item_id'] as int,
+      video = json['video'] as String,
+      thumbnail = json['thumbnail'] as String,
+      likeCount = json['liked_count'] as int,
+      isLiked = json['is_liked'] as bool? ?? false,
+      item = JsonHelper.parseObject(json['item'] as Json, ItemModel.fromJson);
 
   final int id;
   final int itemId;

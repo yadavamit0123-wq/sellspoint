@@ -1,14 +1,10 @@
 import 'package:eClassify/data/cubits/fetch_faqs_cubit.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/screens/widgets/intertitial_ads_screen.dart';
-import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/interstitial_ad_on_exit_mixin.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,7 +13,7 @@ class FaqsScreen extends StatefulWidget {
   const FaqsScreen({super.key});
 
   static Route route(RouteSettings settings) {
-    return BlurredRouter(
+    return MaterialPageRoute(
       builder: (context) {
         return const FaqsScreen();
       },
@@ -28,23 +24,18 @@ class FaqsScreen extends StatefulWidget {
   State<FaqsScreen> createState() => _FaqsScreenState();
 }
 
-class _FaqsScreenState extends State<FaqsScreen> {
+class _FaqsScreenState extends State<FaqsScreen>
+    with InterstitialAdOnExitMixin {
+  int _expandedItem = -1;
+
   @override
   void initState() {
-    AdHelper.loadInterstitialAd();
-    context.read<FetchFaqsCubit>().fetchFaqs();
-
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
+    context.read<FetchFaqsCubit>().fetchFaqs();
   }
 
   @override
   Widget build(BuildContext context) {
-    AdHelper.showInterstitialAd();
     return RefreshIndicator(
       color: context.color.territoryColor,
       onRefresh: () async {
@@ -52,72 +43,76 @@ class _FaqsScreenState extends State<FaqsScreen> {
       },
       child: Scaffold(
         backgroundColor: context.color.primaryColor,
-        appBar: UiUtils.buildAppBar(context,
-            showBackButton: true, title: "faqsLbl".translate(context)),
+        appBar: UiUtils.buildAppBar(
+          context,
+          showBackButton: true,
+          title: "faqs".translate(context),
+        ),
         body: BlocBuilder<FetchFaqsCubit, FetchFaqsState>(
           builder: (context, state) {
             if (state is FetchFaqsInProgress) {
               return buildFaqsShimmer();
             }
             if (state is FetchFaqsFailure) {
-              if (state.errorMessage is ApiException) {
-                if (state.errorMessage.error == "no-internet") {
-                  return NoInternet(
-                    onRetry: () {
-                      context.read<FetchFaqsCubit>().fetchFaqs();
-                    },
-                  );
-                }
-              }
-              return const SomethingWentWrong();
+              return QErrorWidget(
+                error: state.error,
+                onRetry: () {
+                  context.read<FetchFaqsCubit>().fetchFaqs();
+                },
+              );
             }
             if (state is FetchFaqsSuccess) {
               if (state.faqModel.isEmpty) {
-                return const NoDataFound();
+                return const QErrorWidget.emptyData();
               }
-              return ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  padding: EdgeInsets.only(top: 7),
-                  itemCount: state.faqModel.length,
-                  itemBuilder: (context, index) {
-                    return Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                        child: ExpansionPanelList.radio(
-                          expandedHeaderPadding: EdgeInsets.only(bottom: 0),
-                          children: [
-                            ExpansionPanelRadio(
-                              backgroundColor: context.color.secondaryColor,
-                              body: ListTile(
-                                title: CustomText(
-                                  state.faqModel[index].answer!,
-                                  fontSize: context.font.normal,
-                                ),
-                              ),
-                              headerBuilder: (context, isExpanded) {
-                                return ListTile(
-                                    title: CustomText(
-                                  state.faqModel[index].question!,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: context.font.normal,
-                                ));
-                              },
-                              value: index,
-                              canTapOnHeader: true,
+              return ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                shrinkWrap: true,
+                padding: EdgeInsetsDirectional.only(top: 7, start: 15, end: 15),
+                separatorBuilder: (context, index) {
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                  );
+                },
+                itemCount: state.faqModel.length,
+                itemBuilder: (context, index) {
+                  final faq = state.faqModel[index];
+                  return ExpansionPanelList(
+                    children: [
+                      ExpansionPanel(
+                        isExpanded: _expandedItem == index,
+                        backgroundColor: context.color.secondaryColor,
+                        body: ListTile(
+                          title: CustomText(
+                            faq.answer.localized,
+                            fontSize: context.font.normal,
+                          ),
+                        ),
+                        headerBuilder: (context, isExpanded) {
+                          return ListTile(
+                            title: CustomText(
+                              faq.question.localized,
+                              fontWeight: FontWeight.bold,
+                              fontSize: context.font.normal,
                             ),
-                          ],
-                          elevation: 0.0,
-                          animationDuration: const Duration(milliseconds: 700),
-                          expansionCallback: (int item, bool status) {
-                            setState(
-                              () {
-                                state.faqModel[index].isExpanded = !status;
-                              },
-                            );
-                          },
-                        ));
-                  });
+                          );
+                        },
+                        canTapOnHeader: true,
+                      ),
+                    ],
+                    elevation: 0.0,
+                    animationDuration: const Duration(milliseconds: 700),
+                    expansionCallback: (int item, bool status) {
+                      if (status) {
+                        _expandedItem = index;
+                      } else {
+                        _expandedItem = -1;
+                      }
+                      setState(() {});
+                    },
+                  );
+                },
+              );
             }
             return Container();
           },
@@ -128,18 +123,19 @@ class _FaqsScreenState extends State<FaqsScreen> {
 
   Widget buildFaqsShimmer() {
     return ListView.builder(
-        itemCount: 7,
-        shrinkWrap: true,
-        padding: EdgeInsets.only(top: 7),
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 15),
-            child: CustomShimmer(
-              borderRadius: 0,
-              width: double.infinity,
-              height: 60,
-            ),
-          );
-        });
+      itemCount: 7,
+      shrinkWrap: true,
+      padding: EdgeInsets.only(top: 7),
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 15),
+          child: CustomShimmer(
+            borderRadius: 0,
+            width: double.infinity,
+            height: 60,
+          ),
+        );
+      },
+    );
   }
 }

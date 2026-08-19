@@ -1,282 +1,179 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'package:eClassify/app/app_theme.dart';
-import 'package:eClassify/data/cubits/favorite/favorite_cubit.dart';
-import 'package:eClassify/data/cubits/favorite/manage_fav_cubit.dart';
-import 'package:eClassify/data/cubits/system/app_theme_cubit.dart';
+import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/data/repositories/favourites_repository.dart';
+import 'package:eClassify/ui/screens/home/widgets/favorite_button.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/screens/widgets/promoted_widget.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/app_icon.dart';
-import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/app_icons.dart';
+import 'package:eClassify/utils/app_session.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
-import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class ItemHorizontalCard extends StatelessWidget {
   final ItemModel item;
-  final List<Widget>? addBottom;
-  final double? additionalHeight;
-  final StatusButton? statusButton;
-  final bool? useRow;
   final VoidCallback? onDeleteTap;
-  final double? additionalImageWidth;
   final bool? showLikeButton;
+  final VoidCallback? onTap;
 
-  const ItemHorizontalCard(
-      {super.key,
-      required this.item,
-      this.useRow,
-      this.addBottom,
-      this.additionalHeight,
-      this.statusButton,
-      this.onDeleteTap,
-      this.showLikeButton,
-      this.additionalImageWidth});
-
-  Widget favButton(BuildContext context) {
-    bool isLike = context.read<FavoriteCubit>().isItemFavorite(item.id!);
-    return BlocProvider(
-        create: (context) => UpdateFavoriteCubit(FavoriteRepository()),
-        child: BlocConsumer<FavoriteCubit, FavoriteState>(
-            bloc: context.read<FavoriteCubit>(),
-            listener: ((context, state) {
-              if (state is FavoriteFetchSuccess) {
-                isLike = context.read<FavoriteCubit>().isItemFavorite(item.id!);
-              }
-            }),
-            builder: (context, likeAndDislikeState) {
-              return BlocConsumer<UpdateFavoriteCubit, UpdateFavoriteState>(
-                  bloc: context.read<UpdateFavoriteCubit>(),
-                  listener: ((context, state) {
-                    if (state is UpdateFavoriteSuccess) {
-                      if (state.wasProcess) {
-                        context
-                            .read<FavoriteCubit>()
-                            .addFavoriteitem(state.item);
-                      } else {
-                        context
-                            .read<FavoriteCubit>()
-                            .removeFavoriteItem(state.item);
-                      }
-                    }
-                  }),
-                  builder: (context, state) {
-                    return InkWell(
-                      onTap: () {
-                        UiUtils.checkUser(
-                            onNotGuest: () {
-                              context
-                                  .read<UpdateFavoriteCubit>()
-                                  .setFavoriteItem(
-                                    item: item,
-                                    type: isLike ? 0 : 1,
-                                  );
-                            },
-                            context: context);
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: context.color.secondaryColor,
-                          shape: BoxShape.circle,
-                          boxShadow:
-                              context.watch<AppThemeCubit>().state.appTheme ==
-                                      AppTheme.dark
-                                  ? null
-                                  : [
-                                      BoxShadow(
-                                        color: Color.fromARGB(12, 0, 0, 0),
-                                        offset: Offset(0, 2),
-                                        blurRadius: 10,
-                                        spreadRadius: 4,
-                                      )
-                                    ],
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.none,
-                          child: state is UpdateFavoriteInProgress
-                              ? Center(child: UiUtils.progress())
-                              : UiUtils.getSvg(
-                                  isLike ? AppIcons.like_fill : AppIcons.like,
-                                  width: 22,
-                                  height: 22,
-                                  color: context.color.territoryColor,
-                                ),
-                        ),
-                      ),
-                    );
-                  });
-            }));
-  }
+  const ItemHorizontalCard({
+    super.key,
+    required this.item,
+    this.onDeleteTap,
+    this.showLikeButton,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.5),
-      child: Container(
-        height: addBottom == null ? 124 : (124 + (additionalHeight ?? 0)),
-        decoration: BoxDecoration(
-            border: Border.all(color: context.color.borderColor.darken(50)),
-            color: context.color.secondaryColor,
-            borderRadius: BorderRadius.circular(15)),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
+    return GestureDetector(
+      onTap: () {
+        onTap?.call();
+        Navigator.pushNamed(
+          context,
+          Routes.adDetailsScreen,
+          arguments: {"item_id": item.id},
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.5),
+        child: RepaintBoundary(
+          child: Container(
+            height: 124,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: context.color.textLightColor.withValues(alpha: 0.28),
+              ),
+              color: context.color.secondaryColor,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Column(
-                        children: [
-                          Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(15),
-                                child: UiUtils.getImage(
-                                  item.image ?? "",
-                                  height: addBottom == null
-                                      ? 122
-                                      : (122 + (additionalHeight ?? 0)) /*statusButton != null ? 90 : 120*/,
-                                  width: 140 + (additionalImageWidth ?? 0),
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                              // CustomText(item.promoted.toString()),
-                              if(Constant.sponsorPackageText.isNotEmpty && (item.isFeature ?? false))
-                                PositionedDirectional(
-                                    start: 5,
-                                    top: 5,
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(3),
-                                          color: Colors.yellow.shade700
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.flash_on, size: 10,color: Colors.black),
-                                          SizedBox(width: 4),
-                                          Text('${Constant.sponsorPackageText}'.toCapitalized(), style: TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold),),
-                                          // Text('${Constant.sponsorPackageText}'.toCapitalized(), style: TextStyle(fontSize: 8, color: Constant.hexToColor(Constant.packageTextColor), fontWeight: FontWeight.bold),),
-                                        ],
-                                      ),
-                                    )
-                                ),
-                              // if (item.isFeature ?? false)
-                              //   const PositionedDirectional(
-                              //       start: 5,
-                              //       top: 5,
-                              //       child: PromotedCard(type: PromoteCardType.icon)
-                              //   ),
-                            ],
-                          ),
-                          if (statusButton != null)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 3.0, horizontal: 3.0),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                    color: statusButton!.color,
-                                    borderRadius: BorderRadius.circular(4)),
-                                width: 80,
-                                height: 120 - 90 - 8,
-                                child: Center(
-                                    child: CustomText(statusButton!.lable,
-                                        fontSize: context.font.small,
-                                        fontWeight: FontWeight.bold,
-                                        color: statusButton?.textColor ??
-                                            Colors.black)),
-                              ),
-                            )
-                        ],
+                Stack(
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: 122,
+                        maxWidth: 100,
                       ),
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.only(
-                            top: 0,
-                            start: 12,
-                            bottom: 5,
-                            end: 12,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                      child: CustomText(
-                                    (item.price ?? 0.0).currencyFormat,
-                                    fontSize: context.font.large,
-                                    color: context.color.territoryColor,
-                                    fontWeight: FontWeight.w700,
-                                  )),
-                                  if (showLikeButton ?? true) favButton(context)
-                                ],
-                              ),
-                              CustomText(
-                                item.name!.firstUpperCase(),
-                                fontSize: context.font.normal,
-                                color: context.color.textDefaultColor,
-                                maxLines: 2,
-                              ),
-                              //SizedBox(height: 5),
-                              if (item.address != "")
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      size: 15,
-                                      color: context.color.textDefaultColor
-                                          .withValues(alpha: 0.5),
-                                    ),
-                                    Expanded(
-                                        child: CustomText(
-                                      item.address?.trim() ?? "",
-                                      fontSize: context.font.smaller,
-                                      color: context.color.textDefaultColor
-                                          .withValues(alpha: 0.5),
-                                      maxLines: 1,
-                                    ))
-                                  ],
-                                )
-                            ],
-                          ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CustomImage(
+                          src: item.image ?? '',
+                          size: const Size(100, 122),
+                          fit: BoxFit.cover,
+                          adaptive: true,
                         ),
                       ),
-                    ],
+                    ),
+                    if (item.isFeature ?? false)
+                      const PositionedDirectional(
+                        start: 5,
+                        top: 5,
+                        child: PromotedCard(),
+                      ),
+                  ],
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      top: 0,
+                      start: 12,
+                      bottom: 5,
+                      end: 12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Row(
+                          children: [
+                            if (UiUtils.displayPrice(item))
+                              Expanded(
+                                child: UiUtils.getPriceWidget(item, context),
+                              )
+                            else
+                              Expanded(
+                                child: CustomText(
+                                  item.translatedName ?? "",
+                                  maxLines: 2,
+                                  firstUpperCaseWidget: true,
+                                ),
+                              ),
+                            if (showLikeButton ?? true)
+                              FavoriteButton(item: item),
+                          ],
+                        ),
+                        if (UiUtils.displayPrice(item))
+                          CustomText(
+                            item.translatedName!.firstUpperCase(),
+                            fontSize: context.font.normal,
+                            color: context.color.textDefaultColor,
+                            maxLines: 2,
+                          ),
+                        if (item.translatedAddress != "")
+                          RichText(
+                            maxLines: 1,
+                            text: TextSpan(
+                              children: [
+                                WidgetSpan(
+                                  child: Icon(
+                                    AppIcons.mapPinLine,
+                                    size: 13,
+                                    color: context.color.textLightColor,
+                                  ),
+                                ),
+                                TextSpan(text: ' '),
+                                TextSpan(
+                                  text: UiUtils.formatDisplayAddress(
+                                    item.translatedAddress ?? '',
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: context.font.smaller,
+                                    color: context.color.textLightColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (item.created != null && item.created != '')
+                          RichText(
+                            maxLines: 1,
+                            text: TextSpan(
+                              children: [
+                                WidgetSpan(
+                                  child: Icon(
+                                    AppIcons.clock,
+                                    size: 13,
+                                    color: context.color.textLightColor,
+                                  ),
+                                ),
+                                TextSpan(text: ' '),
+                                TextSpan(
+                                  text: timeago.format(
+                                    DateTime.parse(item.created!),
+                                    locale: AppSession.currentLocale,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: context.font.smaller,
+                                    color: context.color.textLightColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-
-                if (useRow == false || useRow == null) ...addBottom ?? [],
-
-                if (useRow == true) ...{Row(children: addBottom ?? [])}
-
-                // ...addBottom ?? []
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
-
-class StatusButton {
-  final String lable;
-  final Color color;
-  final Color? textColor;
-
-  StatusButton({
-    required this.lable,
-    required this.color,
-    this.textColor,
-  });
 }

@@ -6,7 +6,6 @@ import 'package:eClassify/data/model/user_model.dart';
 import 'package:eClassify/ui/screens/referral_program/widgets/my_referral_widget.dart';
 import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/app_icon.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
@@ -55,7 +54,7 @@ class _ReferralProgramScreenState extends State<ReferralProgramScreen> with Sing
   void getMyReferCode(){
     var myData = HiveUtils.getUserDetails();
     userData = myData;
-    referralCode = userData?.referId ?? 'null';
+    referralCode = userData?.referId ?? userData?.referralCode ?? 'null';
   }
 
   void shareApp() {
@@ -119,7 +118,7 @@ class _ReferralProgramScreenState extends State<ReferralProgramScreen> with Sing
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           SvgPicture.asset(
-                            AppIcons.gift,
+                            'assets/svg/gift.svg',
                             height: size.height * 0.3,
                             width: size.width,
                           ),

@@ -1,4 +1,4 @@
-﻿import 'package:eClassify/data/repositories/seller/seller_items_repository.dart';
+﻿import 'package:eClassify/data/repositories/seller_items_repository.dart';
 import 'package:eClassify/data/model/data_output.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,12 +16,13 @@ class FetchSellerItemsSuccess extends FetchSellerItemsState {
   final int page;
   final int total;
 
-  FetchSellerItemsSuccess(
-      {required this.items,
-      required this.isLoadingMore,
-      required this.loadingMoreError,
-      required this.page,
-      required this.total});
+  FetchSellerItemsSuccess({
+    required this.items,
+    required this.isLoadingMore,
+    required this.loadingMoreError,
+    required this.page,
+    required this.total,
+  });
 
   FetchSellerItemsSuccess copyWith({
     List<ItemModel>? items,
@@ -74,30 +75,36 @@ class FetchSellerItemsCubit extends Cubit<FetchSellerItemsState> {
   Future<void> fetchMore({required int sellerId}) async {
     try {
       if (state is FetchSellerItemsSuccess) {
-        print(
-            "state as FetchSellerItemsSuccess).isLoadingMore****${(state as FetchSellerItemsSuccess).isLoadingMore}");
         if ((state as FetchSellerItemsSuccess).isLoadingMore) {
           return;
         }
         emit((state as FetchSellerItemsSuccess).copyWith(isLoadingMore: true));
-        DataOutput<ItemModel> result =
-            await _sellerItemsRepository.fetchSellerItemsAllItems(
-                page: (state as FetchSellerItemsSuccess).page + 1,
-                sellerId: sellerId);
+        DataOutput<ItemModel> result = await _sellerItemsRepository
+            .fetchSellerItemsAllItems(
+              page: (state as FetchSellerItemsSuccess).page + 1,
+              sellerId: sellerId,
+            );
 
         FetchSellerItemsSuccess itemModelState =
             (state as FetchSellerItemsSuccess);
         itemModelState.items.addAll(result.modelList);
-        emit(FetchSellerItemsSuccess(
+        emit(
+          FetchSellerItemsSuccess(
             isLoadingMore: false,
             loadingMoreError: false,
             items: itemModelState.items,
             page: (state as FetchSellerItemsSuccess).page + 1,
-            total: result.total));
+            total: result.total,
+          ),
+        );
       }
     } catch (e) {
-      emit((state as FetchSellerItemsSuccess)
-          .copyWith(isLoadingMore: false, loadingMoreError: true));
+      emit(
+        (state as FetchSellerItemsSuccess).copyWith(
+          isLoadingMore: false,
+          loadingMoreError: true,
+        ),
+      );
     }
   }
 

@@ -10,9 +10,8 @@
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:eclassify.thewrteam.in</string>
+		<string>applinks:sellspoint.in</string>
 		<string>applinks:admin.sellspoint.in</string>
-		<string>applinks:e-classify-app-router.vercel.app</string>
 	</array>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>

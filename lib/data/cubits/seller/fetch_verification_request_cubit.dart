@@ -1,64 +1,35 @@
-﻿import 'package:eClassify/data/model/verification_request_model.dart';
+﻿import 'package:eClassify/data/model/user/verification_request.dart';
 import 'package:eClassify/data/repositories/seller/seller_verification_field_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-abstract class FetchVerificationRequestState {}
+abstract class VerificationRequestState {}
 
-class FetchVerificationRequestInitial extends FetchVerificationRequestState {}
+class VerificationRequestInitial extends VerificationRequestState {}
 
-class FetchVerificationRequestInProgress
-    extends FetchVerificationRequestState {}
+class VerificationRequestLoading extends VerificationRequestState {}
 
-class FetchVerificationRequestSuccess extends FetchVerificationRequestState {
-  final VerificationRequestModel data;
-
-  FetchVerificationRequestSuccess(this.data);
+class VerificationRequestSuccess extends VerificationRequestState {
+  VerificationRequestSuccess({required this.request});
+  final VerificationRequest request;
 }
 
-class FetchVerificationRequestFail extends FetchVerificationRequestState {
-  final dynamic error;
-
-  FetchVerificationRequestFail(this.error);
+class VerificationRequestFail extends VerificationRequestState {
+  VerificationRequestFail({required this.error});
+  final Object? error;
 }
 
-class FetchVerificationRequestsCubit
-    extends Cubit<FetchVerificationRequestState> {
-  FetchVerificationRequestsCubit() : super(FetchVerificationRequestInitial());
+class VerificationRequestCubit extends Cubit<VerificationRequestState> {
+  VerificationRequestCubit() : super(VerificationRequestInitial());
   final SellerVerificationFieldRepository repository =
       SellerVerificationFieldRepository();
 
-  void fetchVerificationRequests() async {
+  void fetchVerificationRequest() async {
     try {
-      emit(FetchVerificationRequestInProgress());
-      VerificationRequestModel result =
-          await repository.getVerificationRequest();
-      emit(FetchVerificationRequestSuccess(result));
+      emit(VerificationRequestLoading());
+      final request = await repository.getVerificationRequest();
+      emit(VerificationRequestSuccess(request: request));
     } catch (e) {
-      emit(FetchVerificationRequestFail(e.toString()));
+      emit(VerificationRequestFail(error: e));
     }
-  }
-
-//while edit
-  void fillVerificationRequests(VerificationRequestModel fields) {
-    emit(FetchVerificationRequestSuccess(fields));
-  }
-
-  List<VerificationFieldValues> getFields() {
-    if (state is FetchVerificationRequestSuccess) {
-      return (state as FetchVerificationRequestSuccess)
-          .data
-          .verificationFieldValues!;
-    }
-    return [];
-  }
-
-  bool? isEmpty() {
-    if (state is FetchVerificationRequestSuccess) {
-      return (state as FetchVerificationRequestSuccess)
-          .data
-          .verificationFieldValues!
-          .isEmpty;
-    }
-    return null;
   }
 }

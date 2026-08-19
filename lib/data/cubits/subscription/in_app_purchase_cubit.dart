@@ -1,4 +1,4 @@
-import 'package:eClassify/data/repositories/in_app_purchase_repository.dart';
+import 'package:eClassify/data/repositories/subscription/in_app_purchase_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class InAppPurchaseState {}
@@ -35,7 +35,7 @@ class InAppPurchaseCubit extends Cubit<InAppPurchaseState> {
         .then((value) {
       emit(InAppPurchaseInSuccess(value['message']));
     }).catchError((e) {
-      emit(InAppPurchaseFailure(e));
+      emit(InAppPurchaseFailure(e.toString()));
     });
   }
 }

@@ -1,49 +1,44 @@
-import 'dart:io';
-import 'package:eClassify/data/repositories/item/item_repository.dart';
+import 'package:eClassify/data/model/item/ad_posting_data.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/data/repositories/item/item_repository.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-enum ManageItemType { add, edit, delete }
 
 abstract class ManageItemState {}
 
 class ManageItemInitial extends ManageItemState {}
 
-class ManageItemInProgress extends ManageItemState {}
+class ManageItemLoading extends ManageItemState {}
 
 class ManageItemSuccess extends ManageItemState {
-  final ManageItemType type;
-  final ItemModel model;
+  ManageItemSuccess({required this.item, required this.isUploadInProgress});
 
-  ManageItemSuccess(this.model, this.type);
+  final ItemModel item;
+  final bool isUploadInProgress;
 }
 
-class ManageItemFail extends ManageItemState {
-  final dynamic error;
+class ManageItemFailure extends ManageItemState {
+  ManageItemFailure({required this.message});
 
-  ManageItemFail(this.error);
+  final String message;
 }
 
 class ManageItemCubit extends Cubit<ManageItemState> {
   ManageItemCubit() : super(ManageItemInitial());
-  final ItemRepository _itemRepository = ItemRepository();
 
-  void manage(ManageItemType type, Map<String, dynamic> data, File? mainImage,
-      List<File>? otherImage) async {
+  Future<void> createItem({required AdPostingData data}) async {
     try {
-      emit(ManageItemInProgress());
+      emit(ManageItemLoading());
 
-      if (type == ManageItemType.add) {
-        ItemModel itemModel =
-            await _itemRepository.createItem(data, mainImage!, otherImage!);
-        emit(ManageItemSuccess(itemModel, type));
-      } else if (type == ManageItemType.edit) {
-        ItemModel itemModel =
-            await _itemRepository.editItem(data, mainImage, otherImage);
-        emit(ManageItemSuccess(itemModel, type));
-      }
-    } catch (e) {
-      emit(ManageItemFail(e));
+      final result = await ItemRepository().createAdvertisement(data: data);
+
+      emit(ManageItemSuccess(
+        item: result.item,
+        isUploadInProgress: result.isUploadInProgress,
+      ));
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      emit(ManageItemFailure(message: e.toString()));
     }
   }
 }

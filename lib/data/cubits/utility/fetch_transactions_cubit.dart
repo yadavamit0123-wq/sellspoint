@@ -1,6 +1,7 @@
 import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/model/transaction_model.dart';
-import 'package:eClassify/data/repositories/transaction.dart';
+import 'package:eClassify/data/model/subscription/transaction_model.dart';
+import 'package:eClassify/data/repositories/subscription/transaction_repository.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class FetchTransactionsState {}
@@ -42,9 +43,8 @@ class FetchTransactionsSuccess extends FetchTransactionsState {
 }
 
 class FetchTransactionsFailure extends FetchTransactionsState {
-  final String errorMessage;
-
-  FetchTransactionsFailure(this.errorMessage);
+  FetchTransactionsFailure(this.error);
+  final Object? error;
 }
 
 class FetchTransactionsCubit extends Cubit<FetchTransactionsState> {
@@ -67,7 +67,7 @@ class FetchTransactionsCubit extends Cubit<FetchTransactionsState> {
           total: result.total));
     } catch (e) {
       if (!isClosed) {
-        emit(FetchTransactionsFailure(e.toString()));
+        emit(FetchTransactionsFailure(e));
       }
     }
   }
@@ -106,5 +106,26 @@ class FetchTransactionsCubit extends Cubit<FetchTransactionsState> {
           (state as FetchTransactionsSuccess).total;
     }
     return false;
+  }
+
+  void updateTransactionStatus(int transactionId) {
+    if (state is FetchTransactionsSuccess) {
+      List<TransactionModel> myTransaction =
+          (state as FetchTransactionsSuccess).transactionModel;
+
+      int indexToUpdate =
+          myTransaction.indexWhere((element) => element.id == transactionId);
+
+      if (indexToUpdate != -1) {
+        myTransaction[indexToUpdate].paymentStatus = Constant.statusUnderReview;
+        emit(FetchTransactionsSuccess(
+            isLoadingMore: (state as FetchTransactionsSuccess).isLoadingMore,
+            loadingMoreError:
+                (state as FetchTransactionsSuccess).loadingMoreError,
+            transactionModel: List.of(myTransaction),
+            page: (state as FetchTransactionsSuccess).page,
+            total: (state as FetchTransactionsSuccess).total));
+      }
+    }
   }
 }

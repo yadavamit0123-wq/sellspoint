@@ -1,7 +1,9 @@
-import 'package:eClassify/app_config.dart';
+import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/chat/make_an_offer_item_cubit.dart';
 import 'package:eClassify/data/model/item/video_ad.dart';
-import 'package:eClassify/utils/chat_navigation.dart';
+import 'package:eClassify/ui/screens/widgets/loading_indicator.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
+import 'package:eClassify/utils/app_icons.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -20,17 +22,11 @@ class ReelChatButton extends StatelessWidget {
       child: Builder(
         builder: (context) {
           return BlocConsumer<MakeAnOfferItemCubit, MakeAnOfferItemState>(
-            listener: (context, state) async {
+            listener: (context, state) {
               if (state is MakeAnOfferItemSuccess) {
-                ChatNavigation.syncBuyerChatListAfterMakeOffer(
-                  context,
-                  state.data,
-                );
-                await ChatNavigation.openChatUser(
-                  context,
-                  ChatNavigation.chatUserFromMakeOfferPayload(state.data),
-                  refreshBuyerChatListOnPop:
-                      AppConfig.enableReelFeedBuyerChatReturnRefreshV214,
+                Navigator.of(context).pushNamed(
+                  Routes.chatScreen,
+                  arguments: {'chat_user': state.chatUser},
                 );
               } else if (state is MakeAnOfferItemFailure) {
                 HelperUtils.showSnackBarMessage(
@@ -43,45 +39,36 @@ class ReelChatButton extends StatelessWidget {
             builder: (context, state) {
               final isLoading = state is MakeAnOfferItemInProgress;
 
-              return IconButton(
-                tooltip: 'reelFeedContactSeller'.translate(context),
-                onPressed: () {
-                  if (isLoading) return;
-                  UiUtils.checkUser(
-                    onNotGuest: () async {
-                      final item = ad.item;
-                      final itemId = item.id;
-                      if (itemId == null) return;
-
-                      final refreshOnPop =
-                          AppConfig.enableReelFeedBuyerChatReturnRefreshV214;
-                      if (await ChatNavigation.openBuyerChatForListingItem(
-                        context,
-                        item,
-                        refreshBuyerChatListOnPop: refreshOnPop,
-                      )) {
-                        return;
-                      }
-
-                      if (!context.mounted) return;
-                      context.read<MakeAnOfferItemCubit>().makeAnOfferItem(
-                            id: itemId,
-                            from: 'reel',
-                          );
+              return Column(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      if (isLoading) return;
+                      UiUtils.checkUser(
+                        onNotGuest: () {
+                          if (ad.item.itemOfferId != null) {
+                            Navigator.of(context).pushNamed(
+                              Routes.chatScreen,
+                              arguments: {'id': ad.item.itemOfferId},
+                            );
+                          } else {
+                            context
+                                .read<MakeAnOfferItemCubit>()
+                                .makeAnOfferItem(id: ad.item.id!, from: 'reel');
+                          }
+                        },
+                        context: context,
+                      );
                     },
-                    context: context,
-                  );
-                },
-                icon: isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                    icon: isLoading
+                        ? LoadingIndicator(size: Size.square(24))
+                        : const Icon(AppIcons.chatCircleText),
+                  ),
+                  Text(
+                    'chat'.translate(context),
+                    style: context.titleSmall.withColor(Colors.white),
+                  ),
+                ],
               );
             },
           );

@@ -1,4 +1,5 @@
 import 'package:eClassify/data/model/item/video_ad.dart';
+import 'package:eClassify/data/model/location/leaf_location.dart';
 import 'package:eClassify/data/repositories/item/video_ad_repository.dart';
 import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,26 +14,28 @@ class VideoAdsSuccess extends VideoAdsState {
   VideoAdsSuccess({
     required this.ads,
     this.isLoadingPage = false,
+    this.loadingMoreError = false,
   });
 
   final List<VideoAd> ads;
   final bool isLoadingPage;
+  final Object? loadingMoreError;
 
   VideoAdsSuccess copyWith({
     List<VideoAd>? ads,
     bool? isLoadingPage,
-  }) {
-    return VideoAdsSuccess(
-      ads: ads ?? this.ads,
-      isLoadingPage: isLoadingPage ?? this.isLoadingPage,
-    );
-  }
+    Object? loadingMoreError,
+  }) => VideoAdsSuccess(
+    ads: ads ?? this.ads,
+    isLoadingPage: isLoadingPage ?? this.isLoadingPage,
+    loadingMoreError: loadingMoreError ?? this.loadingMoreError,
+  );
 }
 
 class VideoAdsFailure extends VideoAdsState {
-  VideoAdsFailure(this.error);
+  VideoAdsFailure({required this.exception});
 
-  final Object error;
+  final Exception exception;
 }
 
 class VideoAdsCubit extends Cubit<VideoAdsState> {
@@ -42,13 +45,14 @@ class VideoAdsCubit extends Cubit<VideoAdsState> {
   int _total = 0;
 
   bool get hasMore {
-    if (state is VideoAdsSuccess) {
-      return (state as VideoAdsSuccess).ads.length < _total;
+    if (state case VideoAdsSuccess s) {
+      return s.ads.length < _total;
     }
     return false;
   }
 
   Future<void> getVideoAds({
+    LeafLocation? location,
     int? reelId,
     int? itemId,
     bool following = false,
@@ -60,63 +64,78 @@ class VideoAdsCubit extends Cubit<VideoAdsState> {
       emit(VideoAdsLoading());
 
       final data = await VideoAdRepository.instance.getVideoAds(
+        location: location,
         reelId: reelId,
         itemId: itemId,
         following: following,
         showCurrentUserReel: showCurrentUserReel,
       );
 
-      _total = data.total;
       emit(VideoAdsSuccess(ads: data.modelList));
-    } catch (e, stack) {
+      _total = data.total;
+    } on Exception catch (e, stack) {
       Log.error(e.toString(), e, stack);
-      emit(VideoAdsFailure(e));
+      emit(VideoAdsFailure(exception: e));
     }
   }
 
   Future<void> getMoreVideoAds({
+    LeafLocation? location,
     int? reelId,
     int? itemId,
     bool following = false,
   }) async {
-    if (state is! VideoAdsSuccess) return;
-    final current = state as VideoAdsSuccess;
-    if (current.isLoadingPage || !hasMore) return;
-
     try {
-      emit(current.copyWith(isLoadingPage: true));
+      if (state is! VideoAdsSuccess) return;
+      if (state case final VideoAdsSuccess state when state.isLoadingPage) {
+        return;
+      }
+      if (!hasMore) return;
+
+      emit((state as VideoAdsSuccess).copyWith(isLoadingPage: true));
 
       final data = await VideoAdRepository.instance.getVideoAds(
+        location: location,
         reelId: reelId,
         itemId: itemId,
         following: following,
         page: _page + 1,
       );
 
-      _total = data.total;
-      _page += 1;
-      emit(VideoAdsSuccess(
-        ads: [...current.ads, ...data.modelList],
+      final successState = state as VideoAdsSuccess;
+      final updatedState = successState.copyWith(
+        ads: [...successState.ads, ...data.modelList],
         isLoadingPage: false,
-      ));
-    } catch (e, stack) {
+        loadingMoreError: false,
+      );
+      emit(updatedState);
+      _total = data.total;
+      if (hasMore) ++_page;
+    } on Exception catch (e, stack) {
       Log.error(e.toString(), e, stack);
-      emit(current.copyWith(isLoadingPage: false));
+      emit(
+        (state as VideoAdsSuccess).copyWith(
+          isLoadingPage: false,
+          loadingMoreError: e,
+        ),
+      );
     }
   }
 
   void updateLikeState({required int reelId, required bool isLiked}) {
-    if (state is! VideoAdsSuccess) return;
-    final current = state as VideoAdsSuccess;
-    final updated = current.ads.map((ad) {
-      if (ad.id != reelId) return ad;
-      if (ad.isLiked == isLiked) return ad;
-      final diff = isLiked ? 1 : -1;
-      return ad.copyWith(
-        isLiked: isLiked,
-        likeCount: (ad.likeCount + diff).clamp(0, 1 << 30),
-      );
-    }).toList();
-    emit(current.copyWith(ads: updated));
+    if (state is VideoAdsSuccess) {
+      final successState = state as VideoAdsSuccess;
+      final updatedAds = successState.ads.map((ad) {
+        if (ad.id == reelId) {
+          if (ad.isLiked == isLiked) {
+            return ad;
+          }
+          final diff = isLiked ? 1 : -1;
+          return ad.copyWith(isLiked: isLiked, likeCount: ad.likeCount + diff);
+        }
+        return ad;
+      }).toList();
+      emit(successState.copyWith(ads: updatedAds));
+    }
   }
 }

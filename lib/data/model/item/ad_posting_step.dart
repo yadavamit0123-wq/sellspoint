@@ -1,13 +1,13 @@
-/// Wizard steps for in-app post-ad ([AdPostingCubit]).
 enum AdPostingStep {
-  adType('adListing', 'postAdSubtitle'),
-  category('selectTheCategory', 'postAdStepDetails'),
-  baseDetails('postAdStepDetails', 'description'),
-  customFields('additionals', 'description'),
-  mediaUpload('uploadPictures', 'max5Images');
+  adType('adTypeTitle', 'adTypeSubtitle'),
+  category('categoryTitle', 'categorySubtitle'),
+  baseDetails('baseDetailsTitle', 'baseDetailsSubtitle'),
+  customFields('customFieldsTitle', 'customFieldsSubtitle'),
+  mediaUpload('mediaUploadTitle', 'mediaUploadSubtitle'),
+  location('locationTitle', 'locationSubtitle');
 
-  const AdPostingStep(this.titleKey, this.subtitleKey);
+  const AdPostingStep(this.title, this.subtitle);
 
-  final String titleKey;
-  final String subtitleKey;
+  final String title;
+  final String subtitle;
 }

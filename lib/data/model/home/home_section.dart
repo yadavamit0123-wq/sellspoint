@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 
-/// Section types from admin `get-home-screen` (eClassify 2.14).
 enum HomeSectionType {
   categoryList('all_categories'),
   slider('slider'),
@@ -20,22 +19,16 @@ enum HomeSectionType {
 }
 
 class HomeSection {
-  const HomeSection({required this.id, required this.type});
-
   final int id;
   final HomeSectionType type;
 
+  HomeSection({required this.id, required this.type});
+
   factory HomeSection.fromJson(Map<String, dynamic> json) {
-    final typeRaw = json['section_type']?.toString() ?? '';
-    final type = HomeSectionType.parse(typeRaw);
+    final type = HomeSectionType.parse(json['section_type'] as String);
     if (type == null) {
-      throw ArgumentError('Unknown section type: $typeRaw');
+      throw ArgumentError('Unknown section type: ${json['section_type']}');
     }
-    return HomeSection(
-      id: json['id'] is int
-          ? json['id'] as int
-          : int.parse(json['id'].toString()),
-      type: type,
-    );
+    return HomeSection(id: json['id'] as int, type: type);
   }
 }

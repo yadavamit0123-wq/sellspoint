@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "229203066228",
+    "firebase_url": "https://sells-point-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "sells-point",
+    "storage_bucket": "sells-point.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:229203066228:android:54a3ac0391dd97203b8021",
+        "android_client_info": {
+          "package_name": "com.pt.sellspoint"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "229203066228-ejc3gg6tt9vv670c9keum4psd5rhp67v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pt.sellspoint",
+            "certificate_hash": "4dfd8bcd3d2d0957d024eb3eb0e6f1c94e28381b"
+          }
+        },
+        {
+          "client_id": "229203066228-ltbl68i0ng3rva3glrhcc6gvheta5kip.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJxjkRPPcUO_w4lQRBy0ZOzvmEbLk0MOA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "229203066228-ltbl68i0ng3rva3glrhcc6gvheta5kip.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

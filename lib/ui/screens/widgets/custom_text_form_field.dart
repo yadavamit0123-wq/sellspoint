@@ -1,4 +1,4 @@
-import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/validator.dart';
 import 'package:flutter/material.dart';
@@ -11,22 +11,24 @@ enum CustomTextFieldValidator {
   password,
   maxFifty,
   otpSix,
-  minAndMixLen,
+  minAndMaxLen,
   url,
   slug,
-  referral
 }
 
+@Deprecated('Use CustomTextField instead')
 class CustomTextFormField extends StatelessWidget {
   final String? hintText;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final int? minLine;
   final int? maxLine;
   final bool? isReadOnly;
   final List<TextInputFormatter>? formaters;
   final CustomTextFieldValidator? validator;
+  final String? Function(String?)? validatorFunction;
   final Color? fillColor;
-  final Function(dynamic value)? onChange;
+  final ValueChanged<String>? onChange;
   final Widget? prefix;
   final TextInputAction? action;
   final TextInputType? keyboard;
@@ -41,16 +43,19 @@ class CustomTextFormField extends StatelessWidget {
   final TextCapitalization? capitalization;
   final bool? isRequired;
   final bool? isMobileRequired;
+  final InputDecoration? decoration;
 
   const CustomTextFormField({
     super.key,
     this.hintText,
     this.controller,
+    this.focusNode,
     this.minLine,
     this.maxLine,
     this.formaters,
     this.isReadOnly,
     this.validator,
+    this.validatorFunction,
     this.fillColor,
     this.onChange,
     this.prefix,
@@ -67,11 +72,14 @@ class CustomTextFormField extends StatelessWidget {
     this.capitalization,
     this.isRequired,
     this.isMobileRequired = true,
+    this.decoration,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      focusNode: focusNode,
+      autofocus: false,
       controller: controller,
       inputFormatters: formaters,
       obscureText: obscureText ?? false,
@@ -79,15 +87,16 @@ class CustomTextFormField extends StatelessWidget {
       onTapOutside: (PointerDownEvent event) {
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      keyboardAppearance: Brightness.light,
       textCapitalization: capitalization ?? TextCapitalization.none,
       readOnly: isReadOnly ?? false,
-      style: TextStyle(
-          fontSize: context.font.large, color: context.color.textDefaultColor),
+      style: context.textTheme.titleMedium,
       minLines: minLine ?? 1,
       maxLines: maxLine ?? 1,
       onChanged: onChange,
       validator: (String? value) {
+        if (validatorFunction != null) {
+          return validatorFunction!(value);
+        }
         if (validator == CustomTextFieldValidator.nullCheck) {
           return Validator.nullCheckValidator(value, context: context);
         }
@@ -101,7 +110,7 @@ class CustomTextFormField extends StatelessWidget {
         }
 
         // Check if maxLength is not null and value length exceeds maxLength
-        if (validator == CustomTextFieldValidator.minAndMixLen) {
+        if (validator == CustomTextFieldValidator.minAndMaxLen) {
           // Check if the value is empty
           if (isRequired == true && value == "") {
             return Validator.nullCheckValidator(value, context: context);
@@ -126,10 +135,6 @@ class CustomTextFormField extends StatelessWidget {
           }
           return null;
         }
-        if(validator == CustomTextFieldValidator.referral){
-          // return true;
-          return null;
-        }
         if (validator == CustomTextFieldValidator.email) {
           return Validator.validateEmail(email: value, context: context);
         }
@@ -138,7 +143,10 @@ class CustomTextFormField extends StatelessWidget {
         }
         if (validator == CustomTextFieldValidator.phoneNumber) {
           return Validator.validatePhoneNumber(
-              value: value, context: context, isRequired: isMobileRequired!);
+            value: value,
+            context: context,
+            isRequired: isMobileRequired!,
+          );
         }
         if (validator == CustomTextFieldValidator.url) {
           return Validator.urlValidation(value: value, context: context);
@@ -150,32 +158,16 @@ class CustomTextFormField extends StatelessWidget {
       },
       keyboardType: keyboard,
       maxLength: maxLength,
-      decoration: InputDecoration(
-          prefix: prefix,
-          isDense: dense,
-          prefixIcon: fixedPrefix,
-          suffixIcon: suffix,
-          hintText: hintText,
-          hintStyle: hintTextStyle ??
-              TextStyle(
-                  color: context.color.textColorDark.withValues(alpha: 0.7),
-                  fontSize: context.font.large),
-          filled: true,
-          fillColor: fillColor ?? context.color.secondaryColor,
-          /*contentPadding: EdgeInsets.symmetric(vertical: 20,horizontal: 14),*/
-          focusedBorder: OutlineInputBorder(
-              borderSide:
-                  BorderSide(width: 1.5, color: context.color.territoryColor),
-              borderRadius: BorderRadius.circular(10)),
-          enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                  width: 1.5,
-                  color: borderColor ?? context.color.borderColor.darken(50)),
-              borderRadius: BorderRadius.circular(10)),
-          border: OutlineInputBorder(
-              borderSide: BorderSide(
-                  width: 1.5, color: borderColor ?? context.color.borderColor),
-              borderRadius: BorderRadius.circular(10))),
+      decoration:
+          decoration ??
+          InputDecoration(
+            prefix: prefix,
+            prefixIcon: fixedPrefix,
+            suffixIcon: suffix,
+            hintText: hintText,
+            hintStyle: hintTextStyle,
+            fillColor: fillColor,
+          ),
     );
   }
 }

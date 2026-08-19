@@ -1,4 +1,20 @@
+import 'package:eClassify/data/model/localized_string.dart';
+
 class JobApplication {
+  late int id;
+  int? itemId;
+  int? userId;
+  String? fullName;
+  String? email;
+  String? mobile;
+  String? resume;
+  String? status;
+  String? createdAt;
+  String? updatedAt;
+  int? recruiterId;
+  Item? item;
+  Recruiter? recruiter;
+
   JobApplication({
     required this.id,
     this.itemId,
@@ -11,35 +27,56 @@ class JobApplication {
     this.createdAt,
     this.updatedAt,
     this.recruiterId,
+    this.item,
+    this.recruiter,
   });
 
-  factory JobApplication.fromJson(Map<String, dynamic> json) {
-    return JobApplication(
-      id: json['id'] is int
-          ? json['id'] as int
-          : int.parse(json['id'].toString()),
-      itemId: json['item_id'] as int?,
-      userId: json['user_id'] as int?,
-      fullName: json['full_name'] as String?,
-      email: json['email'] as String?,
-      mobile: json['mobile'] as String?,
-      resume: json['resume'] as String?,
-      status: json['status'] as String?,
-      createdAt: json['created_at'] as String?,
-      updatedAt: json['updated_at'] as String?,
-      recruiterId: json['recruiter_id'] as int?,
-    );
+  JobApplication.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    itemId = json['item_id'];
+    userId = json['user_id'];
+    fullName = json['full_name'];
+    email = json['email'];
+    mobile = json['mobile'];
+    resume = json['resume'];
+    status = json['status'];
+    createdAt = json['created_at'];
+    updatedAt = json['updated_at'];
+    recruiterId = json['recruiter_id'];
+    item = json['item'] != null ? new Item.fromJson(json['item']) : null;
+    recruiter = json['recruiter'] != null
+        ? new Recruiter.fromJson(json['recruiter'])
+        : null;
   }
+}
 
-  final int id;
-  final int? itemId;
-  final int? userId;
-  final String? fullName;
-  final String? email;
-  final String? mobile;
-  final String? resume;
-  final String? status;
-  final String? createdAt;
-  final String? updatedAt;
-  final int? recruiterId;
+class Item {
+  int? id;
+  LocalizedString? name;
+  int? userId;
+
+  Item({this.id, this.name, this.userId});
+
+  Item.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    name = LocalizedString(
+      canonical: json['name'],
+      translated: json['translated_name'],
+    );
+    userId = json['user_id'];
+  }
+}
+
+class Recruiter {
+  int? id;
+  String? name;
+  String? email;
+
+  Recruiter({this.id, this.name, this.email});
+
+  Recruiter.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    name = json['name'];
+    email = json['email'];
+  }
 }

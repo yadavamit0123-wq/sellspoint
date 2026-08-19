@@ -1,5 +1,6 @@
 import 'package:eClassify/data/model/home/home_section.dart';
 import 'package:eClassify/data/repositories/home/home_repository.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class HomeConfigurationState {}
@@ -23,14 +24,15 @@ class HomeConfigurationFailure extends HomeConfigurationState {
 class HomeConfigurationCubit extends Cubit<HomeConfigurationState> {
   HomeConfigurationCubit() : super(HomeConfigurationInitial());
 
-  final HomeRepository _homeRepository = HomeRepository();
-
   Future<void> getHomeConfiguration() async {
     try {
       emit(HomeConfigurationLoading());
-      final sections = await _homeRepository.fetchHomeConfiguration();
+
+      final sections = await HomeRepository.instance.getHomeConfiguration();
+
       emit(HomeConfigurationSuccess(sections: sections));
-    } catch (e) {
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
       emit(HomeConfigurationFailure(error: e));
     }
   }

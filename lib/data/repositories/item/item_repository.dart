@@ -1,291 +1,294 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:developer';
 
 import 'package:dio/dio.dart';
-import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/enums.dart';
+import 'package:eClassify/data/model/chat/chat.dart';
+import 'package:eClassify/data/model/custom_field/file_resource.dart';
 import 'package:eClassify/data/model/data_output.dart';
+import 'package:eClassify/data/model/item/ad_posting_data.dart';
+import 'package:eClassify/data/model/item/item_filter.dart';
+import 'package:eClassify/data/model/item/item_list.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/data/model/item_filter_model.dart';
+import 'package:eClassify/data/model/item/product_video.dart';
+import 'package:eClassify/data/model/location/leaf_location.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/background_upload_utility.dart';
-import 'package:eClassify/utils/my_ads_refresh.dart';
-import 'package:eClassify/utils/reel_feed_refresh.dart';
-import 'package:eClassify/utils/reel_upload_tracker.dart';
+import 'package:eClassify/utils/extensions/lib/extensions.dart';
+import 'package:eClassify/utils/json_helper.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:path/path.dart' as path;
 
-List<ItemModel> _itemModelsFromGetItemResponse(Map<String, dynamic> response) {
-  final data = response['data'];
-  if (data is List) {
-    return data
-        .map((e) => ItemModel.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-  }
-  if (data is Map && data['data'] is List) {
-    return (data['data'] as List)
-        .map((e) => ItemModel.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-  }
-  return [];
-}
-
-int _itemTotalFromGetItemResponse(Map<String, dynamic> response) {
-  final data = response['data'];
-  if (data is Map) {
-    return data['total'] ?? 0;
-  }
-  return 0;
-}
-
-void _applyListingLocation({
-  required Map<String, dynamic> parameters,
-  int? radius,
-  double? latitude,
-  double? longitude,
-  String? city,
-  int? areaId,
-  String? country,
-  String? state,
-}) {
-  if (radius != null) {
-    parameters['radius'] = radius;
-    if (latitude != null && longitude != null) {
-      parameters['latitude'] = latitude;
-      parameters['longitude'] = longitude;
-    }
-    parameters.remove('city');
-    parameters.remove('area');
-    parameters.remove('area_id');
-    parameters.remove('country');
-    parameters.remove('state');
-  } else {
-    if (city != null && city.isNotEmpty) parameters['city'] = city;
-    if (areaId != null) parameters['area_id'] = areaId;
-    if (country != null && country.isNotEmpty) parameters['country'] = country;
-    if (state != null && state.isNotEmpty) parameters['state'] = state;
-  }
-}
-
-ItemModel _itemModelFromMutationResponse(Map<String, dynamic> response) {
-  final data = response['data'];
-  if (data is List && data.isNotEmpty) {
-    return ItemModel.fromJson(
-      Map<String, dynamic>.from(data.first as Map),
-    );
-  }
-  if (data is Map) {
-    return ItemModel.fromJson(Map<String, dynamic>.from(data));
-  }
-  throw Exception('Invalid item create/update response');
-}
-
 class ItemRepository {
-  Future<ItemModel> createItem(
-    Map<String, dynamic> itemDetails,
-    File mainImage,
-    List<File>? otherImages,
-  ) async {
+  factory ItemRepository() => _instance;
+
+  ItemRepository._internal();
+
+  static final ItemRepository _instance = ItemRepository._internal();
+
+  Future<({ItemModel item, bool isUploadInProgress})> createAdvertisement({
+    required AdPostingData data,
+  }) async {
     try {
-      Map<String, dynamic> parameters = {};
-      parameters.addAll(itemDetails);
+      final content = data.toJson;
+      Log.info('${data.seoData}');
+      final isEdit = data.id != null;
 
-      // Main image
-      //MultipartFile image = await MultipartFile.fromFile(mainImage.path);
-      MultipartFile image = await MultipartFile.fromFile(mainImage.path,
-          filename: path.basename(mainImage.path));
+      if (data.images.isNotNullAndNotEmpty) {
+        final images = await _processImages(data.images!);
+        content['gallery_images'] = images;
+        content.remove('images');
+      }
 
-      if (otherImages != null && otherImages.isNotEmpty) {
-        List<Future<MultipartFile>> futures = otherImages.map((imageFile) {
-          //return MultipartFile.fromFile(imageFile.path);
-          return MultipartFile.fromFile(imageFile.path,
-              filename: path.basename(imageFile.path));
-        }).toList();
-
-        List<MultipartFile> galleryImages = await Future.wait(futures);
-
-        if (galleryImages.isNotEmpty) {
-          parameters["gallery_images"] = galleryImages;
+      if (data.customFields.isNotNullAndNotEmpty) {
+        final customFieldsData = _processCustomFields(data.customFields!);
+        if (customFieldsData.fields.isNotNullAndNotEmpty) {
+          content['custom_field_translations'] = customFieldsData.fields;
+        }
+        if (customFieldsData.files.isNotNullAndNotEmpty) {
+          content['custom_field_files'] = customFieldsData.files;
         }
       }
 
-      parameters.addAll({
-        "image": image,
-        "show_only_to_premium": 1,
-      });
+      if (data.localizedContent.isNotNullAndNotEmpty) {
+        content['translations'] = jsonEncode(
+          data.localizedContent?.map(
+            (l, data) => MapEntry(l.toString(), data.toJson),
+          ),
+        );
+      }
 
-      Map<String, dynamic> response = await Api.post(
-        url: Api.addItemApi,
-        parameter: parameters, /* useAuthToken: true*/
+      if (data.productVideo != null &&
+          data.productVideo!.type != ProductVideoType.custom) {
+        content['video_link'] = data.productVideo!.videoSource.filePath;
+        content['video_type'] = data.productVideo!.type.key;
+      }
+
+      final response = await Api.post(
+        url: isEdit ? Api.updateItemApi : Api.addItemApi,
+        parameter: content,
       );
 
-      return _itemModelFromMutationResponse(response);
-    } catch (e) {
+      final item = JsonHelper.parseObject(
+        (response['data'] as List).first as Json,
+        ItemModel.fromJson,
+      );
+
+      Map<String, String> files = {};
+      if (data.productVideo != null &&
+          data.productVideo!.type == ProductVideoType.custom &&
+          data.productVideo!.videoSource is LocalFileResource) {
+        files['product_video'] =
+            (data.productVideo!.videoSource as LocalFileResource).filePath;
+      }
+
+      if (data.videoAd != null && data.videoAd is LocalFileResource) {
+        files['video'] = (data.videoAd as LocalFileResource).filePath;
+      }
+
+      if (data.thumbnail != null && data.thumbnail is LocalFileResource) {
+        files['thumbnail'] = (data.thumbnail as LocalFileResource).filePath;
+      }
+
+      if (files.isNotNullAndNotEmpty) {
+        BackgroundUploadUtility.uploadMedia(
+          itemId: item.id.toString(),
+          files: files,
+        );
+      }
+
+      return (item: item, isUploadInProgress: files.isNotNullAndNotEmpty);
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
       rethrow;
     }
   }
 
-  /// Queues large media files for [upload-media] after the item row exists (2.14).
-  Future<bool> scheduleBackgroundMediaUpload({
-    required ItemModel item,
-    Map<String, String>? files,
-  }) async {
-    if (files == null || files.isEmpty) return false;
-    final taskId = await BackgroundUploadUtility.uploadMedia(
-      itemId: item.id.toString(),
-      files: files,
-    );
-    if (taskId != null && AppConfig.enableReelUploadTrackerV214) {
-      await ReelUploadTracker.track(
-        itemId: item.id.toString(),
-        files: files,
-        taskId: taskId,
-      );
-      if (AppConfig.enableMyAdsRefreshAfterReelUploadV214) {
-        MyAdsRefresh.revision.value++;
-      }
-      if (AppConfig.enableReelFeedRefreshAfterReelUploadV214) {
-        ReelFeedRefresh.revision.value++;
+  Future<List<dynamic>> _processImages(List<FileResource> images) async {
+    final files = List.empty(growable: true);
+    final multiPartFiles = List<Future<MultipartFile>>.empty(growable: true);
+    for (final image in images) {
+      if (image is RemoteFileResource) {
+        files.add(image.filePath);
+        continue;
+      } else {
+        final file = (image as LocalFileResource).file;
+        multiPartFiles.add(
+          MultipartFile.fromFile(file.path, filename: path.basename(file.path)),
+        );
       }
     }
-    return taskId != null;
+    final result = await Future.wait(multiPartFiles);
+    files.addAll(result);
+    return files;
+  }
+
+  ({String? fields, Map<String, MultipartFile>? files}) _processCustomFields(
+    Map<String, CustomFieldData> customFields,
+  ) {
+    final Map<String, CustomFieldData> processedCustomFields = {};
+    final Map<String, MultipartFile> processedFiles = {};
+
+    for (final field in customFields.entries) {
+      final fieldId = field.key;
+      final fieldData = field.value;
+      final Map<String, dynamic> newFieldData = {};
+
+      for (final entry in fieldData.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        if (value is String) {
+          newFieldData[key] = [value];
+        } else if (value is FileResource) {
+          if (value is RemoteFileResource) {
+            newFieldData[key] = [value.filePath];
+          } else {
+            final filePath = value.filePath;
+            processedFiles[key] = MultipartFile.fromFileSync(
+              filePath,
+              filename: path.basename(filePath),
+            );
+          }
+        } else {
+          newFieldData[key] = value;
+        }
+      }
+      processedCustomFields[fieldId] = newFieldData;
+    }
+
+    return (fields: jsonEncode(processedCustomFields), files: processedFiles);
   }
 
   Future<DataOutput<ItemModel>> fetchMyFeaturedItems({int? page}) async {
     try {
-      Map<String, dynamic> parameters = {"status": "featured", "page": page};
-
-      Map<String, dynamic> response = await Api.get(
-        url: Api.getMyItemApi,
-        queryParameters: parameters, /*useAuthToken: true*/
-      );
-      List<ItemModel> itemList = (response['data']['data'] as List)
-          .map((element) => ItemModel.fromJson(element))
-          .toList();
-
-      return DataOutput(
-          total: response['data']['total'] ?? 0, modelList: itemList);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<DataOutput<ItemModel>> fetchMyItems(
-      {String? getItemsWithStatus, int? page}) async {
-    try {
       Map<String, dynamic> parameters = {
-        if (getItemsWithStatus != null) "status": getItemsWithStatus,
-        if (page != null) Api.page: page
+        Api.status: "featured",
+        Api.page: page,
       };
 
-      if (parameters['status'] == "") parameters.remove('status');
       Map<String, dynamic> response = await Api.get(
         url: Api.getMyItemApi,
-        queryParameters: parameters, /*useAuthToken: true*/
+        queryParameters: parameters,
       );
       List<ItemModel> itemList = (response['data']['data'] as List)
           .map((element) => ItemModel.fromJson(element))
           .toList();
 
       return DataOutput(
-          total: response['data']['total'] ?? 0, modelList: itemList);
+        total: response['data']['total'] ?? 0,
+        modelList: itemList,
+      );
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<DataOutput<ItemModel>> fetchItemFromItemId(int id) async {
-    Map<String, dynamic> parameters = {
-      Api.id: id,
-    };
+  Future<DataOutput<ItemModel>> fetchMyItems({
+    String? getItemsWithStatus,
+    int? page,
+  }) async {
+    try {
+      Map<String, dynamic> parameters = {
+        if (getItemsWithStatus != null) Api.status: getItemsWithStatus,
+        if (page != null) Api.page: page,
+      };
+
+      if (parameters[Api.status] == "") parameters.remove(Api.status);
+      Map<String, dynamic> response = await Api.get(
+        url: Api.getMyItemApi,
+        queryParameters: parameters,
+      );
+      List<ItemModel> itemList = (response['data']['data'] as List)
+          .map((element) => ItemModel.fromJson(element))
+          .toList();
+
+      return DataOutput(
+        total: response['data']['total'] ?? 0,
+        modelList: itemList,
+      );
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
+      rethrow;
+    }
+  }
+
+  Future<DataOutput<ItemModel>> fetchItemFromItemId(
+    int id, {
+    bool isMyAd = false,
+  }) async {
+    Map<String, dynamic> parameters = {Api.id: id};
 
     Map<String, dynamic> response = await Api.get(
-      url: Api.getItemApi,
+      url: isMyAd ? Api.getMyItemApi : Api.getItemApi,
       queryParameters: parameters,
     );
 
-    final modelList = _itemModelsFromGetItemResponse(response);
+    List<ItemModel> modelList = (response['data']['data'] as List)
+        .map((e) => ItemModel.fromJson(e))
+        .toList();
 
     return DataOutput(total: modelList.length, modelList: modelList);
   }
 
-  Future<DataOutput<ItemModel>> fetchItemFromItemSlug(String slug) async {
-    Map<String, dynamic> parameters = {
-      Api.slug: slug,
-    };
+  Future<DataOutput<ItemModel>> fetchItemFromItemSlug(
+    String slug, {
+    bool isMyAd = false,
+  }) async {
+    Map<String, dynamic> parameters = {Api.slug: slug};
 
     Map<String, dynamic> response = await Api.get(
-      url: Api.getItemApi,
+      url: isMyAd ? Api.getMyItemApi : Api.getItemApi,
       queryParameters: parameters,
     );
 
-    final modelList = _itemModelsFromGetItemResponse(response);
+    List<ItemModel> modelList = (response['data']['data'] as List)
+        .map((e) => ItemModel.fromJson(e))
+        .toList();
 
     return DataOutput(total: modelList.length, modelList: modelList);
   }
 
-  Future<Map> changeMyItemStatus(
-      {required int itemId, required String status, int? userId}) async {
-    Map response = await Api.post(url: Api.updateItemStatusApi, parameter: {
-      Api.status: status,
-      Api.itemId: itemId,
-      Api.soldTo: userId
-    });
+  Future<Map> changeMyItemStatus({
+    required int itemId,
+    required String status,
+    int? userId,
+  }) async {
+    Map response = await Api.post(
+      url: Api.updateItemStatusApi,
+      parameter: {
+        Api.status: status,
+        Api.itemId: itemId,
+        if (userId != null) Api.soldTo: userId,
+      },
+    );
     return response;
   }
 
   Future<Map> createFeaturedAds({required int itemId}) async {
-    Map response = await Api.post(url: Api.makeItemFeaturedApi, parameter: {
-      "item_id": itemId,
-    });
+    Map response = await Api.post(
+      url: Api.makeItemFeaturedApi,
+      parameter: {Api.itemId: itemId},
+    );
     return response;
   }
 
-  Future<DataOutput<ItemModel>> fetchItemFromCatId(
-      {required int categoryId,
-      required int page,
-      String? search,
-      String? sortBy,
-      String? country,
-      String? state,
-      String? city,
-      int? areaId,
-      int? radius,
-      double? latitude,
-      double? longitude,
-      int? excludedItemId,
-      ItemFilterModel? filter}) async {
+  Future<DataOutput<ItemModel>> fetchItemFromCatId({
+    required int categoryId,
+    required int page,
+    LeafLocation? location,
+    String? search,
+    String? sortBy,
+    ItemFilter? filter,
+    int? excludedItemId,
+  }) async {
     Map<String, dynamic> parameters = {
       Api.categoryId: categoryId,
       Api.page: page,
+      Api.excludedItemId: ?excludedItemId,
     };
 
-    if (excludedItemId != null) {
-      parameters[Api.excludedItemId] = excludedItemId;
-    }
-
     if (filter != null) {
-      parameters.addAll(filter.toQueryParameters());
-
-      if (filter.radius != null) {
-        _applyListingLocation(
-          parameters: parameters,
-          radius: filter.radius,
-          latitude: filter.latitude,
-          longitude: filter.longitude,
-        );
-      } else {
-        _applyListingLocation(
-          parameters: parameters,
-          city: city ?? filter.city,
-          areaId: areaId ?? filter.areaId,
-          country: country ?? filter.country,
-          state: state ?? filter.state,
-        );
-      }
-
-      if (filter.areaId == null && areaId == null) {
-        parameters.remove('area_id');
-      }
-
-      parameters.remove('area');
+      parameters.addAll(filter.toJson);
 
       if (filter.customFields != null) {
         filter.customFields!.forEach((key, value) {
@@ -296,74 +299,8 @@ class ItemRepository {
           }
         });
       }
-    } else {
-      _applyListingLocation(
-        parameters: parameters,
-        radius: radius,
-        latitude: latitude,
-        longitude: longitude,
-        city: city,
-        areaId: areaId,
-        country: country,
-        state: state,
-      );
-    }
-
-    if (search != null && search.isNotEmpty) {
-      parameters[Api.search] = search;
-    }
-
-    if (sortBy != null && sortBy.isNotEmpty) {
-      parameters[Api.sortBy] = sortBy;
-    }
-
-    Map<String, dynamic> response =
-        await Api.get(url: Api.getItemApi, queryParameters: parameters);
-
-    final items = _itemModelsFromGetItemResponse(response);
-
-    return DataOutput(
-        total: _itemTotalFromGetItemResponse(response), modelList: items);
-  }
-
-/*  Future<DataOutput<ItemModel>> fetchItemFromCatId(
-      {required int categoryId,
-      required int page,
-      String? search,
-      String? sortBy,
-      String? country,
-      String? state,
-      String? city,
-      int? areaId,
-      ItemFilterModel? filter}) async {
-    Map<String, dynamic> parameters = {
-      Api.categoryId: categoryId,
-      Api.page: page,
-      if (city != null && city != "") 'city': city,
-      if (areaId != null && areaId != "") 'area_id': areaId,
-      if (country != null && country != "") 'country': country,
-      if (state != null && state != "") 'state': state,
-    };
-
-    if (filter != null) {
-      parameters.addAll(filter.toMap());
-
-      if (filter.areaId == null) {
-        parameters.remove('area_id');
-      }
-
-      parameters.remove('area');
-
-      // Add custom fields separately to the parameters
-      if (filter.customFields != null) {
-        filter.customFields!.forEach((key, value) {
-          if (value is List) {
-            parameters[key] = value.map((v) => v.toString()).join(',');
-          } else {
-            parameters[key] = value.toString();
-          }
-        });
-      }
+    } else if (location != null) {
+      parameters.addAll(location.toApiJson());
     }
 
     if (search != null) {
@@ -374,22 +311,10 @@ class ItemRepository {
       parameters[Api.sortBy] = sortBy;
     }
 
-    Map<String, dynamic> response =
-        await Api.get(url: Api.getItemApi, queryParameters: parameters);
-
-    List<ItemModel> items = (response['data']['data'] as List)
-        .map((e) => ItemModel.fromJson(e))
-        .toList();
-
-    return DataOutput(total: response['data']['total'] ?? 0, modelList: items);
-  }*/
-
-  Future<DataOutput<ItemModel>> fetchPopularItems(
-      {required String sortBy, required int page}) async {
-    Map<String, dynamic> parameters = {Api.sortBy: sortBy, Api.page: page};
-
-    Map<String, dynamic> response =
-        await Api.get(url: Api.getItemApi, queryParameters: parameters);
+    Map<String, dynamic> response = await Api.get(
+      url: Api.getItemApi,
+      queryParameters: parameters,
+    );
 
     List<ItemModel> items = (response['data']['data'] as List)
         .map((e) => ItemModel.fromJson(e))
@@ -398,85 +323,139 @@ class ItemRepository {
     return DataOutput(total: response['data']['total'] ?? 0, modelList: items);
   }
 
-  Future<ItemModel> editItem(
-    Map<String, dynamic> itemDetails,
-    File? mainImage,
-    List<File>? otherImages,
-  ) async {
+  Future<DataOutput<ItemModel>> fetchPopularItems({
+    required String sortBy,
+    required int page,
+    required LeafLocation? location,
+  }) async {
+    Map<String, dynamic> parameters = {
+      Api.sortBy: sortBy,
+      Api.page: page,
+      ...?location?.toApiJson(),
+    };
+
+    Map<String, dynamic> response = await Api.get(
+      url: Api.getItemApi,
+      queryParameters: parameters,
+    );
+
+    List<ItemModel> items = (response['data']['data'] as List)
+        .map((e) => ItemModel.fromJson(e))
+        .toList();
+
+    return DataOutput(total: response['data']['total'] ?? 0, modelList: items);
+  }
+
+  Future<void> deleteItem({int? id, Iterable<int>? ids}) async {
+    assert(
+      (id != null) ^ (ids != null),
+      "Either id or ids should be present but not both",
+    );
     Map<String, dynamic> parameters = {};
-    parameters.addAll(itemDetails);
-
-    if (mainImage != null) {
-      MultipartFile image = await MultipartFile.fromFile(mainImage.path,
-          filename: path.basename(mainImage.path));
-      parameters['image'] = image;
+    if (id != null) {
+      parameters[Api.itemId] = id;
+    } else {
+      parameters[Api.itemIds] = ids!.join(",");
     }
-
-    if (otherImages != null && otherImages.isNotEmpty) {
-      List<Future<MultipartFile>> futures = otherImages.map((imageFile) {
-        return MultipartFile.fromFile(imageFile.path,
-            filename: path.basename(imageFile.path));
-      }).toList();
-
-      List<MultipartFile> galleryImages = await Future.wait(futures);
-
-      if (galleryImages.isNotEmpty) {
-        parameters["gallery_images"] = galleryImages;
-      }
-    }
-
-    Map<String, dynamic> response = await Api.post(
-      url: Api.updateItemApi,
-      parameter: parameters, /* useAuthToken: true*/
-    );
-
-    return _itemModelFromMutationResponse(response);
-  }
-
-  Future<void> deleteItem(int id) async {
-    await Api.post(
-      url: Api.deleteItemApi,
-      parameter: {Api.id: id}, /* useAuthToken: true*/
-    );
+    await Api.post(url: Api.deleteItemApi, parameter: parameters);
   }
 
   Future<void> itemTotalClick(int id) async {
     await Api.post(url: Api.setItemTotalClickApi, parameter: {Api.itemId: id});
   }
 
-  Future<Map> makeAnOfferItem(int id, double? amount) async {
-    Map response = await Api.post(
+  Future<Json> makeAnOfferItem(int id, double? amount) async {
+    try {
+      final response = await Api.post(
         url: Api.itemOfferApi,
-        parameter: {Api.itemId: id, if (amount != null) Api.amount: amount});
-    return response;
+        parameter: {Api.itemId: id, Api.amount: ?amount},
+      );
+
+      final responseMap = response['data'] as Json;
+      final itemMap = responseMap.remove('item');
+      itemMap['formatted_price'] = responseMap['item_formatted_price'];
+
+      final user = Chat.fromJson({
+        ...response['data'] as Json,
+        'item': itemMap,
+        'last_message_time': response['data']['updated_at'] as String,
+        'item_id': int.parse(response['data']['item_id'].toString()),
+        'formatted_amount':
+            response['data']['item_offer_formatted_amount'] as String?,
+      });
+
+      return {'message': response['message'] as String, 'data': user};
+    } on Exception catch (e, st) {
+      Log.error(e.toString(), e, st);
+      rethrow;
+    }
   }
 
   Future<DataOutput<ItemModel>> searchItem(
-      String query, ItemFilterModel? filter,
-      {required int page}) async {
+    String query,
+    ItemFilter? filter, {
+    required int page,
+  }) async {
     Map<String, dynamic> parameters = {
       Api.search: query,
       Api.page: page,
-      if (filter != null) ...filter.toMap(),
+      if (filter != null) ...filter.toJson,
     };
 
     if (filter != null) {
-      if (filter.areaId == null) {
-        parameters.remove('area_id');
-      }
-      parameters.remove('area');
+      parameters.remove(Api.area);
       if (filter.customFields != null) {
         parameters.addAll(filter.customFields!);
       }
     }
 
-    Map<String, dynamic> response =
-        await Api.get(url: Api.getItemApi, queryParameters: parameters);
+    Map<String, dynamic> response = await Api.get(
+      url: Api.getItemApi,
+      queryParameters: parameters,
+    );
 
     List<ItemModel> items = (response['data']['data'] as List)
         .map((e) => ItemModel.fromJson(e))
         .toList();
 
     return DataOutput(total: response['data']['total'] ?? 0, modelList: items);
+  }
+
+  Future<Json> getItem({required ItemMetaData metadata, int page = 1}) async {
+    try {
+      final response = await Api.get(
+        url: Api.getItemApi,
+        queryParameters: {...metadata.toJson, Api.page: page},
+      );
+
+      final items = JsonHelper.parseList(
+        response['data']['data'] as List?,
+        ItemModel.fromJson,
+      );
+
+      final hasMore = items.length == response['data']['per_page'] as int;
+
+      return {'data': items, 'has_more': hasMore};
+    } on Exception catch (e, stack) {
+      log(e.toString(), name: 'getItem');
+      log('$stack', name: 'getItem');
+      throw ApiException(e.toString());
+    }
+  }
+
+  Future<ItemStatus> getItemStatus({required int itemId}) async {
+    try {
+      final response = await Api.get(
+        url: Api.getItemStatusApi,
+        queryParameters: {'item_id': itemId},
+      );
+
+      final status = ItemStatus.parse(response['data']['status'] as String);
+
+      return status;
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      return ItemStatus.unknown;
+    }
   }
 }

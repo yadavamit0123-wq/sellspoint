@@ -1,133 +1,146 @@
-import 'package:eClassify/data/cubits/system/fetch_language_cubit.dart';
-import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
+import 'package:eClassify/data/cubits/category/main_category_cubit.dart';
+import 'package:eClassify/data/cubits/chat/chat_list_cubit.dart';
+import 'package:eClassify/data/cubits/chat/seller_item_offers_cubit.dart';
+import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
+import 'package:eClassify/data/cubits/location/leaf_location_cubit.dart';
+import 'package:eClassify/data/cubits/report/report_reason_cubit.dart';
 import 'package:eClassify/data/cubits/system/language_cubit.dart';
-import 'package:eClassify/data/helper/widgets.dart';
-import 'package:eClassify/data/model/system_settings_model.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
-import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/custom_text.dart';
+import 'package:eClassify/data/repositories/category/category_store.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/utils/app_session.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/extensions/lib/extensions.dart';
+import 'package:eClassify/utils/extensions/lib/gap.dart';
+import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
-import 'package:eClassify/utils/home_locale_refresh.dart';
-import 'package:eClassify/utils/ui_utils.dart';
+import 'package:eClassify/utils/loading_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class LanguagesListScreen extends StatelessWidget {
+class LanguagesListScreen extends StatefulWidget {
   const LanguagesListScreen({super.key});
 
   static Route route(RouteSettings settings) {
-    return BlurredRouter(
-      builder: (context) => const LanguagesListScreen(),
-    );
+    return MaterialPageRoute(builder: (context) => const LanguagesListScreen());
+  }
+
+  @override
+  State<LanguagesListScreen> createState() => _LanguagesListScreenState();
+}
+
+class _LanguagesListScreenState extends State<LanguagesListScreen> {
+  final String _currentLanguageCode = AppSession.currentLanguageCode;
+  bool hasLanguageChanged = false;
+
+  void _onBackPressed() {
+    if (hasLanguageChanged &&
+        _currentLanguageCode != AppSession.currentLanguageCode) {
+      final location = AppSession.currentLocation;
+      context.read<LeafLocationCubit>().refresh();
+      CategoryStore.instance.clearCache(all: true);
+      context.read<MainCategoryCubit>().fetch();
+      // This will re-fetch the reasons from the API on the next item report
+      // with the current language
+      context.read<ReportReasonCubit>().clear();
+
+      // We don't need to wait for refresh to complete to call the below apis
+      // because refresh is only for translation updates and the below apis
+      // expects english or default values, hence we can rely on previous state
+      // without any issue.
+      //
+      // We only call these apis here if the location is null in which case, the refresh()
+      // function above will be No-Op hence the listener in home_screen will not be triggered.
+      // If we remove this check then there are multiple api calls as the home screen
+      // is also listening to the change in LeafLocationCubit and calling these apis accordingly
+      // hence to avoid multiple calls we wrap it with this condition.
+      if (location == null) {
+        context.read<HomeConfigurationCubit>().getHomeConfiguration();
+        if (HiveUtils.isUserAuthenticated()) {
+          context.read<SellerItemOffersCubit>().getOffers();
+          context.read<BuyingChatListCubit>().getChatUsers();
+        }
+      }
+    }
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (context
-            .watch<FetchSystemSettingsCubit>()
-            .getSetting(SystemSetting.language) ==
-        null) {
-      return Scaffold(
-        backgroundColor: context.color.primaryColor,
-        appBar: UiUtils.buildAppBar(context,
-            showBackButton: true, title: "chooseLanguage".translate(context)),
-        body: Center(child: UiUtils.progress()),
-      );
-    }
+    final languages = Constant.systemSettings.languages;
+    final currentLanguageCode = context.select<LanguageCubit, String>(
+      (c) => switch (c.state) {
+        LanguageFetchSuccess(:final language) => language.languageCode,
+        _ => AppSession.currentLanguageCode,
+      },
+    );
 
-    List setting = context
-        .watch<FetchSystemSettingsCubit>()
-        .getSetting(SystemSetting.language) as List;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _onBackPressed();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text("chooseLanguage".translate(context)),
+          leading: BackButton(onPressed: _onBackPressed),
+        ),
+        body: BlocListener<LanguageCubit, LanguageState>(
+          listener: (context, state) {
+            if (state is LanguageLoading) {
+              LoadingOverlay.show(context);
+            }
+            if (state is LanguageFetchSuccess) {
+              LoadingOverlay.hide();
+              hasLanguageChanged = true;
+            }
+            if (state is LanguageFailure) {
+              LoadingOverlay.hide();
+              HelperUtils.showSnackBarMessage(context, state.error.toString());
+            }
+          },
+          child: SafeArea(
+            child: ListView.separated(
+              physics: const BouncingScrollPhysics(),
+              itemCount: languages.length,
+              padding: Constant.appContentPadding.copyWith(top: 20),
+              itemBuilder: (context, index) {
+                final language = languages[index];
 
-    var language = context.watch<LanguageCubit>().state;
-    return Scaffold(
-      backgroundColor: context.color.primaryColor,
-      appBar: UiUtils.buildAppBar(context,
-          showBackButton: true, title: "chooseLanguage".translate(context)),
-      body: BlocListener<FetchLanguageCubit, FetchLanguageState>(
-        listener: (context, state) {
-          if (state is FetchLanguageInProgress) {
-            Widgets.showLoader(context);
-          }
-          if (state is FetchLanguageSuccess) {
-            Widgets.hideLoder(context);
+                final selected = currentLanguageCode == language.languageCode;
 
-            Map<String, dynamic> map = state.toMap();
-
-            var data = map['file_name'];
-            map['data'] = data;
-            map.remove("file_name");
-
-            HiveUtils.storeLanguage(map);
-            context.read<LanguageCubit>().changeLanguages(map);
-            HomeLocaleRefresh.afterLanguageChange(context);
-          }
-          if (state is FetchLanguageFailure) {
-            Widgets.hideLoder(context);
-          }
-        },
-        child: ListView.builder(
-            physics: const BouncingScrollPhysics(),
-            itemCount: setting.length,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemBuilder: (context, index) {
-              Color color = (language as LanguageLoader).language['code'] ==
-                      setting[index]['code']
-                  ? context.color.territoryColor
-                  : context.color.textLightColor.withValues(alpha: 0.03);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(10),
+                return ListTile(
+                  minTileHeight: 70,
+                  selected: selected,
+                  selectedTileColor: context.colorScheme.primary,
+                  selectedColor: context.colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: ListTile(
-                    onTap: () {
-                      context
-                          .read<FetchLanguageCubit>()
-                          .getLanguage(setting[index]['code']);
-                    },
-                    leading: Container(
-                      decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(21)),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(21),
-                        child: UiUtils.imageType(
-                          setting[index]['image'],
-                          fit: BoxFit.contain,
-                          width: 42,
-                          height: 42,
-                        ),
-                      ),
-                    ),
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CustomText(
-                          setting[index]['name'],
-                          color: (language).language['code'] ==
-                                  setting[index]['code']
-                              ? context.color.buttonColor
-                              : context.color.textColorDark,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        CustomText(
-                          setting[index]['name_in_english'],
-                          color: (language).language['code'] ==
-                                  setting[index]['code']
-                              ? context.color.buttonColor.withValues(alpha: 0.7)
-                              : context.color.textColorDark,
-                          fontSize: context.font.small,
-                        )
-                      ],
+                  onTap: () {
+                    context.read<LanguageCubit>().loadLanguage(language);
+                  },
+                  leading: SizedBox.fromSize(
+                    size: Size.square(42),
+                    child: CustomImage(
+                      src: languages[index].image,
+                      radius: 21,
+                      size: Size.square(42),
+                      fit: BoxFit.cover,
                     ),
                   ),
-                ),
-              );
-            }),
+                  subtitle: language.englishName.isNotNullAndNotEmpty
+                      ? Text(language.englishName)
+                      : null,
+                  title: Text(language.name),
+                );
+              },
+              separatorBuilder: (context, index) => 8.vGap,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -1,13 +1,12 @@
 import 'package:background_downloader/background_downloader.dart';
 import 'package:eClassify/utils/api.dart';
-import 'package:eClassify/utils/reel_upload_constants.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/log.dart';
 
-/// eClassify 2.14 — background upload for large item media (video ads, etc.).
 class BackgroundUploadUtility {
-  static const String uploadGroup = ReelUploadConstants.uploadGroup;
+  static const String uploadGroup = 'item_media_upload';
 
+  /// Initialises notification configurations for the background downloader.
   static Future<void> initialize() async {
     await FileDownloader().configureNotificationForGroup(
       uploadGroup,
@@ -28,39 +27,40 @@ class BackgroundUploadUtility {
     );
   }
 
-  /// Returns enqueued task id when successful.
-  static Future<String?> uploadMedia({
+  /// Uploads media files in the background using the background_downloader package.
+  ///
+  /// [itemId] is the ID of the posted item.
+  /// [files] is a map of form fields (e.g. 'product_video') to their local file paths.
+  static Future<void> uploadMedia({
     required String itemId,
     required Map<String, String> files,
   }) async {
-    if (files.isEmpty) return null;
-
-    Log.info('Background upload for item $itemId: $files');
-
+    Log.info(
+      'Uploading media in background for item $itemId with files $files',
+    );
     final token = HiveUtils.isUserAuthenticated() ? HiveUtils.getJWT() : null;
     final url = '${Api.baseUrl}${Api.uploadMediaApi}';
+
+    if (files.isEmpty) return;
 
     try {
       final multiTask = MultiUploadTask(
         url: url,
         files: files.entries.map((e) => (e.key, e.value)).toList(),
         headers: {if (token != null) 'Authorization': 'Bearer $token'},
-        fields: {Api.uploadMediaItemIdField: itemId},
+        fields: {'item_id': itemId},
         group: uploadGroup,
         updates: Updates.statusAndProgress,
       );
 
-      final enqueued = await FileDownloader().enqueue(multiTask).catchError((Object error) {
+      Log.info('Enqueuing MultiUploadTask for item $itemId');
+
+      await FileDownloader().enqueue(multiTask).catchError((error) {
         Log.error(error.toString(), error, null);
         return false;
       });
-      if (enqueued) {
-        return multiTask.taskId;
-      }
-      return null;
     } catch (e, st) {
       Log.error(e.toString(), e, st);
-      return null;
     }
   }
 }

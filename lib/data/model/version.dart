@@ -1,28 +1,30 @@
-/// Semantic app version (2.14-style), tolerant of admin `x.y.z` or `x.y.z+build`.
 class Version implements Comparable<Version> {
   Version({
     required this.major,
     required this.minor,
     required this.patch,
-    this.build,
+    required this.build,
   });
 
   factory Version.fromString(String versionCode) {
-    final trimmed = versionCode.trim();
-    final plusParts = trimmed.split('+');
-    final versionPart = plusParts[0].trim();
-    final build = plusParts.length > 1 ? int.tryParse(plusParts[1].trim()) : null;
+    final version = versionCode.split('+');
 
-    final numbers = versionPart.split('.');
-    if (numbers.isEmpty || numbers[0].isEmpty) {
-      throw ArgumentError('Invalid version: $versionCode');
+    if (version.length > 2) {
+      throw ArgumentError('Invalid version code: $versionCode');
+    }
+
+    final numbers = version[0].split('.');
+    if (numbers.length != 3) {
+      throw ArgumentError('Invalid version format: ${version[0]}');
     }
 
     return Version(
       major: int.parse(numbers[0]),
-      minor: numbers.length > 1 ? int.parse(numbers[1]) : 0,
-      patch: numbers.length > 2 ? int.parse(numbers[2]) : 0,
-      build: build,
+      minor: int.parse(numbers[1]),
+      patch: int.parse(numbers[2]),
+      build: version.length == 2
+          ? int.parse(version[1])
+          : null, // default when +build is missing
     );
   }
 
@@ -36,11 +38,17 @@ class Version implements Comparable<Version> {
     if (major != other.major) return major.compareTo(other.major);
     if (minor != other.minor) return minor.compareTo(other.minor);
     if (patch != other.patch) return patch.compareTo(other.patch);
-    if (build == null || other.build == null) return 0;
+
+    // Ignore build if either version doesn't have it
+    if (build == null || other.build == null) {
+      return 0;
+    }
     return build!.compareTo(other.build!);
   }
 
   bool operator >(Version other) => compareTo(other) > 0;
+
+  bool operator <(Version other) => compareTo(other) < 0;
 
   @override
   String toString() => '$major.$minor.$patch${build != null ? '+$build' : ''}';

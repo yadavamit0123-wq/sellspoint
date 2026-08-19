@@ -1,84 +1,72 @@
+import 'dart:developer';
+
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/app_config.dart';
-import 'package:eClassify/utils/chat_navigation.dart';
+import 'package:eClassify/data/cubits/item/delete_item_cubit.dart';
 import 'package:eClassify/data/cubits/item/fetch_my_item_cubit.dart';
-import 'package:eClassify/data/helper/designs.dart';
+import 'package:eClassify/data/model/item/ad_item_type.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/ui/screens/item/ad_posting/widgets/reel_upload_badge.dart';
-import 'package:eClassify/utils/my_ads_refresh.dart';
+import 'package:eClassify/ui/screens/advertisement/details/widgets/dialogs/delete_advertisement_dialog.dart';
+import 'package:eClassify/ui/screens/item/item_listeners.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
 import 'package:eClassify/ui/screens/widgets/promoted_widget.dart';
-import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/api.dart';
-import 'package:eClassify/utils/app_icon.dart';
-import 'package:eClassify/utils/cloud_state/cloud_state.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/utils/app_icons.dart';
+import 'package:eClassify/utils/collection_notifiers.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/extensions/lib/currency_formatter.dart';
-import 'package:eClassify/utils/helper_utils.dart';
-import 'package:eClassify/utils/item_video_helper.dart';
-import 'package:eClassify/utils/main_navigation_v214.dart';
+import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 Map<String, FetchMyItemsCubit> myAdsCubitReference = {};
 
-bool _requiresPlayableMediaForReelsShortcut(ItemModel item) {
-  return AppConfig.enableMyAdsVideoReelsShortcutRequiresPlayableMediaV214;
-}
-
-bool _hasPlayableReelMedia(ItemModel item) {
-  return ItemVideoHelper.isPlayableForReelsShortcut(item);
-}
-
 class MyItemTab extends StatefulWidget {
-  //final bool? getActiveItems;
   final String? getItemsWithStatus;
 
   const MyItemTab({super.key, this.getItemsWithStatus});
 
   @override
-  CloudState<MyItemTab> createState() => _MyItemTabState();
+  State<MyItemTab> createState() => _MyItemTabState();
 }
 
-class _MyItemTabState extends CloudState<MyItemTab> {
-  late final ScrollController _pageScrollController = ScrollController();
+class _MyItemTabState extends State<MyItemTab> {
+  final ScrollController _pageScrollController = ScrollController();
+  final SetNotifier<int> _selectedItems = SetNotifier({});
+  final ListNotifier<ItemModel> _filteredItems = ListNotifier({});
+  final OverlayPortalController _overlayController = OverlayPortalController();
 
   @override
   void initState() {
+    super.initState();
     if (HiveUtils.isUserAuthenticated()) {
       context.read<FetchMyItemsCubit>().fetchMyItems(
-            getItemsWithStatus: widget.getItemsWithStatus,
-          );
+        getItemsWithStatus: widget.getItemsWithStatus,
+      );
       _pageScrollController.addListener(_pageScroll);
       setReferenceOfCubit();
     }
-    if (AppConfig.enableMyAdsTabRepeatTapRefreshV214) {
-      MyAdsRefresh.revision.addListener(_onMyAdsRefreshSignal);
-    }
 
-    super.initState();
-  }
-
-  void _onMyAdsRefreshSignal() {
-    if (!mounted || !HiveUtils.isUserAuthenticated()) return;
-    context.read<FetchMyItemsCubit>().fetchMyItems(
-          getItemsWithStatus: widget.getItemsWithStatus,
-        );
+    _selectedItems.addListener(() {
+      if (_selectedItems.isEmpty) {
+        _overlayController.hide();
+      }
+    });
   }
 
   @override
   void dispose() {
-    if (AppConfig.enableMyAdsTabRepeatTapRefreshV214) {
-      MyAdsRefresh.revision.removeListener(_onMyAdsRefreshSignal);
+    if (_overlayController.isShowing) {
+      _overlayController.hide();
     }
-    _pageScrollController.removeListener(_pageScroll);
+    _selectedItems.dispose();
+    _filteredItems.dispose();
     _pageScrollController.dispose();
     super.dispose();
   }
@@ -86,89 +74,58 @@ class _MyItemTabState extends CloudState<MyItemTab> {
   void _pageScroll() {
     if (_pageScrollController.isEndReached()) {
       if (context.read<FetchMyItemsCubit>().hasMoreData()) {
-        context
-            .read<FetchMyItemsCubit>()
-            .fetchMyMoreItems(getItemsWithStatus: widget.getItemsWithStatus);
+        context.read<FetchMyItemsCubit>().fetchMyMoreItems(
+          getItemsWithStatus: widget.getItemsWithStatus,
+        );
       }
     }
   }
 
   void setReferenceOfCubit() {
-    myAdsCubitReference[widget.getItemsWithStatus!] =
-        context.read<FetchMyItemsCubit>();
+    myAdsCubitReference[widget.getItemsWithStatus!] = context
+        .read<FetchMyItemsCubit>();
   }
 
   ListView shimmerEffect() {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(
-        vertical: 10 + defaultPadding,
-        horizontal: defaultPadding,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 30),
       itemCount: 5,
       separatorBuilder: (context, index) {
-        return const SizedBox(
-          height: 12,
-        );
+        return const SizedBox(height: 12);
       },
       itemBuilder: (context, index) {
         return Container(
           width: double.maxFinite,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(15)),
           child: Row(
+            spacing: 10,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const ClipRRect(
-                clipBehavior: Clip.antiAliasWithSaveLayer,
-                borderRadius: BorderRadius.all(Radius.circular(15)),
-                child: CustomShimmer(height: 90, width: 90),
-              ),
-              const SizedBox(
-                width: 10,
-              ),
+              CustomShimmer(height: 90, width: 90, borderRadius: 15),
               Expanded(
-                child: LayoutBuilder(builder: (context, c) {
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      CustomShimmer(
-                        height: 10,
-                        width: c.maxWidth - 50,
-                      ),
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      const CustomShimmer(
-                        height: 10,
-                      ),
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      CustomShimmer(
-                        height: 10,
-                        width: c.maxWidth / 1.2,
-                      ),
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      Align(
-                        alignment: AlignmentDirectional.bottomStart,
-                        child: CustomShimmer(
-                          width: c.maxWidth / 4,
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    return Column(
+                      spacing: 10,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const SizedBox(height: 10),
+                        CustomShimmer(height: 10, width: c.maxWidth - 50),
+                        const CustomShimmer(height: 10),
+                        CustomShimmer(height: 10, width: c.maxWidth / 1.2),
+                        Align(
+                          alignment: AlignmentDirectional.bottomStart,
+                          child: CustomShimmer(width: c.maxWidth / 4),
                         ),
-                      ),
-                    ],
-                  );
-                }),
-              )
+                      ],
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         );
@@ -176,57 +133,80 @@ class _MyItemTabState extends CloudState<MyItemTab> {
     );
   }
 
-  Widget showStatus(ItemModel model) {
+  Widget showAdminEdited() {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
       //margin: EdgeInsetsDirectional.only(end: 4, start: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(5),
+        color: StatusColors.deactivateButtonColor.withValues(alpha: 0.1),
+      ),
+      child: CustomText(
+        "adminEdited".translate(context),
+        fontSize: context.font.small,
+        maxLines: 1,
+        color: StatusColors.deactivateButtonColor,
+      ),
+    );
+  }
+
+  Widget showStatus(ItemModel model) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(5),
         color: _getStatusColor(model.status),
       ),
       child: CustomText(
-        _getStatusCustomText(model.status)!,
+        _getStatusCustomText(model)!,
         fontSize: context.font.small,
+        maxLines: 1,
         color: _getStatusTextColor(model.status),
       ),
     );
   }
 
-  String? _getStatusCustomText(String? status) {
-    switch (status) {
-      case "review":
+  String? _getStatusCustomText(ItemModel model) {
+    switch (model.status) {
+      case Constant.statusReview:
         return "underReview".translate(context);
-      case "active":
+      case Constant.statusActive:
         return "active".translate(context);
-      case "approved":
+      case Constant.statusApproved:
         return "approved".translate(context);
-      case "inactive":
+      case Constant.statusInactive:
         return "deactivate".translate(context);
-      case "sold out":
-        return "soldOut".translate(context);
-      case "rejected":
-        return "rejected".translate(context);
-      case "expired":
+      case Constant.statusSoldOut:
+        return model.category!.isJobCategory
+            ? "jobClosed".translate(context)
+            : "soldOut".translate(context);
+      case Constant.statusPermanentRejected:
+        return "permanentRejected".translate(context);
+      case Constant.statusSoftRejected:
+        return "softRejected".translate(context);
+      case Constant.statusExpired:
         return "expired".translate(context);
+      case Constant.statusResubmitted:
+        return "resubmitted".translate(context);
       default:
-        return status;
+        return model.status;
     }
   }
 
   Color _getStatusColor(String? status) {
     switch (status) {
-      case "review":
-        return pendingButtonColor.withValues(alpha: 0.1);
-      case "active" || "approved":
-        return activateButtonColor.withValues(alpha: 0.1);
-      case "inactive":
-        return deactivateButtonColor.withValues(alpha: 0.1);
-      case "sold out":
-        return soldOutButtonColor.withValues(alpha: 0.1);
-      case "rejected":
-        return deactivateButtonColor.withValues(alpha: 0.1);
-      case "expired":
-        return deactivateButtonColor.withValues(alpha: 0.1);
+      case Constant.statusReview || Constant.statusResubmitted:
+        return StatusColors.pendingButtonColor.withValues(alpha: 0.1);
+      case Constant.statusActive || Constant.statusApproved:
+        return StatusColors.activateButtonColor.withValues(alpha: 0.1);
+      case Constant.statusInactive:
+        return StatusColors.deactivateButtonColor.withValues(alpha: 0.1);
+      case Constant.statusSoldOut:
+        return StatusColors.soldOutButtonColor.withValues(alpha: 0.1);
+      case Constant.statusPermanentRejected || Constant.statusSoftRejected:
+        return StatusColors.deactivateButtonColor.withValues(alpha: 0.1);
+      case Constant.statusExpired:
+        return StatusColors.deactivateButtonColor.withValues(alpha: 0.1);
       default:
         return context.color.territoryColor.withValues(alpha: 0.1);
     }
@@ -234,18 +214,18 @@ class _MyItemTabState extends CloudState<MyItemTab> {
 
   Color _getStatusTextColor(String? status) {
     switch (status) {
-      case "review":
-        return pendingButtonColor;
-      case "active" || "approved":
-        return activateButtonColor;
-      case "inactive":
-        return deactivateButtonColor;
-      case "sold out":
-        return soldOutButtonColor;
-      case "rejected":
-        return deactivateButtonColor;
-      case "expired":
-        return deactivateButtonColor;
+      case Constant.statusReview || Constant.statusResubmitted:
+        return StatusColors.pendingButtonColor;
+      case Constant.statusActive || Constant.statusApproved:
+        return StatusColors.activateButtonColor;
+      case Constant.statusInactive:
+        return StatusColors.deactivateButtonColor;
+      case Constant.statusSoldOut:
+        return StatusColors.soldOutButtonColor;
+      case Constant.statusPermanentRejected || Constant.statusSoftRejected:
+        return StatusColors.deactivateButtonColor;
+      case Constant.statusExpired:
+        return StatusColors.deactivateButtonColor;
       default:
         return context.color.territoryColor;
     }
@@ -253,15 +233,16 @@ class _MyItemTabState extends CloudState<MyItemTab> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        context.read<FetchMyItemsCubit>().fetchMyItems(
-              getItemsWithStatus: widget.getItemsWithStatus,
-            );
-
-        setReferenceOfCubit();
+    return ItemListeners(
+      onComplete: (isSuccess) {
+        _overlayController.hide();
+        _selectedItems.clear();
+        if (isSuccess) {
+          context.read<FetchMyItemsCubit>().fetchMyItems(
+            getItemsWithStatus: widget.getItemsWithStatus,
+          );
+        }
       },
-      color: context.color.territoryColor,
       child: BlocBuilder<FetchMyItemsCubit, FetchMyItemsState>(
         builder: (context, state) {
           if (state is FetchMyItemsInProgress) {
@@ -269,349 +250,539 @@ class _MyItemTabState extends CloudState<MyItemTab> {
           }
 
           if (state is FetchMyItemsFailed) {
-            if (state.error is ApiException) {
-              if (state.error.error == "no-internet") {
-                return NoInternet(
-                  onRetry: () {
-                    context.read<FetchMyItemsCubit>().fetchMyItems(
-                        getItemsWithStatus: widget.getItemsWithStatus);
-                  },
+            return QErrorWidget(
+              error: state.error,
+              onRetry: () {
+                context.read<FetchMyItemsCubit>().fetchMyItems(
+                  getItemsWithStatus: widget.getItemsWithStatus,
                 );
-              }
-            }
-
-            return const SomethingWentWrong();
+              },
+            );
           }
 
           if (state is FetchMyItemsSuccess) {
+            _filteredItems.replaceAll(state.items);
             if (state.items.isEmpty) {
               return NoDataFound(
                 mainMessage: "noAdsFound".translate(context),
                 subMessage: "noAdsAvailable".translate(context),
                 onTap: () {
                   context.read<FetchMyItemsCubit>().fetchMyItems(
-                      getItemsWithStatus: widget.getItemsWithStatus);
+                    getItemsWithStatus: widget.getItemsWithStatus,
+                  );
                 },
               );
             }
 
-            return Column(
-              children: [
-                Expanded(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    controller: _pageScrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: sidePadding,
-                      vertical: 8,
+            return OverlayPortal(
+              controller: _overlayController,
+              overlayChildBuilder: (context) => _optionsOverlay(context, () {
+                _selectedItems.clear();
+                _filteredItems.replaceAll(state.items);
+                _overlayController.hide();
+              }),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 5,
+                children: [
+                  if (widget.getItemsWithStatus == Constant.statusExpired)
+                    ColoredBox(
+                      color: Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        child: CustomText(
+                          '${"note".translate(context)}: ${"expiredItemsMultiRenewNote".translate(context)}',
+                          color: Colors.red,
+                        ),
+                      ),
                     ),
-                    separatorBuilder: (context, index) {
-                      return Container(
-                        height: 8,
-                      );
-                    },
-                    itemBuilder: (context, index) {
-                      ItemModel item = state.items[index];
-                      return InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.adDetailsScreen,
-                              arguments: {
-                                "model": item,
-                              }).then((value) {
-                            if (value == "refresh") {
-                              context.read<FetchMyItemsCubit>().fetchMyItems(
-                                    getItemsWithStatus:
-                                        widget.getItemsWithStatus,
-                                  );
-
-                              setReferenceOfCubit();
-                            }
-                          });
-                        },
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Container(
-                            height: 130,
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(15),
-                                color: item.status == "inactive"
-                                    ? context.color.deactivateColor.brighten(70)
-                                    : context.color.secondaryColor,
-                                border: Border.all(
-                                    color: context.color.borderColor.darken(30),
-                                    width: 1)),
-                            width: double.infinity,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                  ListenableBuilder(
+                    listenable: _selectedItems,
+                    builder: (context, child) {
+                      return _selectedItems.isEmpty
+                          ? const SizedBox.shrink()
+                          : Row(
                               children: [
-                                Stack(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(15),
-                                      child: SizedBox(
-                                        width: 116,
-                                        height: double.infinity,
-                                        child: UiUtils.getImage(
-                                            item.image ?? "",
-                                            height: double.infinity,
-                                            fit: BoxFit.cover),
-                                      ),
-                                    ),
-                                    if(Constant.sponsorPackageText.isNotEmpty && (item.isFeature ?? false))
-                                      PositionedDirectional(
-                                          start: 5,
-                                          top: 5,
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(3),
-                                                color: Colors.yellow.shade700
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.flash_on, size: 10,color: Colors.black),
-                                                SizedBox(width: 4),
-                                                Text('${Constant.sponsorPackageText}'.toCapitalized(), style: TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold),),
-                                              ],
-                                            ),
-                                          )
-                                      ),
-                                    // if (item.isFeature ?? false)
-                                    //   const PositionedDirectional(
-                                    //       start: 5,
-                                    //       top: 5,
-                                    //       child: PromotedCard(type: PromoteCardType.icon)
-                                    //   )
-                                  ],
+                                Checkbox(
+                                  value:
+                                      _selectedItems.length ==
+                                      _filteredItems.length,
+                                  activeColor: context.color.territoryColor,
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    if (value) {
+                                      final items = _filteredItems.value.map(
+                                        (item) => item.id!,
+                                      );
+                                      _selectedItems.addAll(items);
+                                    } else {
+                                      _selectedItems.clear();
+                                      if (!_filteredItems.isEmpty) {
+                                        _filteredItems.replaceAll(state.items);
+                                      }
+                                    }
+                                  },
                                 ),
                                 Expanded(
-                                  flex: 8,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12.0, vertical: 15),
-                                    child: Column(
-                                      //mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceAround,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            CustomText(
-                                              (item.price ?? 0.0)
-                                                  .currencyFormat,
-                                              color:
-                                                  context.color.territoryColor,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            Spacer(),
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.end,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                showStatus(item),
-                                                if (item.id != null)
-                                                  ReelUploadBadge(
-                                                    itemId: item.id.toString(),
-                                                    compact: true,
-                                                  ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        //SizedBox(height: 7,),
-                                        CustomText(
-                                          item.name ?? "",
-                                          maxLines: 2,
-                                          firstUpperCaseWidget: true,
-                                        ),
-                                        if (AppConfig
-                                                .enableMyAdsVideoListingLabelV214 &&
-                                            ItemVideoHelper.isVideoListing(
-                                              item,
-                                            ))
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 6,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.videocam_outlined,
-                                                  size: 14,
-                                                  color: context
-                                                      .color.territoryColor,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                CustomText(
-                                                  'videoListingTypeLabel'
-                                                      .translate(context),
-                                                  fontSize: context.font.small,
-                                                  color: context
-                                                      .color.territoryColor,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        if (AppConfig.enableMyAdsVideoReelsShortcutV214 &&
-                                            AppConfig.enableFiveTabNavV214 &&
-                                            item.id != null &&
-                                            ItemVideoHelper.isVideoListing(
-                                              item,
-                                            ) &&
-                                            (!_requiresPlayableMediaForReelsShortcut(
-                                                item) ||
-                                                _hasPlayableReelMedia(item)))
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 8,
-                                            ),
-                                            child: Align(
-                                              alignment:
-                                                  Alignment.centerLeft,
-                                              child: InkWell(
-                                                onTap: () {
-                                                  MainNavigationV214
-                                                      .openReelsTab(
-                                                    itemId: item.id,
+                                  child: CustomText(
+                                    'selectAll'.translate(context),
+                                    color: context.color.territoryColor,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                CustomText(
+                                  '${_selectedItems.value.length} ${'itemsSelected'.translate(context)}',
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ],
+                            );
+                    },
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      triggerMode: RefreshIndicatorTriggerMode.anywhere,
+                      onRefresh: () async {
+                        context.read<FetchMyItemsCubit>().fetchMyItems(
+                          getItemsWithStatus: widget.getItemsWithStatus,
+                        );
+
+                        setReferenceOfCubit();
+                      },
+                      color: context.color.territoryColor,
+                      child: ListenableBuilder(
+                        listenable: _filteredItems,
+                        builder: (context, child) {
+                          return ListView.separated(
+                            itemCount: _filteredItems.length,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            controller: _pageScrollController,
+                            padding: const EdgeInsets.only(bottom: 20),
+                            separatorBuilder: (context, index) {
+                              return const SizedBox(height: 8);
+                            },
+                            itemBuilder: (context, index) {
+                              ItemModel item = _filteredItems[index];
+
+                              return ListenableBuilder(
+                                listenable: _selectedItems,
+                                builder: (context, child) {
+                                  final isSelected = _selectedItems.value
+                                      .contains(item.id!);
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(15),
+                                    onTap: () {
+                                      if (_selectedItems.isEmpty) {
+                                        Navigator.pushNamed(
+                                          context,
+                                          Routes.adDetailsScreen,
+                                          arguments: {
+                                            "item_id": item.id,
+                                            'is_my_ad': true,
+                                            'status_tab':
+                                                widget.getItemsWithStatus,
+                                          },
+                                        ).then((value) {
+                                          if (value == "refresh" ||
+                                              value == true) {
+                                            context
+                                                .read<FetchMyItemsCubit>()
+                                                .fetchMyItems(
+                                                  getItemsWithStatus:
+                                                      widget.getItemsWithStatus,
+                                                );
+
+                                            setReferenceOfCubit();
+                                          }
+                                        });
+                                      } else {
+                                        _selectedItems.toggle(item.id!);
+                                        if (_selectedItems.isEmpty) {
+                                          _filteredItems.replaceAll(
+                                            state.items,
+                                          );
+                                        }
+                                      }
+                                    },
+                                    onLongPress:
+                                        widget.getItemsWithStatus ==
+                                                Constant.statusExpired ||
+                                            item.status ==
+                                                Constant.statusExpired
+                                        ? () {
+                                            if (!_selectedItems.isEmpty) return;
+                                            if (item.status ==
+                                                Constant.statusExpired) {
+                                              final filteredItems = state.items
+                                                  .where(
+                                                    (item) =>
+                                                        item.status ==
+                                                        Constant.statusExpired,
                                                   );
-                                                },
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .play_circle_outline,
-                                                      size: 18,
-                                                      color: context.color
-                                                          .territoryColor,
+                                              _filteredItems.replaceAll(
+                                                filteredItems,
+                                              );
+                                            }
+                                            if (!_selectedItems.isEmpty) return;
+                                            _overlayController.show();
+                                            _selectedItems.add(item.id!);
+                                          }
+                                        : null,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(15),
+                                      child: Container(
+                                        height: 130,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
+                                          color:
+                                              item.status ==
+                                                      Constant.statusInactive ||
+                                                  isSelected
+                                              ? context.color.deactivateColor
+                                                    .withValues(
+                                                      alpha: isSelected
+                                                          ? .1
+                                                          : 0.5,
+                                                    )
+                                              : context.color.secondaryColor,
+                                          border: Border.all(
+                                            color: context.color.textLightColor
+                                                .withValues(alpha: 0.18),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        width: double.infinity,
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(
+                                              width: 110,
+                                              height: 130,
+                                              child: Stack(
+                                                children: [
+                                                  ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          15,
+                                                        ),
+                                                    child: CustomImage(
+                                                      src: item.image!,
+                                                      size: const Size(
+                                                        110,
+                                                        130,
+                                                      ),
+                                                      resolution: Size.square(
+                                                        150,
+                                                      ),
+                                                      fit: BoxFit.cover,
                                                     ),
-                                                    const SizedBox(width: 6),
-                                                    CustomText(
-                                                      'viewReelForListing'
-                                                          .translate(context),
-                                                      fontSize:
-                                                          context.font.small,
-                                                      color: context.color
-                                                          .territoryColor,
-                                                      fontWeight:
-                                                          FontWeight.w600,
+                                                  ),
+                                                  if (item.isFeature ?? false)
+                                                    const PositionedDirectional(
+                                                      start: 5,
+                                                      top: 5,
+                                                      child: PromotedCard(),
+                                                    ),
+                                                  if (isSelected)
+                                                    PositionedDirectional(
+                                                      end: 2,
+                                                      top: 2,
+                                                      child: Checkbox(
+                                                        value: true,
+                                                        onChanged: null,
+                                                        fillColor:
+                                                            WidgetStatePropertyAll(
+                                                              context
+                                                                  .color
+                                                                  .territoryColor,
+                                                            ),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        materialTapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 8,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12.0,
+                                                      vertical: 15,
+                                                    ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceAround,
+                                                  children: [
+                                                    Row(
+                                                      spacing: 10,
+                                                      children: [
+                                                        if (item.isEditedByAdmin ==
+                                                            1)
+                                                          Flexible(
+                                                            child:
+                                                                showAdminEdited(),
+                                                          ),
+                                                        Expanded(
+                                                          child: Align(
+                                                            alignment:
+                                                                AlignmentDirectional
+                                                                    .centerStart,
+                                                            child: showStatus(
+                                                              item,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (item.itemType ==
+                                                            AdItemType
+                                                                .videoAd) ...[
+                                                          CircleAvatar(
+                                                            radius: 12,
+                                                            backgroundColor:
+                                                                context
+                                                                    .colorScheme
+                                                                    .primary
+                                                                    .withValues(
+                                                                      alpha: .1,
+                                                                    ),
+                                                            foregroundColor:
+                                                                context
+                                                                    .colorScheme
+                                                                    .primary,
+                                                            child: Icon(
+                                                              AppIcons
+                                                                  .playCircle,
+                                                              size: 16,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                    Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        if (UiUtils.displayPrice(
+                                                          item,
+                                                        ))
+                                                          Expanded(
+                                                            child:
+                                                                UiUtils.getPriceWidget(
+                                                                  item,
+                                                                  context,
+                                                                ),
+                                                          )
+                                                        else
+                                                          Expanded(
+                                                            child: CustomText(
+                                                              item.translatedName ??
+                                                                  "",
+                                                              maxLines: 2,
+                                                              firstUpperCaseWidget:
+                                                                  true,
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                    if (UiUtils.displayPrice(
+                                                      item,
+                                                    ))
+                                                      CustomText(
+                                                        item.translatedName ??
+                                                            "",
+                                                        maxLines: 2,
+                                                        firstUpperCaseWidget:
+                                                            true,
+                                                      ),
+                                                    Row(
+                                                      spacing: 20,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Flexible(
+                                                          flex: 1,
+                                                          child: Row(
+                                                            spacing: 4,
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              Icon(
+                                                                PhosphorIcons
+                                                                    .eye,
+                                                                size: 15,
+                                                              ),
+                                                              CustomText(
+                                                                "${"views".translate(context)}:${item.views}",
+                                                                fontSize:
+                                                                    context
+                                                                        .font
+                                                                        .small,
+                                                                color: context
+                                                                    .color
+                                                                    .textColorDark
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.5,
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        Flexible(
+                                                          flex: 1,
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              Icon(
+                                                                PhosphorIcons
+                                                                    .heart,
+                                                                size: 15,
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 4,
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 4,
+                                                              ),
+                                                              CustomText(
+                                                                "${"like".translate(context)}:${item.totalLikes.toString()}",
+                                                                fontSize:
+                                                                    context
+                                                                        .font
+                                                                        .small,
+                                                                color: context
+                                                                    .color
+                                                                    .textColorDark
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.5,
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        //SizedBox(height: 12,),
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                          children: [
-                                            Flexible(
-                                              flex: 1,
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  SvgPicture.asset(AppIcons.eye,
-                                                      width: 14,
-                                                      height: 14,
-                                                      colorFilter: ColorFilter.mode(
-                                                          context.color
-                                                              .textDefaultColor,
-                                                          BlendMode.srcIn)),
-                                                  const SizedBox(
-                                                    width: 4,
-                                                  ),
-                                                  CustomText(
-                                                    "${"views".translate(context)}:${item.views}",
-                                                    fontSize:
-                                                        context.font.small,
-                                                    color: context
-                                                        .color.textColorDark
-                                                        .withValues(alpha: 0.5),
-                                                  )
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Flexible(
-                                              flex: 1,
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  SvgPicture.asset(
-                                                      AppIcons.heart,
-                                                      width: 14,
-                                                      height: 14,
-                                                      colorFilter: ColorFilter.mode(
-                                                          context.color
-                                                              .textDefaultColor,
-                                                          BlendMode.srcIn)),
-                                                  const SizedBox(
-                                                    width: 4,
-                                                  ),
-                                                  CustomText(
-                                                    "${"like".translate(context)}:${item.totalLikes.toString()}",
-                                                    fontSize:
-                                                        context.font.small,
-                                                    color: context
-                                                        .color.textColorDark
-                                                        .withValues(alpha: 0.5),
-                                                  )
-                                                ],
-                                              ),
-                                            ),
-                                            if (AppConfig
-                                                    .enableSellerItemChatV214 &&
-                                                item.id != null)
-                                              IconButton(
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints(),
-                                                tooltip: 'listingChats'
-                                                    .translate(context),
-                                                onPressed: () {
-                                                  ChatNavigation
-                                                      .openSellerItemChats(
-                                                    context,
-                                                    itemId: item.id!,
-                                                    itemName: item.name,
-                                                  );
-                                                },
-                                                icon: Icon(
-                                                  Icons.chat_bubble_outline,
-                                                  size: 22,
-                                                  color: context
-                                                      .color.territoryColor,
-                                                ),
-                                              ),
                                           ],
-                                        )
-                                      ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    itemCount: state.items.length,
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
-                if (state.isLoadingMore) UiUtils.progress()
-              ],
+                  if (state.isLoadingMore) UiUtils.progress(),
+                ],
+              ),
             );
           }
-          return Container();
+          return const SizedBox.shrink();
         },
       ),
+    );
+  }
+
+  Widget _optionsOverlay(BuildContext context, VoidCallback resetState) {
+    final buttonStyle = FilledButton.styleFrom(
+      backgroundColor: context.color.territoryColor,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      textStyle: Theme.of(context).textTheme.titleMedium,
+    );
+
+    log(
+      '${kBottomNavigationBarHeight} ${MediaQuery.paddingOf(context).bottom}',
+    );
+    return Stack(
+      children: [
+        PositionedDirectional(
+          end: 10,
+          bottom: kBottomNavigationBarHeight * 2,
+          child: TweenAnimationBuilder(
+            tween: Tween<double>(begin: .8, end: 1),
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.decelerate,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child!);
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              spacing: 10,
+              children: [
+                // FilledButton.icon(
+                //   style: buttonStyle,
+                //   onPressed: () async {
+                //     final isFreeAdListingEnabled =
+                //         Constant.systemSettings.isFreeAdListingEnabled;
+                //     if (isFreeAdListingEnabled) {
+                //       context.read<RenewItemCubit>().renewMultiItems(
+                //         ids: _selectedItems.value,
+                //       );
+                //     } else {
+                //       await PackageSelectBottomSheet.show(context, (packageId) {
+                //         if (packageId == null) {
+                //           resetState();
+                //           return;
+                //         }
+                //         context.read<RenewItemCubit>().renewMultiItems(
+                //           ids: _selectedItems.value,
+                //           packageId: packageId,
+                //         );
+                //       });
+                //     }
+                //   },
+                //   label: Text('renew'.translate(context)),
+                //   icon: Icon(Icons.autorenew),
+                // ),
+                FilledButton.icon(
+                  style: buttonStyle,
+                  onPressed: () async {
+                    final shouldDelete =
+                        await DeleteAdvertisementDialog.show(context) ?? false;
+                    if (shouldDelete) {
+                      context.read<DeleteItemCubit>().deleteMultiItem(
+                        ids: _selectedItems.value,
+                      );
+                    }
+                  },
+                  label: Text('delete'.translate(context)),
+                  icon: Icon(AppIcons.trash),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

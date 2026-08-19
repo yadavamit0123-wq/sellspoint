@@ -5,7 +5,7 @@ class AppCubitObserver extends BlocObserver {
   @override
   void onChange(BlocBase<dynamic> bloc, Change<dynamic> change) {
     super.onChange(bloc, change);
-    Log.debug('[${bloc.runtimeType}] $change');
+    Log.debug('[${bloc.runtimeType.toString()}] $change');
   }
 
   @override
@@ -14,6 +14,6 @@ class AppCubitObserver extends BlocObserver {
     Transition<dynamic, dynamic> transition,
   ) {
     super.onTransition(bloc, transition);
-    Log.debug('[${bloc.runtimeType}] $transition');
+    Log.debug('[${bloc.runtimeType.toString()}] $transition');
   }
 }

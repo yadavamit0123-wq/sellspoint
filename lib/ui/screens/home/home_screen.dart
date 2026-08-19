@@ -1,643 +1,298 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'dart:async';
-import 'dart:developer';
-import 'package:eClassify/app_config.dart';
-import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/data/cubits/location/leaf_location_cubit.dart';
-import 'package:eClassify/data/cubits/category/fetch_category_cubit.dart';
-import 'package:eClassify/data/cubits/chat/blocked_users_list_cubit.dart';
-import 'package:eClassify/data/cubits/chat/get_buyer_chat_users_cubit.dart';
+import 'package:collection/collection.dart';
+import 'package:eClassify/data/cubits/auth/user_profile_cubit.dart';
+import 'package:eClassify/data/cubits/banner/banner_ad_cubit.dart';
+import 'package:eClassify/data/cubits/category/main_category_cubit.dart';
+import 'package:eClassify/data/cubits/chat/chat_list_cubit.dart';
+import 'package:eClassify/data/cubits/chat/seller_item_offers_cubit.dart';
+import 'package:eClassify/data/cubits/currency/currencies_cubit.dart';
 import 'package:eClassify/data/cubits/favorite/favorite_cubit.dart';
-import 'package:eClassify/data/cubits/home/fetch_home_all_items_cubit.dart';
-import 'package:eClassify/data/cubits/home/fetch_home_screen_cubit.dart';
-import 'package:eClassify/data/cubits/home/popular_categories_cubit.dart';
-import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
-import 'package:eClassify/utils/bottom_nav_tap_listener.dart';
-import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
-import 'package:eClassify/data/cubits/system/get_api_keys_cubit.dart';
-import 'package:eClassify/data/helper/designs.dart';
-import 'package:eClassify/data/model/home/home_screen_section.dart';
-import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/data/model/system_settings_model.dart';
-import 'package:eClassify/new_development/status/models/status_models.dart';
-import 'package:eClassify/new_development/status/widgets/status_widget.dart';
-import 'package:eClassify/ui/screens/ad_banner_screen.dart';
-import 'package:eClassify/ui/screens/home/slider_widget.dart';
-import 'package:eClassify/ui/screens/home/widgets/category_widget_home.dart';
-import 'package:eClassify/ui/screens/home/widgets/grid_list_adapter.dart';
-import 'package:eClassify/ui/screens/home/widgets/all_items_widget.dart';
-import 'package:eClassify/ui/screens/home/widgets/home_section_layout_builder.dart';
-import 'package:eClassify/ui/screens/home/widgets/home_sticky_search_delegate.dart';
+import 'package:eClassify/data/cubits/followers/follow_user_list_cubit.dart';
+import 'package:eClassify/data/cubits/home/featured_section_cubit.dart';
+import 'package:eClassify/data/cubits/home/home_items_cubit.dart';
 import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
+import 'package:eClassify/data/cubits/home/popular_categories_cubit.dart';
+import 'package:eClassify/data/cubits/home/slider_cubit.dart';
+import 'package:eClassify/data/cubits/item/video_ads/video_ads_cubit.dart';
+import 'package:eClassify/data/cubits/location/leaf_location_cubit.dart';
+import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
+import 'package:eClassify/data/model/banner/banner_ad.dart';
+import 'package:eClassify/data/model/home/home_section.dart';
+import 'package:eClassify/data/model/location/leaf_location.dart';
+import 'package:eClassify/new_development/status/widgets/home_status_strip.dart';
+import 'package:eClassify/ui/screens/google_banner_ad.dart';
+import 'package:eClassify/ui/screens/home/mixins/root_location_resolver_mixin.dart';
+import 'package:eClassify/ui/screens/home/widgets/all_items_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/category/all_category_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/category/popular_category_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/featured_section/featured_section_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/home_screen_shimmer.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_search.dart';
-import 'package:eClassify/ui/screens/home/widgets/home_sections_adapter.dart';
-import 'package:eClassify/ui/screens/home/widgets/home_shimmers.dart';
 import 'package:eClassify/ui/screens/home/widgets/location_widget.dart';
-import 'package:eClassify/ui/screens/home/widgets/popular_category_home_widget.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
-import 'package:eClassify/ui/theme/theme.dart';
-//import 'package:uni_links/uni_links.dart';
-
-import 'package:eClassify/utils/app_assets.dart';
-import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/ui/screens/home/widgets/slider_widget.dart';
+import 'package:eClassify/ui/screens/widgets/banner_widget.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/utils/app_session.dart';
+import 'package:eClassify/utils/bottom_nav_tap_listener.dart';
 import 'package:eClassify/utils/constant.dart';
-import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/extensions/lib/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
-import 'package:eClassify/utils/leaf_location_bridge.dart';
-import 'package:eClassify/utils/notification/awsome_notification.dart';
-import 'package:eClassify/utils/notification/notification_service.dart';
-import 'package:eClassify/utils/ui_utils.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:permission_handler/permission_handler.dart';
-
-const double sidePadding = 10;
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({this.from, super.key});
+
   final String? from;
 
-  const HomeScreen({super.key, this.from});
-
   @override
-  HomeScreenState createState() => HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin<HomeScreen> {
-  //
+class _HomeScreenState extends State<HomeScreen>
+    with
+        AutomaticKeepAliveClientMixin,
+        WidgetsBindingObserver,
+        RootLocationResolverMixin {
+  final ValueNotifier<bool> _isInitialLoad = ValueNotifier(
+    AppSession.currentLocation == null,
+  );
+  final ScrollController _scrollController = ScrollController();
+
   @override
   bool get wantKeepAlive => true;
-
-  //
-  List<ItemModel> itemLocalList = [];
-
-  //
-  bool isCategoryEmpty = false;
-
-  //
-  late final ScrollController _scrollController = ScrollController();
-  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
-      GlobalKey<RefreshIndicatorState>();
 
   @override
   void initState() {
     super.initState();
-    initializeSettings();
-    addPageScrollListener();
-    notificationPermissionChecker();
-    LocalAwesomeNotification().init(context);
-    ///////////////////////////////////////
-    NotificationService.init(context);
-    context.read<SliderCubit>().fetchSlider(
-          context,
-        );
-    context.read<FetchCategoryCubit>().fetchCategories();
-    context.read<PopularCategoriesCubit>().fetchPopularCategories();
-    _fetchHomeData();
-
-    if (AppConfig.enableHomeConfigurationV214) {
-      final configCubit = context.read<HomeConfigurationCubit>();
-      if (configCubit.state is! HomeConfigurationSuccess) {
-        configCubit.getHomeConfiguration();
-      }
-    }
-
+    context.read<BottomNavCubit>().changeTab(BottomTab.home);
+    _loadHomeScreenData();
     if (HiveUtils.isUserAuthenticated()) {
-      context.read<FavoriteCubit>().getFavorite();
-      //fetchApiKeys();
-      context.read<GetBuyerChatListCubit>().fetch();
-      context.read<BlockedUsersListCubit>().blockedUsersList();
+      _loadUserData();
     }
-
-    _scrollController.addListener(() {
-      if (_scrollController.isEndReached()) {
-        final configState = context.read<HomeConfigurationCubit>().state;
-        if (!HomeSectionLayoutBuilder.shouldFetchAllItems(configState)) {
-          return;
-        }
-        if (context.read<FetchHomeAllItemsCubit>().hasMoreData()) {
-          final loc = LeafLocationBridge.allItems;
-          context.read<FetchHomeAllItemsCubit>().fetchMore(
-                city: loc.city,
-                areaId: loc.areaId,
-                radius: loc.radius,
-                longitude: loc.longitude,
-                latitude: loc.latitude,
-                country: loc.country,
-                stateName: loc.state,
-              );
-        }
-      }
-    });
-  }
-
-  void _fetchHomeData() {
-    context.read<LeafLocationCubit>().syncFromLegacyHive();
-    final featured = LeafLocationBridge.featuredSection;
-    context.read<FetchHomeScreenCubit>().fetch(
-          city: featured.city,
-          areaId: featured.areaId,
-          country: featured.country,
-          state: featured.state,
-        );
-    _fetchHomeAllItemsIfNeeded();
-  }
-
-  void _fetchHomeAllItemsIfNeeded() {
-    final configState = context.read<HomeConfigurationCubit>().state;
-    if (!HomeSectionLayoutBuilder.shouldFetchAllItems(configState)) {
-      return;
-    }
-    final items = LeafLocationBridge.allItems;
-    context.read<FetchHomeAllItemsCubit>().fetch(
-          city: items.city,
-          areaId: items.areaId,
-          radius: items.radius,
-          longitude: items.longitude,
-          latitude: items.latitude,
-          country: items.country,
-          state: items.state,
-        );
   }
 
   @override
   void dispose() {
+    _isInitialLoad.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void initializeSettings() {
-    final settingsCubit = context.read<FetchSystemSettingsCubit>();
-    if (!const bool.fromEnvironment("force-disable-demo-mode",
-        defaultValue: false)) {
-      Constant.isDemoModeOn =
-          settingsCubit.getSetting(SystemSetting.demoMode) ?? false;
+  void _loadUserData() {
+    context.read<FavoriteCubit>().getFavorite();
+    context.read<BuyingChatListCubit>().getChatUsers();
+    context.read<SellerItemOffersCubit>().getOffers();
+    if (widget.from != 'profile_screen') {
+      context.read<UserProfileCubit>().getUserProfile();
     }
+    // To fill the profile screen data
+    context.read<FollowingListCubit>().getUsers();
+    context.read<FollowersListCubit>().getUsers();
   }
 
-  void addPageScrollListener() {
-    //homeScreenController.addListener(pageScrollListener);
-  }
+  Future<void> _loadHomeScreenData() async {
+    final location = AppSession.currentLocation;
+    if (location == null) return;
 
-  void fetchApiKeys() {
-    context.read<GetApiKeysCubit>().fetch();
+    final fetchAllItems = switch (context
+        .read<HomeConfigurationCubit>()
+        .state) {
+      HomeConfigurationSuccess(:final sections) => sections.any(
+        (section) => section.type == HomeSectionType.allAds,
+      ),
+      _ => false,
+    };
+
+    context.read<FeaturedSectionCubit>().fetch(location: location);
+    if (fetchAllItems) {
+      context.read<HomeItemsCubit>().getHomeItems(location: location);
+    }
+    context.read<SliderCubit>().fetchSliders(location: location);
+    context.read<MainCategoryCubit>().fetch(forceRefresh: true);
+    context.read<PopularCategoriesCubit>().getCategories();
+    context.read<CurrenciesCubit>().fetchCurrencies();
+    context.read<HomeBannerAdCubit>().fetchBanners();
+    _isInitialLoad.value = false;
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    Widget shell = SafeArea(
+
+    return BottomNavTapListener(
+      listenFor: BottomTab.home,
+      onTap: () {
+        if (!_scrollController.hasClients) return;
+        if (_scrollController.position.pixels != 0) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutQuad,
+          );
+        } else {
+          _loadHomeScreenData();
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
-          elevation: 0,
           leadingWidth: double.maxFinite,
           leading: Padding(
-              padding: EdgeInsetsDirectional.only(start: sidePadding, end: sidePadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const LocationWidget(),
-                  if (!AppConfig.enableFiveTabNavV214)
-                    InkWell(
-                      onTap: () {
-                        Navigator.pushNamed(context, Routes.videoAdsScreen);
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: context.color.secondaryColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: UiUtils.getSvg(
-                            AppAssets.bottomNavigation.videoAds,
-                            color: context.color.textColorDark,
+            padding: EdgeInsets.symmetric(
+              horizontal: Constant.horizontalPadding,
+            ),
+            child: LocationWidget(),
+          ),
+        ),
+        body: BlocListener<LeafLocationCubit, LeafLocation?>(
+          listener: (context, location) {
+            _loadHomeScreenData();
+            context.read<VideoAdsCubit>().getVideoAds(
+              location: AppSession.currentLocation,
+            );
+          },
+          child: BlocConsumer<HomeConfigurationCubit, HomeConfigurationState>(
+            listener: (context, state) {
+              if (state is HomeConfigurationLoading) {
+                _isInitialLoad.value = true;
+              }
+              if (state is HomeConfigurationSuccess) {
+                _loadHomeScreenData();
+              }
+              if (state is HomeConfigurationFailure) {
+                Log.error(state.error.toString(), state.error, null);
+                _isInitialLoad.value = false;
+              }
+            },
+            builder: (context, state) {
+              if (state is HomeConfigurationLoading) {
+                return HomeScreenShimmer();
+              }
+              if (state is HomeConfigurationFailure) {
+                return QErrorWidget(
+                  error: state.error,
+                  onRetry: () {
+                    context
+                        .read<HomeConfigurationCubit>()
+                        .getHomeConfiguration();
+                  },
+                );
+              }
+              if (state is HomeConfigurationSuccess) {
+                if (state.sections.isNullOrEmpty) {
+                  return QErrorWidget.emptyData(
+                    onRetry: () {
+                      context
+                          .read<HomeConfigurationCubit>()
+                          .getHomeConfiguration();
+                    },
+                  );
+                }
+
+                return ValueListenableBuilder(
+                  valueListenable: _isInitialLoad,
+                  builder: (context, value, child) {
+                    return value ? const HomeScreenShimmer() : child!;
+                  },
+                  child: Builder(
+                    builder: (context) {
+                      final banners = context
+                          .watch<HomeBannerAdCubit>()
+                          .homeBanners;
+
+                      return RefreshIndicator(
+                        onRefresh: _loadHomeScreenData,
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            // Only listen to notifications from the main CustomScrollView
+                            if (notification.depth != 0) return false;
+
+                            if (notification.isNearBottom &&
+                                context.read<HomeItemsCubit>().hasMoreData) {
+                              context.read<HomeItemsCubit>().getMoreHomeItems(
+                                location: AppSession.currentLocation,
+                              );
+                            }
+                            return false;
+                          },
+                          child: CustomScrollView(
+                            controller: _scrollController,
+                            physics: const BouncingScrollPhysics(
+                              parent: AlwaysScrollableScrollPhysics(),
+                            ),
+                            slivers: _slivers(state.sections, banners),
                           ),
                         ),
-                      ),
-                    ),
-                  InkWell(
-                    onTap: (){
-                      UiUtils.checkUser(
-                          onNotGuest: () {
-                            Navigator.pushNamed(context, Routes.notificationPage);
-                          },
-                          context: context
                       );
                     },
-                    child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: context.color.secondaryColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.notifications_active, color:context.color.textColorDark, )),
-                  )
-
-                ],
-              )),
-          backgroundColor: const Color.fromARGB(0, 0, 0, 0),
-        ),
-        backgroundColor: context.color.primaryColor,
-        body: RefreshIndicator(
-          key: _refreshIndicatorKey,
-          color: context.color.territoryColor,
-          onRefresh: _onHomeRefresh,
-          child: AppConfig.enableHomeSliverV214
-              ? _buildSliverHomeBody(context)
-              : _buildLegacyHomeBody(context),
-        ),
-      ),
-    );
-
-    if (AppConfig.enableFiveTabNavV214) {
-      shell = BottomNavTapListener(
-        listenFor: BottomTab.home,
-        onRepeatTap: _scrollHomeToTop,
-        child: shell,
-      );
-    }
-    if (AppConfig.enableHomeConfigurationV214) {
-      shell = BlocListener<HomeConfigurationCubit, HomeConfigurationState>(
-        listenWhen: (previous, current) =>
-            current is HomeConfigurationSuccess &&
-            previous is! HomeConfigurationSuccess,
-        listener: (context, state) => _fetchHomeAllItemsIfNeeded(),
-        child: shell,
-      );
-    }
-    return shell;
-  }
-
-  void _scrollHomeToTop() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels > 0) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOut,
-      );
-      return;
-    }
-    if (AppConfig.enableHomeSliverV214) {
-      _onHomeRefresh();
-    }
-  }
-
-  Future<void> _onHomeRefresh() async {
-    context.read<SliderCubit>().fetchSlider(context);
-    context.read<FetchCategoryCubit>().fetchCategories();
-    context.read<PopularCategoriesCubit>().fetchPopularCategories();
-    if (AppConfig.enableHomeConfigurationV214) {
-      context.read<HomeConfigurationCubit>().getHomeConfiguration();
-    }
-    _fetchHomeData();
-  }
-
-  Widget _buildLegacyHomeBody(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      controller: _scrollController,
-      child: Column(
-        children: [
-          _buildHomeScreenBloc(includeSearch: true),
-          if (_showAllAdsAtTail()) const AllItemsWidget(),
-          const SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSliverHomeBody(BuildContext context) {
-    return CustomScrollView(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: ClampingScrollPhysics(),
-      ),
-      slivers: [
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: HomeStickySearchDelegate(
-            backgroundColor: context.color.primaryColor,
-          ),
-        ),
-        SliverToBoxAdapter(child: _buildHomeScreenBloc(includeSearch: false)),
-        SliverToBoxAdapter(
-          child: Column(
-            children: [
-              if (_showAllAdsAtTail()) const AllItemsWidget(),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHomeScreenBloc({required bool includeSearch}) {
-    return BlocBuilder<FetchHomeScreenCubit, FetchHomeScreenState>(
-      builder: (context, state) {
-        if (state is FetchHomeScreenInProgress) {
-          return shimmerEffect();
-        }
-        if (state is FetchHomeScreenSuccess) {
-          final List<StatusModel> allStatus = [];
-          for (var section in state.sections) {
-            for (ItemModel data in (section.sectionData ?? [])) {
-              final images = (data.galleryImages ?? [])
-                  .map((i) => i.image)
-                  .whereType<String>()
-                  .toList();
-              if (images.isNotEmpty) {
-                allStatus.add(StatusModel(
-                  name: data.user?.name ?? '',
-                  avatarUrl: data.user?.profile ?? '',
-                  mediaUrls: images,
-                  description: data.name ?? '',
-                  item: data,
-                ));
+                  ),
+                );
               }
-            }
-          }
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (includeSearch) const HomeSearchField(),
-              if (allStatus.isNotEmpty) StatusWidget(allStatus: allStatus),
-              ..._homeContentBlocks(state.sections),
-              if (state.sections.isNotEmpty &&
-                  Constant.isGoogleBannerAdsEnabled == "1") ...[
-                Container(
-                  padding: const EdgeInsets.only(top: 5),
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  child: AdBannerWidget(),
-                ),
-              ] else ...[
-                const SizedBox(height: 10),
-              ],
-            ],
-          );
-        }
-
-        if (state is FetchHomeScreenFail) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: TextButton(
-                onPressed: _fetchHomeData,
-                child: Text('retry'.translate(context)),
-              ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
-  List<Widget> _homeContentBlocks(List<HomeScreenSection> featuredSections) {
-    if (AppConfig.enableHomeConfigurationV214) {
-      final configState = context.watch<HomeConfigurationCubit>().state;
-      if (configState is HomeConfigurationSuccess &&
-          configState.sections.isNotEmpty) {
-        return HomeSectionLayoutBuilder.build(
-          configuration: configState.sections,
-          featuredSections: featuredSections,
-        );
-      }
-    }
-    return HomeSectionLayoutBuilder.build(
-      configuration: const [],
-      featuredSections: featuredSections,
-    );
-  }
-
-  bool _showAllAdsAtTail() {
-    return HomeSectionLayoutBuilder.showAllAdsAtTail(
-      context.watch<HomeConfigurationCubit>().state,
-    );
-  }
-
-  Widget shimmerEffect() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 24,
-          horizontal: defaultPadding,
-        ),
-        child: Column(
-          children: [
-            ClipRRect(
-              clipBehavior: Clip.antiAliasWithSaveLayer,
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              child: CustomShimmer(height: 52, width: double.maxFinite),
-            ),
-            SizedBox(
-              height: 12,
-            ),
-            ClipRRect(
-              clipBehavior: Clip.antiAliasWithSaveLayer,
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              child: CustomShimmer(height: 170, width: double.maxFinite),
-            ),
-            SizedBox(
-              height: 12,
-            ),
-            Container(
-              height: 100,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: 10,
-                physics: NeverScrollableScrollPhysics(),
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: index == 0 ? 0 : 8.0),
-                    child: const Column(
-                      children: [
-                        ClipRRect(
-                          clipBehavior: Clip.antiAliasWithSaveLayer,
-                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                          child: CustomShimmer(
-                            height: 70,
-                            width: 66,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 5,
-                        ),
-                        CustomShimmer(
-                          height: 10,
-                          width: 48,
-                        ),
-                        const SizedBox(
-                          height: 2,
-                        ),
-                        const CustomShimmer(
-                          height: 10,
-                          width: 60,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(
-              height: 18,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CustomShimmer(
-                  height: 20,
-                  width: 150,
-                ),
-                /* CustomShimmer(
-                  height: 20,
-                  width: 50,
-                ),*/
-              ],
-            ),
-            Container(
-              height: 214,
-              margin: EdgeInsets.only(top: 10),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: 5,
-                physics: NeverScrollableScrollPhysics(),
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: index == 0 ? 0 : 10.0),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          clipBehavior: Clip.antiAliasWithSaveLayer,
-                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                          child: CustomShimmer(
-                            height: 147,
-                            width: 250,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 8,
-                        ),
-                        CustomShimmer(
-                          height: 15,
-                          width: 90,
-                        ),
-                        const SizedBox(
-                          height: 8,
-                        ),
-                        const CustomShimmer(
-                          height: 14,
-                          width: 230,
-                        ),
-                        const SizedBox(
-                          height: 8,
-                        ),
-                        const CustomShimmer(
-                          height: 14,
-                          width: 200,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.only(top: 20),
-              child: GridView.builder(
-                shrinkWrap: true,
-                itemCount: 16,
-                physics: NeverScrollableScrollPhysics(),
-                itemBuilder: (context, index) {
-                  return const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        clipBehavior: Clip.antiAliasWithSaveLayer,
-                        borderRadius: BorderRadius.all(Radius.circular(10)),
-                        child: CustomShimmer(
-                          height: 147,
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 8,
-                      ),
-                      CustomShimmer(
-                        height: 15,
-                        width: 70,
-                      ),
-                      const SizedBox(
-                        height: 8,
-                      ),
-                      const CustomShimmer(
-                        height: 14,
-                      ),
-                      const SizedBox(
-                        height: 8,
-                      ),
-                      const CustomShimmer(
-                        height: 14,
-                        width: 130,
-                      ),
-                    ],
-                  );
-                },
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  mainAxisExtent: 215,
-                  crossAxisCount: 2, // Single column grid
-                  mainAxisSpacing: 15.0,
-                  crossAxisSpacing: 15.0,
-                  // You may adjust this aspect ratio as needed
-                ),
-              ),
-            ),
-          ],
+              return const SizedBox.shrink();
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget sliderWidget() {
-    return BlocConsumer<SliderCubit, SliderState>(
-      listener: (context, state) {
-        if (state is SliderFetchSuccess) {
-          setState(() {});
-        }
-      },
-      builder: (context, state) {
-        log('State is  $state');
-        if (state is SliderFetchInProgress) {
-          return const SliderShimmer();
-        }
-        if (state is SliderFetchFailure) {
-          return Container();
-        }
-        if (state is SliderFetchSuccess) {
-          if (state.sliderlist.isNotEmpty) {
-            return const SliderWidget();
-          }
-        }
-        return Container();
-      },
+  List<Widget> _slivers(
+    List<HomeSection> sections,
+    List<HomeBannerAd> banners,
+  ) {
+    final bannersById = groupBy(
+      banners,
+      (b) => '${b.homeSectionId}_${b.placement.name}',
     );
+
+    Widget? _resolveAdBannerWidget(String key) {
+      final banner = bannersById[key]?.firstOrNull;
+
+      return banner != null
+          ? SliverToBoxAdapter(child: BannerWidget(bannerAd: banner))
+          : null;
+    }
+
+    final slivers = List<Widget>.empty(growable: true);
+
+    slivers.add(SliverToBoxAdapter(child: HomeSearchField()));
+    slivers.add(const SliverToBoxAdapter(child: HomeStatusStrip()));
+
+    for (final section in sections) {
+      final aboveBanner = '${section.id}_${BannerPlacement.above.name}';
+      final belowBanner = '${section.id}_${BannerPlacement.below.name}';
+
+      slivers.addAll([
+        ?_resolveAdBannerWidget(aboveBanner),
+        ?_maybeAddGoogleBannerAd(section.type),
+        HomeSectionFactory.getSectionWidget(section),
+        ?_resolveAdBannerWidget(belowBanner),
+      ]);
+    }
+
+    return slivers;
+  }
+
+  Widget? _maybeAddGoogleBannerAd(HomeSectionType type) {
+    if (!Constant.systemSettings.isBannerAdEnabled) return null;
+    if (type != HomeSectionType.allAds) return null;
+    return SliverToBoxAdapter(child: GoogleBannerAd());
   }
 }
 
-Future<void> notificationPermissionChecker() async {
-  if (!(await Permission.notification.isGranted)) {
-    await Permission.notification.request();
+class HomeSectionFactory {
+  static Widget getSectionWidget(HomeSection section) {
+    return switch (section.type) {
+      HomeSectionType.categoryList => SliverToBoxAdapter(
+        child: const AllCategoryWidget(),
+      ),
+      HomeSectionType.slider => SliverToBoxAdapter(child: const SliderWidget()),
+      HomeSectionType.popularCategories => SliverToBoxAdapter(
+        child: const PopularCategoryWidget(),
+      ),
+      HomeSectionType.featuredSection => const FeaturedSectionWidget(),
+      HomeSectionType.allAds => const AllItemsWidget(),
+    };
   }
 }

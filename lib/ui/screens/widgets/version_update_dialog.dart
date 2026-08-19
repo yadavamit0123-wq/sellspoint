@@ -1,79 +1,89 @@
+
+import 'package:eClassify/data/model/version.dart';
 import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// 2.14-style update prompt (force or optional).
-abstract final class VersionUpdateDialog {
+class VersionUpdateDialog {
   static void show(
     BuildContext context, {
-    required String availableVersionLabel,
+    required Version availableVersion,
     required bool isForceUpdate,
-    required String storeUrl,
   }) {
-    if (storeUrl.trim().isEmpty) return;
-
-    showDialog<void>(
+    showDialog(
       context: context,
       barrierDismissible: !isForceUpdate,
-      builder: (dialogContext) {
+      builder: (context) {
         return PopScope(
           canPop: !isForceUpdate,
-          child: AlertDialog(
-            backgroundColor: dialogContext.color.secondaryColor,
+          child: AlertDialog.adaptive(
+            backgroundColor: context.color.secondaryColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
             title: CustomText(
-              'updateAvailable'.translate(dialogContext),
+              'updateAvailable'.translate(context),
               textAlign: TextAlign.center,
             ),
             content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 5,
               children: [
                 Center(
                   child: CustomText(
-                    availableVersionLabel,
-                    fontSize: dialogContext.font.larger,
-                    fontWeight: FontWeight.w600,
+                    availableVersion.toString(),
+                    fontSize: context.font.larger,
                   ),
                 ),
-                const SizedBox(height: 8),
-                CustomText(
-                  isForceUpdate
-                      ? 'newVersionAvailableForce'.translate(dialogContext)
-                      : 'newVersionAvailable'.translate(dialogContext),
-                  textAlign: TextAlign.center,
-                  fontSize: dialogContext.font.small,
-                  color: dialogContext.color.textLightColor,
-                ),
-                if (isForceUpdate) ...[
-                  const SizedBox(height: 8),
-                  CustomText(
-                    'forceUpdateHint'.translate(dialogContext),
-                    textAlign: TextAlign.center,
-                    fontSize: dialogContext.font.smaller,
-                    color: dialogContext.color.territoryColor,
-                  ),
-                ],
+                CustomText('newVersionAvailable'.translate(context)),
+                if (isForceUpdate) CustomText('forceUpdate'.translate(context)),
               ],
             ),
             actions: [
-              if (!isForceUpdate)
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: CustomText('cancelLbl'.translate(dialogContext)),
-                ),
-              FilledButton(
-                onPressed: () async {
-                  final uri = Uri.tryParse(storeUrl);
-                  if (uri != null) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: Text('update'.translate(dialogContext)),
+              Row(
+                spacing: 10,
+                children: [
+                  if (!isForceUpdate)
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          foregroundColor: context.color.textDefaultColor,
+                          backgroundColor: context.color.secondaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          side: BorderSide(color: context.color.borderColor),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('cancel'.translate(context)),
+                      ),
+                    ),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        foregroundColor: context.color.secondaryColor,
+                        backgroundColor: context.color.territoryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        final uri = Uri.tryParse(
+                          Constant.systemSettings.storeLink ?? '',
+                        );
+                        if (uri == null) return;
+                        launchUrl(uri);
+                      },
+                      child: Text('update'.translate(context)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

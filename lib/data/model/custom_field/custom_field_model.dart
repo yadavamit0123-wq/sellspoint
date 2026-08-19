@@ -8,17 +8,22 @@ class CustomFieldModel {
   int? minLength;
   int? maxLength;
   dynamic values;
+  String? translatedName;
+  List<dynamic>? translations;
 
-  CustomFieldModel(
-      {this.id,
-      this.name,
-      this.type,
-      this.values,
-      this.image,
-      this.required,
-      this.maxLength,
-      this.minLength,
-      this.value});
+  CustomFieldModel({
+    this.id,
+    this.name,
+    this.type,
+    this.values,
+    this.image,
+    this.required,
+    this.maxLength,
+    this.minLength,
+    this.value,
+    this.translatedName,
+    this.translations,
+  });
 
   Map<String, dynamic> toMap() {
     return {
@@ -31,6 +36,8 @@ class CustomFieldModel {
       'min_length': minLength,
       'max_length': maxLength,
       'value': value,
+      'translated_name': translatedName,
+      'translations': translations,
     };
   }
 
@@ -44,31 +51,37 @@ class CustomFieldModel {
       required: map['required'],
       maxLength: map['max_length'],
       minLength: map['min_length'],
-      value: map['value'],
+      value: map['value'] is List? ? map['value'] : [map['value'] as dynamic],
+      translatedName: map['translated_name'] as String?,
+      translations: map['translations'] as List<dynamic>?,
     );
   }
 
   @override
   String toString() {
-    return 'CustomFieldModel(id: $id, name: $name, type: $type, image: $image, required: $required, minLength: $minLength, maxLength: $maxLength, values: $values,value:$value)';
+    return 'CustomFieldModel(id: $id, name: $name, type: $type, image: $image, required: $required, minLength: $minLength, maxLength: $maxLength, values: $values, value: $value, translatedName: $translatedName, translations: $translations)';
   }
 }
 
 class VerificationFieldModel {
   int? id;
   String? name;
+  String? translatedName;
   String? type;
   int? required;
   int? minLength;
   int? maxLength;
   String? status;
   dynamic values;
+  dynamic translatedValues;
 
   VerificationFieldModel({
     this.id,
     this.name,
+    this.translatedName,
     this.type,
     this.values,
+    this.translatedValues,
     this.required,
     this.maxLength,
     this.minLength,
@@ -79,8 +92,10 @@ class VerificationFieldModel {
     return {
       'id': id,
       'name': name,
+      'translated_name': translatedName,
       'type': type,
       'values': values,
+      'translated_value': translatedValues,
       'required': required,
       'min_length': minLength,
       'max_length': maxLength,
@@ -91,9 +106,11 @@ class VerificationFieldModel {
   factory VerificationFieldModel.fromMap(Map<String, dynamic> map) {
     return VerificationFieldModel(
       id: map['id'] as int,
-      name: map['name'] as String,
+      name: map['name'] as String?,
+      translatedName: map['translated_name'] as String?,
       type: map['type'] as String,
       values: map['values'] as dynamic,
+      translatedValues: map['translated_value'] as dynamic,
       required: map['is_required'],
       maxLength: map['max_length'],
       minLength: map['min_length'],

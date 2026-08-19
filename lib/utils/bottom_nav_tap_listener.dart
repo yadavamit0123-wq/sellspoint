@@ -5,18 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rxdart/rxdart.dart';
 
-/// Runs [onRepeatTap] when the user selects the same bottom tab again (2.14).
 class BottomNavTapListener extends StatefulWidget {
   const BottomNavTapListener({
-    super.key,
     required this.listenFor,
-    required this.onRepeatTap,
+    required this.onTap,
     required this.child,
-    this.throttleDuration = const Duration(milliseconds: 800),
+    this.throttleDuration = const Duration(seconds: 5),
+    super.key,
   });
 
   final BottomTab listenFor;
-  final VoidCallback onRepeatTap;
+  final VoidCallback onTap;
   final Widget child;
   final Duration throttleDuration;
 
@@ -25,23 +24,22 @@ class BottomNavTapListener extends StatefulWidget {
 }
 
 class _BottomNavTapListenerState extends State<BottomNavTapListener> {
-  StreamSubscription<BottomTab>? _tapSubscription;
+  late StreamSubscription<BottomTab> _tapSubscription;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tapSubscription?.cancel();
     _tapSubscription = context
         .read<BottomNavCubit>()
-        .repeatTaps
+        .taps
         .where((tab) => tab == widget.listenFor)
         .throttleTime(widget.throttleDuration)
-        .listen((_) => widget.onRepeatTap());
+        .listen((_) => widget.onTap());
   }
 
   @override
   void dispose() {
-    _tapSubscription?.cancel();
+    _tapSubscription.cancel();
     super.dispose();
   }
 

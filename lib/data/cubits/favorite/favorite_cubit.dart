@@ -1,5 +1,5 @@
 import 'package:eClassify/data/model/item/item_model.dart';
-import 'package:eClassify/data/repositories/favourites_repository.dart';
+import 'package:eClassify/data/repositories/item/favourites_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class FavoriteState {}
@@ -44,9 +44,8 @@ class FavoriteFetchSuccess extends FavoriteState {
 }
 
 class FavoriteFetchFailure extends FavoriteState {
-  final String errorMessage;
-
-  FavoriteFetchFailure(this.errorMessage);
+  FavoriteFetchFailure(this.error);
+  final Object error;
 }
 
 class FavoriteCubit extends Cubit<FavoriteState> {
@@ -58,7 +57,6 @@ class FavoriteCubit extends Cubit<FavoriteState> {
     try {
       emit(FavoriteFetchInProgress());
       final result = await favoriteRepository.fetchFavorites(page: 1);
-
       emit(FavoriteFetchSuccess(
           favorite: result.modelList,
           totalFavoriteCount: result.total,
@@ -77,7 +75,7 @@ class FavoriteCubit extends Cubit<FavoriteState> {
             hasMoreFetchError: false,
             hasMore: false));
       } else {
-        emit(FavoriteFetchFailure(e.toString()));
+        emit(FavoriteFetchFailure(e));
       }
     }
   }

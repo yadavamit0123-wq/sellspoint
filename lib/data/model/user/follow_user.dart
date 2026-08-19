@@ -1,27 +1,21 @@
-class FollowUser {
-  FollowUser({
-    required this.id,
-    required this.name,
-    this.email,
-    this.mobile,
-    this.profile,
-    required this.isFollowing,
-  });
+import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/utils/json_helper.dart';
 
-  factory FollowUser.fromJson(Map<String, dynamic> json) {
-    return FollowUser(
-      id: json['id'] is int
-          ? json['id'] as int
-          : int.parse(json['id'].toString()),
-      name: json['name']?.toString() ?? '',
-      email: json['email'] as String?,
-      mobile: json['mobile'] as String?,
-      profile: json['profile'] as String?,
-      isFollowing: json['is_following'] == 1 ||
-          json['is_following'] == true ||
-          json['is_following'] == '1',
-    );
-  }
+class FollowUser {
+  FollowUser.fromJson(Json json)
+    : id = json['id'] as int,
+      name = json['name'] as String,
+      email = json['email'] as String?,
+      mobile = json['mobile'] as String?,
+      profile = json['profile'] as String?,
+      isFollowing = json['is_following'] as int == 1;
+
+  FollowUser.fromUser(User user, {required this.isFollowing})
+    : id = user.id ?? 0,
+      name = user.name ?? '',
+      email = user.email,
+      mobile = user.mobile,
+      profile = user.profile;
 
   final int id;
   final String name;

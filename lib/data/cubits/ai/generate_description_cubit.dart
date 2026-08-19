@@ -9,19 +9,22 @@ class GenerateDescriptionInitial extends GenerateDescriptionState {}
 class GenerateDescriptionInProgress extends GenerateDescriptionState {}
 
 class GenerateDescriptionSuccess extends GenerateDescriptionState {
-  GenerateDescriptionSuccess(this.description);
-
   final String description;
+
+  GenerateDescriptionSuccess(this.description);
 }
 
 class GenerateDescriptionFailure extends GenerateDescriptionState {
-  GenerateDescriptionFailure(this.errorMessage);
-
   final String errorMessage;
+
+  GenerateDescriptionFailure(this.errorMessage);
 }
 
 class GenerateDescriptionCubit extends Cubit<GenerateDescriptionState> {
-  GenerateDescriptionCubit() : super(GenerateDescriptionInitial());
+  final AIRepository _repository;
+
+  GenerateDescriptionCubit(this._repository)
+    : super(GenerateDescriptionInitial());
 
   Future<void> generate({
     required String title,
@@ -32,7 +35,7 @@ class GenerateDescriptionCubit extends Cubit<GenerateDescriptionState> {
   }) async {
     try {
       emit(GenerateDescriptionInProgress());
-      final description = await AIRepository.instance.generateDescription(
+      final description = await _repository.generateDescription(
         title: title,
         price: price,
         languageId: languageId,

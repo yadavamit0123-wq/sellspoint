@@ -1,15 +1,13 @@
 import 'package:eClassify/data/cubits/followers/follow_user_list_cubit.dart';
 import 'package:eClassify/ui/screens/followers/follow_user_list_tile.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/screens/widgets/shimmerLoadingContainer.dart';
-import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/ui_utils.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
+import 'package:eClassify/utils/extensions/lib/gap.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class FollowUsersList<C extends FollowUsersListCubit> extends StatefulWidget {
-  const FollowUsersList({super.key, required this.showUnfollowButton});
+  const FollowUsersList({required this.showUnfollowButton, super.key});
 
   final bool showUnfollowButton;
 
@@ -18,28 +16,10 @@ class FollowUsersList<C extends FollowUsersListCubit> extends StatefulWidget {
 }
 
 class _FollowUsersListState<C extends FollowUsersListCubit>
-    extends State<FollowUsersList<C>> with AutomaticKeepAliveClientMixin {
-  final _scrollController = ScrollController();
-
+    extends State<FollowUsersList<C>>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(() {
-      if (!_scrollController.isEndReached()) return;
-      if (context.read<C>().hasMore) {
-        context.read<C>().getMoreUsers();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,36 +27,50 @@ class _FollowUsersListState<C extends FollowUsersListCubit>
     return BlocBuilder<C, FollowUsersListState>(
       builder: (context, state) {
         if (state is FollowUsersListLoading) {
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: 6,
-            itemBuilder: (_, __) => const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: CustomShimmer(height: 56, width: double.infinity),
+          return Column(
+            spacing: 10,
+            children: List.generate(5, (i) {
+              return ListTile(
+                leading: CustomShimmer(height: 40, width: 40, borderRadius: 20),
+                title: CustomShimmer(height: 10, width: 10),
+                subtitle: CustomShimmer(height: 10, width: 100),
+              );
+            }),
+          );
+        }
+        if (state is FollowUsersListSuccess) {
+          if (state.users.isEmpty) {
+            return const QErrorWidget.emptyData();
+          }
+          return RefreshIndicator(
+            onRefresh: () async => context.read<C>().getUsers(),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollEndNotification &&
+                    notification.metrics.pixels >=
+                        notification.metrics.maxScrollExtent) {
+                  if (context.read<C>().hasMore)
+                    context.read<C>().getMoreUsers();
+                }
+                return false;
+              },
+              child: ListView.separated(
+                itemCount: state.users.length,
+                itemBuilder: (context, index) => FollowUserListTile(
+                  followUser: state.users[index],
+                  showUnfollowButton: widget.showUnfollowButton,
+                ),
+                separatorBuilder: (context, index) => 10.vGap,
+              ),
             ),
           );
         }
         if (state is FollowUsersListFailure) {
-          return SomethingWentWrong(onTap: () => context.read<C>().getUsers());
-        }
-        if (state is FollowUsersListSuccess) {
-          if (state.users.isEmpty) {
-            return NoDataFound(onTap: () => context.read<C>().getUsers());
-          }
-          return RefreshIndicator(
-            onRefresh: () => context.read<C>().getUsers(),
-            child: ListView.separated(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: state.users.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                return FollowUserListTile(
-                  followUser: state.users[index],
-                  showUnfollowButton: widget.showUnfollowButton,
-                );
-              },
-            ),
+          return QErrorWidget(
+            error: state.error,
+            onRetry: () {
+              context.read<C>().getUsers();
+            },
           );
         }
         return const SizedBox.shrink();

@@ -7,51 +7,64 @@ import 'package:eClassify/utils/api.dart';
 import 'package:path/path.dart' as path;
 
 class JobRepository {
-  Future<Map<String, dynamic>> applyJobApplication(
+  Future<dynamic> applyJobApplication(
     Map<String, dynamic> data,
     File? attachment,
   ) async {
-    final parameters = Map<String, dynamic>.from(data);
+    Map<String, dynamic> parameters = {};
+    parameters.addAll(data);
+
     if (attachment != null) {
-      parameters[Api.resume] = await MultipartFile.fromFile(
-        attachment.path,
-        filename: path.basename(attachment.path),
-      );
+      MultipartFile image = await MultipartFile.fromFile(attachment.path,
+          filename: path.basename(attachment.path));
+      parameters[Api.resume] = image;
     }
-    return Api.post(url: Api.applyForJobApi, parameter: parameters);
+
+    Map<String, dynamic> response = await Api.post(
+      url: Api.applyForJobApi,
+      parameter: parameters,
+    );
+
+    return response;
   }
 
-  Future<DataOutput<JobApplication>> fetchApplications({
-    int? page,
-    required int itemId,
-    required bool isMyJobApplications,
-  }) async {
-    final response = await Api.get(
-      url: isMyJobApplications
-          ? Api.myJobApplicationsApi
-          : Api.getJobApplicationsApi,
-      queryParameters: {
+  Future<DataOutput<JobApplication>> fetchApplications(
+      {int? page,
+      required int itemId,
+      required bool isMyJobApplications}) async {
+    try {
+      Map<String, dynamic> parameters = {
         if (page != null) Api.page: page,
         Api.itemId: itemId,
-      },
-    );
-    final list = response['data']['data'] as List? ?? [];
-    final itemList = list
-        .map((e) => JobApplication.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-    return DataOutput(
-      total: response['data']['total'] as int? ?? itemList.length,
-      modelList: itemList,
-    );
+      };
+
+      Map<String, dynamic> response = await Api.get(
+        url: isMyJobApplications
+            ? Api.myJobApplicationsApi
+            : Api.getJobApplicationsApi,
+        queryParameters: parameters,
+      );
+      if ((response['data']['data'] as List).isNotEmpty) {
+        List<JobApplication> itemList = (response['data']['data'] as List)
+            .map((element) => JobApplication.fromJson(element))
+            .toList();
+
+        return DataOutput(total: itemList.length, modelList: itemList);
+      } else {
+        return DataOutput(total: response['data']['total'] ?? 0, modelList: []);
+      }
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  Future<Map<String, dynamic>> changeJobApplicationStatus({
-    required int jobId,
-    required String status,
-  }) async {
-    return Api.post(
-      url: Api.updateJobApplicationsStatusApi,
-      parameter: {Api.status: status, Api.jobId: jobId},
-    );
+  Future<Map> changeJobApplicationStatus(
+      {required int jobId, required String status}) async {
+    Map response =
+        await Api.post(url: Api.updateJobApplicationsStatusApi, parameter: {
+      Api.status: status,
+      Api.jobId: jobId,
+    });
+    return response;
   }
 }

@@ -22,6 +22,7 @@ class AdPostingStepController extends ChangeNotifier {
     _onSubmit = onSubmit;
     _showNext = showNext || onNext != null;
 
+    // Defer notification to avoid setState/markNeedsBuild warnings during build/didChangeDependencies
     WidgetsBinding.instance.addPostFrameCallback((_) {
       notifyListeners();
     });
@@ -38,24 +39,20 @@ class AdPostingStepController extends ChangeNotifier {
   }
 
   static AdPostingStepController of(BuildContext context) {
-    final provider = context
-        .dependOnInheritedWidgetOfExactType<AdPostingStepControllerProvider>();
-    assert(
-      provider != null,
-      'No AdPostingStepControllerProvider found in context',
-    );
+    final provider = context.dependOnInheritedWidgetOfExactType<AdPostingStepControllerProvider>();
+    assert(provider != null, 'No AdPostingStepControllerProvider found in context');
     return provider!.controller;
   }
 }
 
 class AdPostingStepControllerProvider extends InheritedWidget {
+  final AdPostingStepController controller;
+
   const AdPostingStepControllerProvider({
     required this.controller,
     required super.child,
     super.key,
   });
-
-  final AdPostingStepController controller;
 
   @override
   bool updateShouldNotify(AdPostingStepControllerProvider oldWidget) {

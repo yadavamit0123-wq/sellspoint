@@ -13,7 +13,11 @@ class EmailLoginPayload extends LoginPayload {
   final String password;
   final EmailLoginType type;
 
-  EmailLoginPayload({required this.email, required this.password, required this.type,});
+  EmailLoginPayload({
+    required this.email,
+    required this.password,
+    required this.type,
+  });
 }
 
 class GoogleLoginPayload extends LoginPayload {
@@ -26,10 +30,17 @@ class AppleLoginPayload extends LoginPayload {
 
 class PhoneLoginPayload extends LoginPayload {
   final String phoneNumber;
-  final String countryCode;
+  final String phoneCode;
+  final String regionCode;
+  final String? password;
   String? otp;
 
-  PhoneLoginPayload(this.phoneNumber, this.countryCode,);
+  PhoneLoginPayload(
+    this.phoneNumber,
+    this.phoneCode,
+    this.regionCode, {
+    this.password,
+  });
 
   void setOTP(String value) {
     otp = value;
@@ -37,5 +48,9 @@ class PhoneLoginPayload extends LoginPayload {
 
   String? getOTP() {
     return otp;
+  }
+
+  bool hasPassword() {
+    return password != null && password!.isNotEmpty;
   }
 }

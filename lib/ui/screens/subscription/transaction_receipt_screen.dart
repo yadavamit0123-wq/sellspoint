@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:eClassify/data/cubits/subscription/fetch_payment_receipt_cubit.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/data/cubits/subscription/fetch_receipt_cubit.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/log.dart';
@@ -11,8 +11,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_html_to_pdf_plus/flutter_html_to_pdf_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:eClassify/utils/app_icons.dart';
 
 class TransactionReceiptScreen extends StatefulWidget {
   const TransactionReceiptScreen({
@@ -24,34 +24,27 @@ class TransactionReceiptScreen extends StatefulWidget {
   final int transactionId;
   final String transactionOrderId;
 
+  @override
+  State<TransactionReceiptScreen> createState() =>
+      _TransactionReceiptScreenState();
+
   static Route route(RouteSettings routeSettings) {
-    final arguments = routeSettings.arguments;
-    if (arguments is! Map) {
-      return MaterialPageRoute(builder: (_) => const Scaffold());
-    }
-    final transactionId = arguments['transactionId'];
-    final orderId = arguments['transactionOrderId'];
+    Map arguments = routeSettings.arguments as Map;
     return MaterialPageRoute(
       builder: (context) => BlocProvider(
-        create: (context) => FetchPaymentReceiptCubit(),
+        create: (context) => FetchReceiptCubit(),
         child: TransactionReceiptScreen(
-          transactionId: transactionId is int
-              ? transactionId
-              : int.tryParse('$transactionId') ?? 0,
-          transactionOrderId: orderId?.toString() ?? '',
+          transactionId: arguments['transactionId'],
+          transactionOrderId: arguments['transactionOrderId'],
         ),
       ),
     );
   }
-
-  @override
-  State<TransactionReceiptScreen> createState() =>
-      _TransactionReceiptScreenState();
 }
 
 class _TransactionReceiptScreenState extends State<TransactionReceiptScreen> {
   late final WebViewController _controller;
-  String _htmlContent = '';
+  String _htmlContent = "";
 
   @override
   void initState() {
@@ -61,27 +54,26 @@ class _TransactionReceiptScreenState extends State<TransactionReceiptScreen> {
       ..setBackgroundColor(const Color(0xffffffff))
       ..setNavigationDelegate(
         NavigationDelegate(
-          onNavigationRequest: (_) => NavigationDecision.prevent,
+          onNavigationRequest: (_) {
+            return NavigationDecision.prevent;
+          },
         ),
       );
-    context.read<FetchPaymentReceiptCubit>().fetch(
-          transactionId: widget.transactionId,
-        );
+    context.read<FetchReceiptCubit>().fetchReceipt(widget.transactionId);
   }
 
   Future<void> _downloadPdf() async {
     try {
-      final targetFileName = 'Receipt_${widget.transactionOrderId}.pdf';
-      final directory = await getTemporaryDirectory();
+      final String targetFileName = "Receipt_${widget.transactionOrderId}.pdf";
 
-      final generatedPdfFile =
+      final File generatedPdfFile =
           await FlutterHtmlToPdf.convertFromHtmlContent(
-        content: _htmlContent,
-        configuration: PrintPdfConfiguration(
-          targetDirectory: directory.path,
-          targetName: targetFileName,
-        ),
-      );
+            content: _htmlContent,
+            configuration: PrintPdfConfiguration(
+              targetDirectory: Constant.savePath,
+              targetName: targetFileName,
+            ),
+          );
 
       await FilePicker.saveFile(
         fileName: targetFileName,
@@ -92,44 +84,37 @@ class _TransactionReceiptScreenState extends State<TransactionReceiptScreen> {
     } catch (e, stack) {
       Log.error(e.toString(), e, stack);
       if (mounted) {
-        HelperUtils.showSnackBarMessage(
-          context,
-          'errorDownloadingReceipt'.translate(context),
-        );
+        HelperUtils.showSnackBarMessage(context, 'errorDownloadingReceipt');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<FetchPaymentReceiptCubit, FetchPaymentReceiptState>(
+    return BlocListener<FetchReceiptCubit, FetchReceiptState>(
       listener: (context, state) {
-        if (state is FetchPaymentReceiptSuccess) {
-          _htmlContent = state.receiptHtml;
+        if (state is FetchReceiptSuccess) {
+          _htmlContent = state.htmlContent;
           _controller.loadHtmlString(_htmlContent);
         }
       },
-      child: BlocBuilder<FetchPaymentReceiptCubit, FetchPaymentReceiptState>(
+      child: BlocBuilder<FetchReceiptCubit, FetchReceiptState>(
         builder: (context, state) {
           return Scaffold(
-            backgroundColor: context.color.backgroundColor,
-            appBar: UiUtils.buildAppBar(
-              context,
-              showBackButton: true,
-              title: 'paymentReceipt'.translate(context),
+            appBar: AppBar(
+              title: Text("paymentReceipt".translate(context)),
               actions: [
-                if (state is FetchPaymentReceiptSuccess)
+                if (state is FetchReceiptSuccess)
                   IconButton(
-                    icon: const Icon(Icons.download_outlined),
+                    icon: const Icon(AppIcons.downloadSimple),
                     onPressed: _downloadPdf,
                   ),
               ],
             ),
             body: SafeArea(
               child: switch (state) {
-                FetchPaymentReceiptSuccess() =>
-                  WebViewWidget(controller: _controller),
-                FetchPaymentReceiptFailure() => const SomethingWentWrong(),
+                FetchReceiptSuccess() => WebViewWidget(controller: _controller),
+                FetchReceiptFailure() => QErrorWidget(error: state.error),
                 _ => Center(child: UiUtils.progress()),
               },
             ),

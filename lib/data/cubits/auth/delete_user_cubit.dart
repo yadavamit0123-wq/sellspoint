@@ -1,39 +1,55 @@
-// ignore_for_file: file_names
-
 import 'package:eClassify/data/repositories/auth_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-abstract class DeleteUserState {}
-
-class DeleteUserInitial extends DeleteUserState {}
-
-class DeleteUserFetchInProgress extends DeleteUserState {}
-
-class DeleteUserFetchSuccess extends DeleteUserState {
-  dynamic deleteUser;
-
-  DeleteUserFetchSuccess({required this.deleteUser});
+/// States for the delete user operation
+abstract class DeleteUserState {
+  const DeleteUserState();
 }
 
-class DeleteUserFetchFailure extends DeleteUserState {
+/// Initial state when no delete operation has been performed
+class DeleteUserInitial extends DeleteUserState {
+  const DeleteUserInitial();
+}
+
+/// State indicating that the delete operation is in progress
+class DeleteUserInProgress extends DeleteUserState {
+  const DeleteUserInProgress();
+}
+
+/// State indicating successful deletion of user
+class DeleteUserSuccess extends DeleteUserState {}
+
+/// State indicating failure in user deletion
+class DeleteUserFailure extends DeleteUserState {
   final String errorMessage;
 
-  DeleteUserFetchFailure(this.errorMessage);
+  const DeleteUserFailure(this.errorMessage);
 }
 
+/// Cubit responsible for handling user deletion operations
 class DeleteUserCubit extends Cubit<DeleteUserState> {
-  DeleteUserCubit() : super(DeleteUserInitial());
-  AuthRepository _deleteUserRepository = AuthRepository();
+  final AuthRepository _deleteUserRepository;
 
-  Future<dynamic> deleteUser(
-      {String? name, String? mobile, String? email, String? filePath}) async {
+  /// Creates a new instance of [DeleteUserCubit]
+  DeleteUserCubit({AuthRepository? deleteUserRepository})
+    : _deleteUserRepository = deleteUserRepository ?? AuthRepository(),
+      super(const DeleteUserInitial());
+
+  /// Deletes the user account
+  ///
+  /// Returns the result of the deletion operation
+  /// Throws an error if the deletion fails
+  Future<void> deleteUser() async {
     try {
-      emit(DeleteUserFetchInProgress());
-      final result = await _deleteUserRepository.deleteUser();
-      emit(DeleteUserFetchSuccess(deleteUser: result));
-      return result;
+      emit(const DeleteUserInProgress());
+
+      await _deleteUserRepository.deleteUser();
+
+      emit(DeleteUserSuccess());
     } catch (e) {
-      emit(DeleteUserFetchFailure(e.toString()));
+      final errorMessage = e.toString();
+      emit(DeleteUserFailure(errorMessage));
+      rethrow;
     }
   }
 }

@@ -1,124 +1,76 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
+import 'dart:ui';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:eClassify/data/helper/custom_exception.dart';
-import 'package:eClassify/settings.dart';
+import 'package:collection/collection.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/api.dart';
-import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/utils/app_icons.dart';
+import 'package:eClassify/utils/app_session.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/hive_utils.dart';
-import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:eClassify/utils/tap_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:http/http.dart';
+import 'package:flutter_libphonenumber/flutter_libphonenumber.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 enum MessageType {
-  success(successMessageColor),
-  warning(warningMessageColor),
-  error(errorMessageColor);
+  success(StatusColors.successMessageColor),
+  warning(StatusColors.warningMessageColor),
+  error(StatusColors.errorMessageColor);
 
   final Color value;
 
   const MessageType(this.value);
 }
 
-extension StringCasingExtension on String {String toCapitalized() =>
+extension StringCasingExtension on String {
+  String toCapitalized() =>
       length > 0 ? '${this[0].toUpperCase()}${substring(1).toLowerCase()}' : '';
-
-  String toTitleCase() => replaceAll(RegExp(' +'), ' ').split(' ')
-      .map((str) => str.toCapitalized()).join(' ');
 }
 
 class HelperUtils {
-  static String decryptString(String encryptedText) {
-    try {
-      final encrypter = encrypt.Encrypter(encrypt.AES(
-          encrypt.Key.fromUtf8("0123456789123456"),
-          mode: encrypt.AESMode.cbc));
-
-      final encryptedValue = encrypt.Encrypted.fromBase64(encryptedText);
-      final ivBytes = encrypt.IV.fromUtf8("DFGDxdfdfEREfgvC");
-
-      final decrypted = encrypter.decrypt(encryptedValue, iv: ivBytes);
-
-      return decrypted;
-    } catch (e) {
-      return encryptedText;
-    }
+  static String shareUrl(
+    String type,
+    String value, {
+    bool useLanguageCode = true,
+  }) {
+    final host = AppConfig.shareDomain;
+    final path = [
+      if (useLanguageCode) AppSession.currentLanguageCode.toLowerCase(),
+      type,
+      value,
+    ].join('/');
+    return '$host/$path';
   }
 
-  static Future<bool> checkInternet() async {
-    bool check = false;
-    var connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult.contains(ConnectivityResult.mobile)) {
-      check = true;
-    } else if (connectivityResult.contains(ConnectivityResult.wifi)) {
-      check = true;
-    }
-    return check;
-  }
-
-  static String checkHost(String url) {
-    if (url.endsWith("/")) {
-      return url;
-    } else {
-      return "$url/";
-    }
-  }
-
-  static Future<void> precacheSVG(List<String> urls) async {
-    for (String imageUrl in urls) {
-      var loader = SvgAssetLoader(imageUrl);
-      await svg.cache
-          .putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
-    }
-  }
-
-  static int comparableVersion(String version) {
-    //removing dot from version and parsing it into int
-    String plain = version.replaceAll(".", "");
-
-    return int.parse(plain);
-  }
-
-  static String nativeDeepLinkUrlOfItem(String itemSlug) {
-    return "https://${AppSettings.shareNavigationWebUrl}/product-details/$itemSlug?share=true";
-  }
-
-  static String nativeDeepLinkUrlOfReel(int reelId) {
-    return "https://${AppSettings.shareNavigationWebUrl}/video-ads?reel_id=$reelId&share=true";
-  }
-
-  static void shareReel(BuildContext context, int reelId) {
+  static void shareItem(
+    BuildContext context,
+    String type,
+    String slug, {
+    bool useLanguageCode = true,
+  }) {
+    final TapGuard _guard = TapGuard();
     showModalBottomSheet(
       context: context,
-      backgroundColor: context.color.backgroundColor,
       builder: (context) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.copy),
+                leading: const Icon(AppIcons.copy),
                 title: CustomText("copylink".translate(context)),
                 onTap: () async {
-                  var deepLink = '';
-                  if (AppSettings.deepLinkingType == DeepLinkType.native) {
-                    deepLink = nativeDeepLinkUrlOfReel(reelId);
-                  }
+                  String deepLink = shareUrl(
+                    type,
+                    slug,
+                    useLanguageCode: useLanguageCode,
+                  );
 
                   await Clipboard.setData(ClipboardData(text: deepLink));
 
-                  if (!context.mounted) return;
                   Navigator.pop(context);
                   HelperUtils.showSnackBarMessage(
                     context,
@@ -127,23 +79,26 @@ class HelperUtils {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.share),
+                leading: const Icon(AppIcons.shareNetwork),
                 title: CustomText("share".translate(context)),
                 onTap: () async {
-                  var deepLink = '';
-                  if (AppSettings.deepLinkingType == DeepLinkType.native) {
-                    deepLink = nativeDeepLinkUrlOfReel(reelId);
-                  }
-
-                  final box = context.findRenderObject() as RenderBox?;
-                  final text =
-                      "${'reelShareMessage'.translate(context)}\n$deepLink";
-                  await Share.share(
-                    text,
-                    sharePositionOrigin: box != null
-                        ? box.localToGlobal(Offset.zero) & box.size
-                        : null,
+                  String deepLink = shareUrl(
+                    type,
+                    slug,
+                    useLanguageCode: useLanguageCode,
                   );
+                  final box = context.findRenderObject() as RenderBox?;
+                  String text =
+                      "${"shareDetailsMsg".translate(context)}:\n$deepLink.";
+                  _guard.run(() async {
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        text: text,
+                        sharePositionOrigin:
+                            box!.localToGlobal(Offset.zero) & box.size,
+                      ),
+                    );
+                  });
                 },
               ),
             ],
@@ -153,143 +108,31 @@ class HelperUtils {
     );
   }
 
-  static void share(BuildContext context, String itemSlug) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: context.color.backgroundColor,
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.copy),
-              title: CustomText("copylink".translate(context)),
-              onTap: () async {
-                String deepLink = "";
-                if (AppSettings.deepLinkingType == DeepLinkType.native) {
-                  deepLink = nativeDeepLinkUrlOfItem(itemSlug);
-                }
-
-                await Clipboard.setData(ClipboardData(text: deepLink));
-
-                Future.delayed(Duration.zero, () {
-                  Navigator.pop(context);
-                  HelperUtils.showSnackBarMessage(
-                      context, "copied".translate(context));
-                });
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: CustomText("share".translate(context)),
-              onTap: () async {
-                String deepLink = "";
-
-                if (AppSettings.deepLinkingType == DeepLinkType.native) {
-                  deepLink = nativeDeepLinkUrlOfItem(itemSlug);
-                }
-
-                final box = context.findRenderObject() as RenderBox?;
-
-                String text =
-                    "Exciting find! 🏡 Check out this amazing item I came across.  Let me know what you think! ⭐\n Here are the details:\n$deepLink.";
-                await Share.share(text,
-                    sharePositionOrigin:
-                        box!.localToGlobal(Offset.zero) & box.size);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   static void unfocus() {
     FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  static bool checkIsUserInfoFilled({String name = "", String email = ""}) {
-    String chkname = name;
-    if (name.trim().isEmpty) {
-      // chkname = Constant.session.getStringData(Session.keyUserName);
-    }
-    return chkname.trim().isNotEmpty;
-  }
-
-  static String mobileNumberWithoutCountryCode() {
-    String? mobile = HiveUtils.getUserDetails().mobile;
-
-    String? countryCode = HiveUtils.getCountryCode();
-
-    int countryCodeLength = (countryCode?.length ?? 0);
-
-    String mobileNumber = mobile!.substring(countryCodeLength, mobile.length);
-
-    return mobileNumber;
-  }
-
-  static dynamic showSnackBarMessage(BuildContext context, String message,
-      {int messageDuration = 3,
-      MessageType? type,
-      bool? isFloating,
-      VoidCallback? onClose}) async {
+  static dynamic showSnackBarMessage(
+    BuildContext context,
+    String message, {
+    int messageDuration = 3,
+    MessageType? type,
+    bool isFloating = true,
+    VoidCallback? onClose,
+    SnackBarAction? snackBarAction,
+  }) async {
     var snackBar = ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: CustomText(message),
-        behavior: (isFloating ?? false) ? SnackBarBehavior.floating : null,
-        backgroundColor: type?.value,
+        content: CustomText(message, color: context.color.secondaryColor),
+        behavior: (isFloating) ? SnackBarBehavior.floating : null,
+        backgroundColor: type?.value ?? context.color.inverseThemeColor,
         duration: Duration(seconds: messageDuration),
+        action: snackBarAction,
       ),
     );
     var snackBarClosedReason = await snackBar.closed;
     if (SnackBarClosedReason.values.contains(snackBarClosedReason)) {
       onClose?.call();
-    }
-  }
-
-  static Future<String> getJsonResponse(BuildContext context,
-      {bool isfromfile = false,
-      StreamedResponse? streamedResponse,
-      Response? response}) async {
-    int code;
-    if (isfromfile) {
-      code = streamedResponse!.statusCode;
-    } else {
-      code = response!.statusCode;
-    }
-    switch (code) {
-      case 200:
-        if (isfromfile) {
-          var responseData = await streamedResponse!.stream.toBytes();
-          return String.fromCharCodes(responseData);
-        } else {
-          return response!.body;
-        }
-
-      case 400:
-        throw BadRequestException(response!.body.toString());
-      case 401:
-        Map getdata = {};
-        if (isfromfile) {
-          var responseData = await streamedResponse!.stream.toBytes();
-          getdata = json.decode(String.fromCharCodes(responseData));
-        } else {
-          getdata = json.decode(response!.body);
-        }
-
-        Future.delayed(
-          Duration.zero,
-          () {
-            showSnackBarMessage(context, getdata[Api.message]);
-          },
-        );
-        throw UnauthorisedException(getdata[Api.message]);
-      case 403:
-        throw UnauthorisedException(response!.body.toString());
-      case 500:
-      default:
-        throw FetchDataException(
-            'Error occurred while Communication with Server with StatusCode: $code');
     }
   }
 
@@ -300,103 +143,97 @@ class HelperUtils {
     return ((bytes / pow(1024, i)).toStringAsFixed(decimals)) + suffixes[i];
   }
 
-  static void killPreviousPages(BuildContext context, var nextpage, var args) {
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(nextpage, (route) => false, arguments: args);
+  static double lerpHeight({
+    required double screenHeight,
+    required double minHeight,
+    required double maxHeight,
+    required double minScreen,
+    required double maxScreen,
+  }) {
+    // Normalize screen height to 0–1
+    final t = ((screenHeight - minScreen) / (maxScreen - minScreen)).clamp(
+      0.0,
+      1.0,
+    );
+
+    // Lerp between min/max height
+    return lerpDouble(minHeight, maxHeight, t)!;
   }
 
-  static void goToNextPage(var nextpage, BuildContext bcontext, bool isreplace,
-      {Map? args}) {
-    if (isreplace) {
-      Navigator.of(bcontext).pushReplacementNamed(nextpage, arguments: args);
-    } else {
-      Navigator.of(bcontext).pushNamed(nextpage, arguments: args);
+  static String getFormattedNumber(
+    String mobile,
+    String? phoneCode,
+    String? regionCode,
+  ) {
+    String? pCode = phoneCode;
+    String? rCode = regionCode;
+
+    // Case 1: Both null, use defaults
+    if (pCode == null && rCode == null) {
+      pCode = AppConfig.defaultPhoneCode;
+      rCode = AppConfig.defaultCountryCode;
     }
-  }
 
-  static String setFirstLetterUppercase(String value) {
-    if (value.isNotEmpty) value = value.replaceAll("_", ' ');
-    return value.toTitleCase();
-  }
+    // Case 2: regionCode is present (either originally or via default)
+    if (rCode != null) {
+      final countries = CountryManager().countries;
+      final country = countries.firstWhereOrNull(
+        (element) => element.countryCode.toUpperCase() == rCode!.toUpperCase(),
+      );
 
-  static Widget checkVideoType(String url,
-      {required Widget Function() onYoutubeVideo,
-      required Widget Function() onOtherVideo}) {
-    List youtubeDomains = ["youtu.be", "youtube.com"];
-
-    Uri uri = Uri.parse(url);
-    var host = uri.host.toString().replaceAll("www.", "");
-    if (youtubeDomains.contains(host)) {
-      return onYoutubeVideo.call();
-    } else {
-      return onOtherVideo.call();
-    }
-  }
-
-  static bool isYoutubeVideo(String url) {
-    List youtubeDomains = ["youtu.be", "youtube.com"];
-
-    Uri uri = Uri.parse(url);
-    var host = uri.host.toString().replaceAll("www.", "");
-    if (youtubeDomains.contains(host)) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  static Future<File> compressImageFile(File file) async {
-    try {
-      final int fileSize = await file.length();
-
-      if (fileSize <= Constant.maxSizeInBytes) {
-        // No need to compress if already within size limit
-        return file;
+      if (country != null) {
+        try {
+          final formatted = formatNumberSync(
+            mobile,
+            country: country,
+            inputContainsCountryCode: false,
+          );
+          return normalizeNumber('${country.phoneCode} $formatted');
+        } catch (e) {
+          // Fallback if formatting fails
+          return normalizeNumber('${pCode ?? country.phoneCode} $mobile');
+        }
       }
-
-      final filePath = file.absolute.path;
-      final lastIndex = filePath.lastIndexOf(RegExp(r'.png|.jp'));
-      final splitted = filePath.substring(0, (lastIndex));
-      final outPath = "${splitted}_out${filePath.substring(lastIndex)}";
-
-      XFile? result = await FlutterImageCompress.compressAndGetFile(
-        filePath,
-        outPath,
-        quality: Constant.uploadImageQuality,
-      );
-
-      return File(result!.path);
-    } catch (e) {
-      throw Exception("Error compressing image: $e");
     }
+
+    // Case 3: regionCode is null (or not found) but phoneCode is available
+    if (pCode != null) {
+      return normalizeNumber('$pCode $mobile');
+    }
+
+    // Final fallback
+    return normalizeNumber(mobile);
   }
 
-  static void launchPathURL({
-    required bool isTelephone,
-    required bool isSMS,
-    required bool isMail,
-    required String value,
-    required BuildContext context,
-  }) async {
-    late Uri redirectUri;
-
-    if (isTelephone) {
-      redirectUri = Uri.parse("tel:$value");
-    } else if (isMail) {
-      redirectUri = Uri(
-        scheme: 'mailto',
-        path: value,
-        query:
-            'subject=${Constant.appName}&body=${"mailMsgLbl".translate(context)}',
-      );
-    } else {
-      redirectUri = Uri.parse("sms:$value");
+  static String normalizeNumber(String mobile) {
+    mobile = mobile.replaceFirst(RegExp(r'^\++'), '+'); // collapse multiple +
+    if (!mobile.startsWith('+')) {
+      mobile = '+$mobile';
     }
+    return mobile;
+  }
 
-    if (await canLaunchUrl(redirectUri)) {
-      await launchUrl(redirectUri);
+  static String? getPhoneCodeFromRegionCode(String? regionCode) {
+    if (regionCode == null) return null;
+    final countries = CountryManager().countries;
+    return countries
+        .firstWhereOrNull(
+          (c) => c.countryCode.toLowerCase() == regionCode.toLowerCase(),
+        )
+        ?.phoneCode;
+  }
+
+  static String formattedSalaryRange(String minimum, String maximum) {
+    final min = num.tryParse(minimum);
+    final max = num.tryParse(maximum);
+    if (min == null && max == null) {
+      return '';
+    } else if (min == null) {
+      return 'Up to $maximum';
+    } else if (max == null) {
+      return 'From $minimum';
     } else {
-      throw 'Could not launch $redirectUri';
+      return '$minimum - $maximum';
     }
   }
 }

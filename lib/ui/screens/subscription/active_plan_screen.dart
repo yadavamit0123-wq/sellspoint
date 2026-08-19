@@ -1,298 +1,89 @@
-import 'package:eClassify/app_config.dart';
+import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/subscription/active_subscription_package_cubit.dart';
-import 'package:eClassify/data/model/subscription_pacakage_model.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
+import 'package:eClassify/data/model/subscription/subscription_package.dart';
+import 'package:eClassify/ui/screens/subscription/widgets/package_widget.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
-import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/custom_text.dart';
+import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/reel_subscription_refresh.dart';
-import 'package:eClassify/utils/subscription_navigation.dart';
+import 'package:eClassify/utils/extensions/lib/gap.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class ActivePlanScreen extends StatefulWidget {
+class ActivePlanScreen extends StatelessWidget {
   const ActivePlanScreen({super.key});
 
-  static Route route(RouteSettings routeSettings) {
-    return BlurredRouter(
-      builder: (_) => BlocProvider(
-        create: (_) => ActiveSubscriptionPackageCubit()..fetchActivePackages(),
-        child: const ActivePlanScreen(),
-      ),
+  static Route<dynamic> route(RouteSettings routeSettings) {
+    final args = routeSettings.arguments;
+    final activePlanCubit = args as ActiveSubscriptionPackageCubit?;
+
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => activePlanCubit == null
+          ? BlocProvider(
+              create: (_) => ActiveSubscriptionPackageCubit(),
+              child: ActivePlanScreen(),
+            )
+          : BlocProvider.value(
+              value: activePlanCubit,
+              child: ActivePlanScreen(),
+            ),
     );
-  }
-
-  @override
-  State<ActivePlanScreen> createState() => _ActivePlanScreenState();
-}
-
-class _ActivePlanScreenState extends State<ActivePlanScreen> {
-  @override
-  void initState() {
-    super.initState();
-    ReelSubscriptionRefresh.onActivePlansScreenVisible();
-    ReelSubscriptionRefresh.activePlansRevision.addListener(_refetchActivePlans);
-  }
-
-  @override
-  void dispose() {
-    ReelSubscriptionRefresh.activePlansRevision
-        .removeListener(_refetchActivePlans);
-    super.dispose();
-  }
-
-  void _refetchActivePlans() {
-    if (!mounted) return;
-    context.read<ActiveSubscriptionPackageCubit>().fetchActivePackages();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.color.backgroundColor,
-      appBar: UiUtils.buildAppBar(
-        context,
-        showBackButton: true,
-        title: 'activePlans'.translate(context),
-      ),
+      appBar: AppBar(title: Text('activePlans'.translate(context))),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: UiUtils.buildButton(
-          context,
-          onPressed: () =>
-              SubscriptionNavigation.openPrimaryAdListingCatalog(context),
-          buttonTitle: AppConfig.enableSubscriptionPrimaryListingCatalogV214
-              ? 'browseAdListingPlans'.translate(context)
-              : 'browseAllPackages'.translate(context),
+        minimum: Constant.safeAreaMinimumPadding,
+        child: FilledButton(
+          style: FilledButton.styleFrom(minimumSize: Size.fromHeight(48)),
+          onPressed: () {
+            Navigator.of(context).pushNamed(Routes.subscriptionScreen);
+          },
+          child: Text('browseAllPackages'.translate(context)),
         ),
       ),
-      body: BlocBuilder<ActiveSubscriptionPackageCubit,
-          ActiveSubscriptionPackageState>(
-        builder: (context, state) {
-          if (state is ActiveSubscriptionPackageInProgress ||
-              state is ActiveSubscriptionPackageInitial) {
-            return UiUtils.progress();
-          }
-          if (state is ActiveSubscriptionPackageFailure) {
-            return Center(child: CustomText(state.message));
-          }
-          if (state is ActiveSubscriptionPackageSuccess) {
-            if (state.activePackages.isEmpty) {
-              return _ActivePlansEmptyState(
-                onRetry: () {
-                  context
-                      .read<ActiveSubscriptionPackageCubit>()
-                      .fetchActivePackages();
-                },
-              );
-            }
-            return ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.activePackages.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                return _ActivePackageCard(
-                  package: state.activePackages[index],
+      body:
+          BlocBuilder<
+            ActiveSubscriptionPackageCubit,
+            ActiveSubscriptionPackageState
+          >(
+            builder: (context, state) {
+              if (state is ActiveSubscriptionPackageInitial) {
+                context.read<ActiveSubscriptionPackageCubit>().getPackages();
+              }
+              if (state is ActiveSubscriptionPackageFailure) {
+                return SomethingWentWrong();
+              }
+              if (state is ActiveSubscriptionPackageSuccess) {
+                if (state.activePackages.isEmpty) {
+                  return NoDataFound();
+                }
+                final packages = state.activePackages;
+                return ListView.separated(
+                  padding: Constant.appContentPadding.copyWith(
+                    top: 40,
+                    bottom: 20,
+                  ),
+                  itemCount: packages.length,
+                  itemBuilder: (context, index) => PackageWidget(
+                    package: packages[index],
+                    activePlanCapLabel: switch (packages[index].type) {
+                      SubscriptionPackageType.featuredAds =>
+                        'featuredAds'.translate(context),
+                      SubscriptionPackageType.itemListing =>
+                        'adsPackage'.translate(context),
+                    },
+                  ),
+                  separatorBuilder: (context, index) => 30.vGap,
                 );
-              },
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-    );
-  }
-}
-
-class _ActivePlansEmptyState extends StatelessWidget {
-  const _ActivePlansEmptyState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            NoDataFound(
-              onTap: onRetry,
-              mainMessage: 'nodatafound'.translate(context),
-              subMessage: AppConfig.enableActivePlanEmptyReelCtaV214
-                  ? 'activePlanEmptyReelHint'.translate(context)
-                  : null,
-            ),
-            if (AppConfig.enableActivePlanEmptyReelCtaV214) ...[
-              const SizedBox(height: 20),
-              UiUtils.buildButton(
-                context,
-                height: 44,
-                radius: 10,
-                buttonTitle: AppConfig.enableSubscriptionPrimaryListingCatalogV214
-                    ? 'browseAdListingPlans'.translate(context)
-                    : 'browseAllPackages'.translate(context),
-                buttonColor: context.color.secondaryColor,
-                textColor: context.color.textDefaultColor,
-                onPressed: () {
-                  SubscriptionNavigation.openPrimaryAdListingCatalog(context);
-                },
-              ),
-              const SizedBox(height: 10),
-              UiUtils.buildButton(
-                context,
-                height: 44,
-                radius: 10,
-                buttonTitle: 'reelListingPlansTitle'.translate(context),
-                buttonColor: context.color.territoryColor,
-                textColor: context.color.secondaryColor,
-                onPressed: () {
-                  SubscriptionNavigation.openItemListingPackagesForReels(
-                    context,
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActivePackageCard extends StatelessWidget {
-  const _ActivePackageCard({required this.package});
-
-  final SubscriptionPackageModel package;
-
-  bool get _showReelBadge =>
-      AppConfig.enableActivePlanReelBadgeV214 &&
-      package.type == 'item_listing' &&
-      package.isReelAllowed == true;
-
-  bool get _showGetReelsCta =>
-      AppConfig.enableActivePlanGetReelsCtaV214 &&
-      package.type == 'item_listing' &&
-      package.isReelAllowed != true;
-
-  String _typeLabel(BuildContext context) {
-    if (package.type == 'advertisement') {
-      return 'featuredAdsLbl'.translate(context);
-    }
-    return 'adsListing'.translate(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final purchase = package.userPurchasedPackages?.isNotEmpty == true
-        ? package.userPurchasedPackages!.first
-        : null;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.color.secondaryColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.color.territoryColor, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomText(
-            package.name ?? '',
-            fontWeight: FontWeight.w700,
-            fontSize: context.font.larger,
-            color: context.color.textDefaultColor,
+              }
+              return Center(child: UiUtils.progress());
+            },
           ),
-          const SizedBox(height: 6),
-          CustomText(
-            _typeLabel(context),
-            color: context.color.territoryColor,
-            fontWeight: FontWeight.w500,
-          ),
-          if (_showReelBadge) ...[
-            const SizedBox(height: 8),
-            const _ReelIncludedChip(),
-          ],
-          if (_showGetReelsCta) ...[
-            const SizedBox(height: 12),
-            UiUtils.buildButton(
-              context,
-              height: 40,
-              radius: 10,
-              buttonTitle: 'activePlanGetReelsCta'.translate(context),
-              buttonColor: context.color.territoryColor,
-              textColor: context.color.secondaryColor,
-              onPressed: () {
-                SubscriptionNavigation.openItemListingPackagesForReels(context);
-              },
-            ),
-          ],
-          if (purchase != null) ...[
-            const SizedBox(height: 12),
-            if (purchase.startDate != null && purchase.startDate!.isNotEmpty)
-              CustomText(
-                '${'packageStartedOn'.translate(context)} ${purchase.startDate}',
-                fontSize: context.font.small,
-                color: context.color.textLightColor,
-              ),
-            if (purchase.endDate != null && purchase.endDate!.isNotEmpty)
-              CustomText(
-                '${'andPackageWillEndOn'.translate(context)} ${purchase.endDate}',
-                fontSize: context.font.small,
-                color: context.color.textLightColor,
-              ),
-            if (purchase.remainingItemLimit != null &&
-                purchase.remainingItemLimit!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: CustomText(
-                  purchase.remainingItemLimit!,
-                  fontWeight: FontWeight.w600,
-                  color: context.color.textDefaultColor,
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ReelIncludedChip extends StatelessWidget {
-  const _ReelIncludedChip();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: context.color.territoryColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: context.color.territoryColor.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.videocam_outlined,
-            size: 16,
-            color: context.color.territoryColor,
-          ),
-          const SizedBox(width: 6),
-          CustomText(
-            'subscriptionReelIncluded'.translate(context),
-            fontSize: context.font.small,
-            fontWeight: FontWeight.w600,
-            color: context.color.territoryColor,
-          ),
-        ],
-      ),
     );
   }
 }

@@ -1,4 +1,4 @@
-import 'package:eClassify/data/model/category_model.dart';
+import 'package:eClassify/data/model/core/category.dart';
 import 'package:eClassify/data/repositories/home/home_repository.dart';
 import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,7 +12,7 @@ class PopularCategoriesLoading extends PopularCategoriesState {}
 class PopularCategoriesSuccess extends PopularCategoriesState {
   PopularCategoriesSuccess({required this.categories});
 
-  final List<CategoryModel> categories;
+  final List<Category> categories;
 }
 
 class PopularCategoriesFailure extends PopularCategoriesState {
@@ -24,14 +24,14 @@ class PopularCategoriesFailure extends PopularCategoriesState {
 class PopularCategoriesCubit extends Cubit<PopularCategoriesState> {
   PopularCategoriesCubit() : super(PopularCategoriesInitial());
 
-  final HomeRepository _repository = HomeRepository();
-
-  Future<void> fetchPopularCategories() async {
+  Future<void> getCategories() async {
     try {
       emit(PopularCategoriesLoading());
-      final categories = await _repository.fetchPopularCategories();
+
+      final categories = await HomeRepository.instance.getPopularCategories();
+
       emit(PopularCategoriesSuccess(categories: categories));
-    } catch (e, stack) {
+    } on Exception catch (e, stack) {
       Log.error(e.toString(), e, stack);
       emit(PopularCategoriesFailure(message: e.toString()));
     }

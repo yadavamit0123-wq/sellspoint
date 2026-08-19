@@ -1,112 +1,165 @@
-import 'package:eClassify/data/cubits/home/fetch_home_all_items_cubit.dart';
-import 'package:eClassify/ui/screens/ad_banner_screen.dart';
-import 'package:eClassify/ui/screens/home/widgets/grid_list_adapter.dart';
-import 'package:eClassify/ui/screens/home/widgets/home_sections_adapter.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/screens/widgets/errors/something_went_wrong.dart';
-import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/data/cubits/home/home_items_cubit.dart';
+import 'package:eClassify/ui/screens/home/widgets/item_card_widget.dart';
+import 'package:eClassify/ui/screens/native_ads_widget.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:staggered_grid_view/flutter_staggered_grid_view.dart';
 
 class AllItemsWidget extends StatelessWidget {
-  const AllItemsWidget({super.key, this.showGoogleBanner = false});
-
-  /// When true, shows Google banner below the grid (2.14 `all_ads` section).
-  final bool showGoogleBanner;
+  const AllItemsWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<FetchHomeAllItemsCubit, FetchHomeAllItemsState>(
-      builder: (context, state) {
-        if (state is FetchHomeAllItemsSuccess) {
-          if (state.items.isNotEmpty) {
-            const int crossAxisCount = 2;
-            final int items = state.items.length;
-            final int total = (items ~/ crossAxisCount) +
-                (items % crossAxisCount != 0 ? 1 : 0);
-
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 16, 10, 8),
-                  child: Text(
-                    'allAds'.translate(context),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: context.font.large,
-                      color: context.color.textDefaultColor,
-                    ),
-                  ),
-                ),
-                GridListAdapter(
-                  type: ListUiType.List,
-                  crossAxisCount: 2,
-                  builder: (context, int index, bool isGrid) {
-                    int itemIndex = index * crossAxisCount;
-                    return SizedBox(
-                      height: (MediaQuery.sizeOf(context).height / 3.5) + 10,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (int i = 0; i < crossAxisCount; ++i) ...[
-                            Expanded(
-                              child: itemIndex + 1 <= items
-                                  ? ItemCard(item: state.items[itemIndex++])
-                                  : const SizedBox.shrink(),
-                            ),
-                            if (i != crossAxisCount - 1)
-                              const SizedBox(width: 15),
-                          ],
-                        ],
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(
+        horizontal: Constant.horizontalPadding,
+        vertical: 5,
+      ),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          BlocBuilder<HomeItemsCubit, HomeItemsState>(
+            builder: (context, state) {
+              if (state is HomeItemsSuccess) {
+                final isGlobalList =
+                    state.message?.contains('No Ads found') ?? false;
+                if (state.items.isEmpty) {
+                  return SliverToBoxAdapter(child: const SizedBox.shrink());
+                }
+                return SliverMainAxisGroup(
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      sliver: SliverToBoxAdapter(
+                        child: Text(
+                          'allAdvertisements'.translate(context),
+                          style: context.titleMedium,
+                        ),
                       ),
-                    );
-                  },
-                  listSeparator: (context, index) {
-                    if (index == 0 ||
-                        index % Constant.nativeAdsAfterItemNumber != 0) {
-                      return const SizedBox(height: 15);
+                    ),
+                    if (isGlobalList)
+                      SliverPadding(
+                        padding: const EdgeInsets.only(bottom: 10.0),
+                        sliver: SliverToBoxAdapter(
+                          child: Text(
+                            state.message!,
+                            style: context.titleMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }
+              return SliverToBoxAdapter(child: const SizedBox.shrink());
+            },
+          ),
+          BlocBuilder<HomeItemsCubit, HomeItemsState>(
+            builder: (context, state) {
+              if (state is HomeItemsSuccess) {
+                if (state.items.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: QErrorWidget.emptyData(
+                      onRetry: () {
+                        context.read<HomeItemsCubit>().getHomeItems();
+                      },
+                    ),
+                  );
+                }
+
+                final items = state.items;
+                final intervalItems = Constant.nativeAdsAfterItemNumber;
+                final adCount = items.length ~/ intervalItems;
+                final showLoader = state.hasMore;
+                final totalCount =
+                    items.length + adCount + (showLoader ? 1 : 0);
+
+                int adsBeforeIndex(int index) {
+                  return (index + 1) ~/ (intervalItems + 1);
+                }
+
+                return SliverStaggeredGrid.countBuilder(
+                  crossAxisCount: 2,
+                  itemCount: totalCount,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  itemBuilder: (context, index) {
+                    final isLoader = showLoader && index == totalCount - 1;
+                    if (isLoader) {
+                      return Center(child: UiUtils.progress());
                     }
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 5),
-                        AdBannerWidget(),
-                        const SizedBox(height: 5),
-                      ],
-                    );
+
+                    final isAd =
+                        index != 0 && (index + 1) % (intervalItems + 1) == 0;
+                    if (isAd) {
+                      return const NativeAdWidget(type: TemplateType.medium);
+                    }
+
+                    final itemIndex = index - adsBeforeIndex(index);
+                    final item = items[itemIndex];
+                    return ItemCard(key: ValueKey(item.id!), item: item);
                   },
-                  total: total,
-                ),
-                if (state.isLoadingMore) UiUtils.progress(),
-                if (showGoogleBanner &&
-                    Constant.isGoogleBannerAdsEnabled == '1') ...[
-                  Container(
-                    padding: const EdgeInsets.only(top: 5),
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    child: AdBannerWidget(),
+                  staggeredTileBuilder: (index) {
+                    final isLoader = showLoader && index == totalCount - 1;
+                    if (isLoader) {
+                      return items.length.isEven
+                          ? const StaggeredTile.fit(2)
+                          : const StaggeredTile.count(1, 1.5);
+                    }
+
+                    final isAd =
+                        index != 0 && (index + 1) % (intervalItems + 1) == 0;
+                    return isAd
+                        ? const StaggeredTile.fit(2)
+                        : const StaggeredTile.count(1, 1.5);
+                  },
+                );
+              }
+              if (state is HomeItemsFailure) {
+                return const SliverToBoxAdapter(child: SizedBox.shrink());
+              }
+
+              return SliverGrid.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: .7,
+                children: List.generate(
+                  2,
+                  (_) => const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomShimmer(height: 147, width: 250, borderRadius: 10),
+                      CustomShimmer(
+                        height: 15,
+                        width: 90,
+                        margin: EdgeInsetsDirectional.only(top: 8),
+                      ),
+                      CustomShimmer(
+                        height: 14,
+                        width: 230,
+                        margin: EdgeInsetsDirectional.only(top: 8),
+                      ),
+                      CustomShimmer(
+                        height: 14,
+                        width: 200,
+                        margin: EdgeInsetsDirectional.only(top: 8),
+                      ),
+                    ],
                   ),
-                ],
-              ],
-            );
-          }
-          return const SizedBox.shrink();
-        }
-        if (state is FetchHomeAllItemsFail) {
-          if (state.error is ApiException) {
-            if (state.error.error == 'no-internet') {
-              return const Center(child: NoInternet());
-            }
-          }
-          return const SomethingWentWrong();
-        }
-        return const SizedBox.shrink();
-      },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
