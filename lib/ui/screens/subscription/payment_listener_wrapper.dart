@@ -8,7 +8,9 @@ import 'package:eClassify/ui/screens/subscription/payment_handler.dart';
 import 'package:eClassify/ui/screens/widgets/app_dialog.dart';
 import 'package:eClassify/ui/theme/theme_extensions.dart';
 import 'package:eClassify/utils/extensions/lib/translate.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:eClassify/utils/loading_overlay.dart';
 import 'package:eClassify/utils/payment/payment_settings.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +31,15 @@ class PaymentListenerWrapper extends StatelessWidget {
   // ── IAP outcome handlers called by BlocListener ──────────────────────── //
 
   void _onIapSuccess(BuildContext context) {
+    final pkg = package.value;
+    if (pkg != null) {
+      MetaSdkService.logPurchase(
+        amount: pkg.discountedPrice.toDouble(),
+        currency: Constant.systemSettings.defaultCurrency.code,
+        orderId: 'iap_${pkg.id}',
+        packageId: pkg.id,
+      );
+    }
     showDialog(
       context: context,
       builder: (context) {

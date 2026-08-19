@@ -6,7 +6,7 @@ description: Sells Point — buy and sell locally
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev [Be careful]
 
-version: 2.0.2+18
+version: 2.0.3+23
 
 environment:
   sdk: ">=3.8.0 <4.0.0"
@@ -47,6 +47,7 @@ dependencies:
   geolocator: ^14.0.0
   flutter_svg: ^2.2.3
   google_mobile_ads: ^8.0.0
+  facebook_app_events: ^0.20.1
   google_maps_flutter: ^2.14.0
   vibration: ^3.1.3
   device_region: ^1.4.0

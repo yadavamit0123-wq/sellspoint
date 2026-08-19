@@ -2,6 +2,7 @@ import 'package:eClassify/data/model/system_settings.dart';
 import 'package:eClassify/data/repositories/system_repository.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/log.dart';
+import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class SystemSettingsState {}
@@ -38,6 +39,8 @@ class SystemSettingsCubit extends Cubit<SystemSettingsState> {
       // only the sane solution as of now to avoid complicating it much
       // TODO(I): Find a better way to access system settings
       Constant.systemSettings = settings;
+
+      await MetaSdkService.configure(settings);
 
       emit(SystemSettingsSuccess(settings: settings));
     } on Exception catch (e, stack) {

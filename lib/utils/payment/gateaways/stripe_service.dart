@@ -2,6 +2,7 @@ import 'package:eClassify/utils/app_session.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:eClassify/utils/payment/payment_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -9,6 +10,9 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 class StripeService {
   // static BuildContext? currContext;
   static String paymentIntentSuccessResponse = "succeeded";
+  static String _lastAmount = "0";
+  static String _lastCurrency = "INR";
+  static String _lastPaymentIntentId = "";
 
   static void initStripe(String? stripeId, String? stripeMode) async {
     if (PaymentSettings.stripeStatus == 1) {
@@ -28,6 +32,9 @@ class StripeService {
     String merchantDisplayName = "",
   }) async {
     try {
+      _lastAmount = amount;
+      _lastCurrency = currency;
+      _lastPaymentIntentId = paymentIntentId;
       // currContext = bcontext;
       //setting up Payment Sheet
       await Stripe.instance.initPaymentSheet(
@@ -55,6 +62,12 @@ class StripeService {
   static void displayPaymentSheet(BuildContext context) async {
     try {
       await Stripe.instance.presentPaymentSheet();
+
+      MetaSdkService.logPurchase(
+        amount: double.tryParse(_lastAmount) ?? 0,
+        currency: _lastCurrency,
+        orderId: _lastPaymentIntentId,
+      );
 
       HelperUtils.showSnackBarMessage(
         Constant.navigatorKey.currentContext!,

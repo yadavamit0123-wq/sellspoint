@@ -19,6 +19,7 @@ import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/loading_overlay.dart';
+import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:eClassify/utils/login/lib/login_status.dart';
 import 'package:eClassify/utils/login/lib/payloads.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -278,6 +279,7 @@ class _SignupScreenState extends State<SignupScreen> {
           }
           if (state is LoginSuccess) {
             LoadingOverlay.hide();
+            MetaSdkService.logRegistration(method: 'signup');
             context.read<UserDetailsCubit>().fill(HiveUtils.getUserDetails());
             if (state.isProfileCompleted) {
               HiveUtils.setUserIsAuthenticated(true);

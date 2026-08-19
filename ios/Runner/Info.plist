@@ -48,6 +48,12 @@
         				<string>sellspoint</string>
         			</array>
         		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb0</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
@@ -65,7 +71,17 @@
 		<string>items-beta</string>
 		<string>https</string>
 		<string>http</string>
+		<string>fbapi</string>
+		<string>fb-messenger-share-api</string>
 	</array>
+	<key>FacebookAppID</key>
+	<string>0</string>
+	<key>FacebookClientToken</key>
+	<string>placeholder</string>
+	<key>FacebookDisplayName</key>
+	<string>Sells Point</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to deliver personalized ads and measure ad performance.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>

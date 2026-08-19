@@ -8,6 +8,7 @@ import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:eClassify/utils/loading_overlay.dart';
 import 'package:eClassify/utils/payment/gateaways/payment_webview.dart';
 import 'package:eClassify/utils/payment/gateaways/stripe_service.dart';
@@ -67,6 +68,12 @@ class PaymentHandler {
                 ? paymentIntent["payment_gateway_response"]["data"]["reference"]
                 : null,
             onSuccess: (reference) {
+              MetaSdkService.logPurchase(
+                amount: package.discountedPrice.toDouble(),
+                currency: Constant.systemSettings.defaultCurrency.code,
+                orderId: reference,
+                packageId: package.id,
+              );
               HelperUtils.showSnackBarMessage(
                 context,
                 "paymentSuccessfullyCompleted".translate(context),
@@ -115,6 +122,12 @@ class PaymentHandler {
           builder: (context) => PaymentWebView(
             authorizationUrl: url,
             onSuccess: (reference) {
+              MetaSdkService.logPurchase(
+                amount: package.discountedPrice.toDouble(),
+                currency: Constant.systemSettings.defaultCurrency.code,
+                orderId: reference,
+                packageId: package.id,
+              );
               HelperUtils.showSnackBarMessage(
                 context,
                 "paymentSuccessfullyCompleted".translate(context),

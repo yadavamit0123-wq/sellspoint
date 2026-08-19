@@ -1,5 +1,7 @@
 <resources>
-    <!-- Other string resources -->
-
     <string name="default_notification_channel_id">basic_channel</string>
+    <string name="facebook_app_id">0</string>
+    <string name="facebook_client_token">placeholder</string>
+    <string name="fb_login_protocol_scheme">fb0</string>
+    <string name="app_name">Sells Point</string>
 </resources>

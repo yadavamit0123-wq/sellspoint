@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:eClassify/app_config.dart';
+import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:eClassify/utils/payment/gateaways/stripe_service.dart';
 import 'package:eClassify/utils/payment/payment_settings.dart';
 import 'package:flutter/cupertino.dart';
@@ -59,6 +61,7 @@ class PaymentGateways {
               context: context,
               request: request,
               appSchema: getData["appSchema"],
+              orderId: getData["request"]["orderId"]?.toString(),
             );
           })
           .catchError((error) {
@@ -84,6 +87,7 @@ class PaymentGateways {
     required BuildContext context,
     required String request,
     required String appSchema,
+    String? orderId,
   }) async {
     try {
       PhonePePaymentSdk.startTransaction(request, appSchema)
@@ -94,6 +98,13 @@ class PaymentGateways {
               print("phonepe status***$status");
               if (status == 'SUCCESS') {
                 print("status success");
+                MetaSdkService.logPurchase(
+                  amount: 0,
+                  currency: PaymentSettings.phonePeCurrency.isNotEmpty
+                      ? PaymentSettings.phonePeCurrency
+                      : Constant.systemSettings.defaultCurrency.code,
+                  orderId: orderId,
+                );
                 HelperUtils.showSnackBarMessage(
                   context,
                   "paymentSuccessfullyCompleted".translate(context),
@@ -161,7 +172,7 @@ class PaymentGateways {
       razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, (
         PaymentSuccessResponse response,
       ) async {
-        await _purchase(context);
+        await _purchase(context, price: price, packageId: packageId);
       });
       razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, (
         PaymentFailureResponse response,
@@ -177,9 +188,17 @@ class PaymentGateways {
     }
   }
 
-  static Future<void> _purchase(BuildContext context) async {
+  static Future<void> _purchase(BuildContext context, {required price, required packageId}) async {
     try {
       Future.delayed(Duration.zero, () {
+        MetaSdkService.logPurchase(
+          amount: (price as num).toDouble(),
+          currency: PaymentSettings.razorpayCurrency.isNotEmpty
+              ? PaymentSettings.razorpayCurrency
+              : Constant.systemSettings.defaultCurrency.code,
+          orderId: 'razorpay_$packageId',
+          packageId: packageId,
+        );
         HelperUtils.showSnackBarMessage(
           context,
           "success".translate(context),

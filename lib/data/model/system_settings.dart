@@ -46,6 +46,13 @@ class SystemSettings {
         json['native_app_id_ios'] as String?,
         (v) => v,
       ),
+      isMetaSdkEnabled = (json['meta_sdk_enabled'] as String?) == '1',
+      facebookAppId = _emptyToNull(json['facebook_app_id'] as String?),
+      facebookClientToken = _emptyToNull(json['facebook_client_token'] as String?),
+      metaTestMode = (json['meta_test_mode'] as String?) == '1',
+      metaLogActivateApp = (json['meta_log_activate_app'] as String?) != '0',
+      metaLogRegistration = (json['meta_log_registration'] as String?) != '0',
+      metaLogPurchase = (json['meta_log_purchase'] as String?) != '0',
       storeLink = _platformResolver(
         json['play_store_link'] as String?,
         json['app_store_link'] as String?,
@@ -84,6 +91,11 @@ class SystemSettings {
     throw UnimplementedError('How did you even reach here???');
   }
 
+  static String? _emptyToNull(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return value.trim();
+  }
+
   final bool demoMode;
   final Version version;
   final String defaultLanguageCode;
@@ -107,6 +119,14 @@ class SystemSettings {
   final String? interstitialAdId;
   final bool _isNativeAdEnabled;
   final String? nativeAdId;
+
+  final bool isMetaSdkEnabled;
+  final String? facebookAppId;
+  final String? facebookClientToken;
+  final bool metaTestMode;
+  final bool metaLogActivateApp;
+  final bool metaLogRegistration;
+  final bool metaLogPurchase;
 
   final String? storeLink;
 
