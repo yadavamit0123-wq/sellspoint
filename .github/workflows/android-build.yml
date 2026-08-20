@@ -33,11 +33,13 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: "3.32.0"
           cache: true
 
       - name: Flutter version
-        run: flutter --version
+        run: |
+          flutter --version
+          dart --version
+          flutter doctor -v
 
       - name: Prepare Android Gradle (CI compatibility)
         run: |
