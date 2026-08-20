@@ -46,7 +46,7 @@ class SystemSettingsCubit extends Cubit<SystemSettingsState> {
       unawaited(MetaSdkService.configure(settings));
 
       emit(SystemSettingsSuccess(settings: settings));
-    } on Exception catch (e, stack) {
+    } on Object catch (e, stack) {
       Log.error(e.toString(), e, stack);
       emit(SystemSettingsFailure(error: e));
     }

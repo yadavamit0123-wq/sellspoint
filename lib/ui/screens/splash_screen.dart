@@ -225,7 +225,9 @@ class _SplashScreenState extends State<SplashScreen> {
               _controller.dispose();
               setState(() {});
               _initVideo();
-              _startNavigationFlow();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _startNavigationFlow();
+              });
             },
           ),
         ),

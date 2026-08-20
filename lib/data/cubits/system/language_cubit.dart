@@ -63,7 +63,7 @@ class LanguageCubit extends Cubit<LanguageState> {
       );
 
       emit(LanguageFetchSuccess(language: language));
-    } on Exception catch (e, st) {
+    } on Object catch (e, st) {
       Log.error(e.toString(), e, st);
       emit(LanguageFailure(error: e));
     }
