@@ -27,3 +27,9 @@
 -keepattributes *Annotation*
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
+
+# Play Core — referenced by Flutter engine for deferred components (not used in this app)
+-dontwarn com.google.android.play.core.**
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
