@@ -6,13 +6,13 @@ on:
       build_type:
         description: "What to build"
         required: true
-        default: "all"
+        default: "debug-apk"
         type: choice
         options:
-          - all
           - debug-apk
           - release-apk
           - release-aab
+          - all
 
 jobs:
   build:
@@ -41,18 +41,40 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Configure Android signing (release only)
-        if: inputs.build_type != 'debug-apk'
+      - name: Check release signing secrets
+        id: signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "ERROR: Add GitHub Secrets for release builds (see docs/merge/GITHUB_ANDROID_BUILD.md)"
-            exit 1
+          wants_release="${{ inputs.build_type }}"
+          if [ "$wants_release" = "debug-apk" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Debug-only build — signing not required."
+            exit 0
           fi
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Release signing secrets found."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            if [ "$wants_release" != "all" ]; then
+              echo "ERROR: Release build needs GitHub Secrets (see docs/merge/GITHUB_ANDROID_BUILD.md)"
+              exit 1
+            fi
+            echo "WARNING: Release secrets missing — will build debug APK only."
+          fi
+
+      - name: Configure Android signing
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/prt.jks
           cat > android/key.properties <<EOF
           storePassword=${ANDROID_KEYSTORE_PASSWORD}
@@ -66,11 +88,11 @@ jobs:
         run: flutter build apk --debug
 
       - name: Build release APK
-        if: inputs.build_type == 'release-apk' || inputs.build_type == 'all'
+        if: (inputs.build_type == 'release-apk' || inputs.build_type == 'all') && steps.signing.outputs.ready == 'true'
         run: flutter build apk --release
 
       - name: Build release AAB (Play Store)
-        if: inputs.build_type == 'release-aab' || inputs.build_type == 'all'
+        if: (inputs.build_type == 'release-aab' || inputs.build_type == 'all') && steps.signing.outputs.ready == 'true'
         run: flutter build appbundle --release
 
       - name: Upload debug APK
@@ -82,7 +104,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release APK
-        if: inputs.build_type == 'release-apk' || inputs.build_type == 'all'
+        if: (inputs.build_type == 'release-apk' || inputs.build_type == 'all') && steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: sellspoint-release-apk
@@ -90,7 +112,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release AAB
-        if: inputs.build_type == 'release-aab' || inputs.build_type == 'all'
+        if: (inputs.build_type == 'release-aab' || inputs.build_type == 'all') && steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: sellspoint-release-aab
