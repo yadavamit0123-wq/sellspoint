@@ -45,7 +45,7 @@ class LanguageCubit extends Cubit<LanguageState> {
           'Language translations missing for ${language.languageCode}',
         );
       }
-      AppLocalization.setTranslations(rawTranslations);
+      await AppLocalization.setTranslations(rawTranslations);
 
       final bool shouldStore = AppSession.currentLanguage?.id != language.id;
       if (shouldStore) {

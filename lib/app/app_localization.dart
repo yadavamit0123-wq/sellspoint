@@ -1,31 +1,47 @@
-
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class AppLocalization {
-  final Locale locale;
-  static Map<String, String> _localizedValues = {};
-
   AppLocalization(this.locale);
+
+  final Locale locale;
+
+  static Map<String, String> _localizedValues = {};
+  static Map<String, String> _bundledValues = {};
 
   static AppLocalization? of(BuildContext context) {
     return Localizations.of(context, AppLocalization);
   }
 
-  static void setTranslations(Map<String, dynamic> json) {
-    _localizedValues = json.map((key, value) => MapEntry(key, value.toString()));
+  /// API translations override bundled keys; bundled fills any keys missing
+  /// from admin language files (e.g. jobApplications, myWallet).
+  static Future<void> setTranslations(Map<String, dynamic> json) async {
+    await ensureBundledLoaded();
+    final apiValues = json.map(
+      (key, value) => MapEntry(key, value.toString()),
+    );
+    _localizedValues = {..._bundledValues, ...apiValues};
   }
 
-  Future loadJson() async {
+  static Future<void> ensureBundledLoaded() async {
+    if (_bundledValues.isNotEmpty) return;
+    await AppLocalization(const Locale('en')).loadJson();
+  }
+
+  Future<void> loadJson() async {
+    if (_bundledValues.isNotEmpty) return;
+
+    final jsonStringValues = await rootBundle.loadString(
+      'assets/languages/language.json',
+    );
+    final mappedJson = json.decode(jsonStringValues) as Map<String, dynamic>;
+    _bundledValues = mappedJson.map(
+      (key, value) => MapEntry(key, value.toString()),
+    );
     if (_localizedValues.isEmpty) {
-      String jsonStringValues =
-          await rootBundle.loadString('assets/languages/language.json');
-      Map<String, dynamic> mappedJson = json.decode(jsonStringValues);
-      _localizedValues =
-          mappedJson.map((key, value) => MapEntry(key, value.toString()));
+      _localizedValues = Map<String, String>.from(_bundledValues);
     }
   }
 
@@ -33,15 +49,12 @@ class AppLocalization {
     return _localizedValues[key!];
   }
 
-
   static const LocalizationsDelegate<AppLocalization> delegate =
       _AppLocalizationDelegate();
 }
 
-
 class _AppLocalizationDelegate extends LocalizationsDelegate<AppLocalization> {
   const _AppLocalizationDelegate();
-
 
   @override
   bool isSupported(Locale locale) {
@@ -50,7 +63,7 @@ class _AppLocalizationDelegate extends LocalizationsDelegate<AppLocalization> {
 
   @override
   Future<AppLocalization> load(Locale locale) async {
-    AppLocalization localization = AppLocalization(locale);
+    final localization = AppLocalization(locale);
     await localization.loadJson();
     return localization;
   }

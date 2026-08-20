@@ -34,7 +34,8 @@ class _Branding {
 
   final String logo = '$_basePath/logo.svg';
   final String company = '$_basePath/company_logo.svg';
-  final String placeholder = '$_basePath/placeholder.svg';
+  /// Same placeholder as the live Sells Point app (`assets/svg/Logo/placeholder.svg`).
+  final String placeholder = 'assets/svg/Logo/placeholder.svg';
 }
 
 class _Illustrators {
