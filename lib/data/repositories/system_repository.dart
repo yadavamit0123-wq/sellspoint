@@ -19,7 +19,7 @@ class SystemRepository {
         response['data'] as Json,
         SystemSettings.fromJson,
       );
-    } on Exception catch (e, stack) {
+    } on Object catch (e, stack) {
       Log.error(e.toString(), e, stack);
       rethrow;
     }
@@ -72,7 +72,7 @@ class SystemRepository {
         },
       );
       return response['data'] as Json;
-    } on Exception catch (e, stack) {
+    } on Object catch (e, stack) {
       Log.error(e.toString(), e, stack);
       rethrow;
     }

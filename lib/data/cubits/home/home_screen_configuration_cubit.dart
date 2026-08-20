@@ -31,7 +31,7 @@ class HomeConfigurationCubit extends Cubit<HomeConfigurationState> {
       final sections = await HomeRepository.instance.getHomeConfiguration();
 
       emit(HomeConfigurationSuccess(sections: sections));
-    } on Exception catch (e, stack) {
+    } on Object catch (e, stack) {
       Log.error(e.toString(), e, stack);
       emit(HomeConfigurationFailure(error: e));
     }

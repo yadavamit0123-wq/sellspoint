@@ -152,12 +152,17 @@ class SystemSettings {
 
   final List<Language> languages;
 
-  Language get defaultLanguage => languages.firstWhere(
-        (l) =>
-            l.languageCode.toLowerCase() ==
-            defaultLanguageCode.toLowerCase(),
-        orElse: () => languages.first,
-      );
+  Language get defaultLanguage {
+    if (languages.isEmpty) {
+      throw StateError('No languages returned from system settings');
+    }
+    return languages.firstWhere(
+      (l) =>
+          l.languageCode.toLowerCase() ==
+          defaultLanguageCode.toLowerCase(),
+      orElse: () => languages.first,
+    );
+  }
 
   bool get isBannerAdEnabled => _isBannerAdEnabled && bannerAdId != null;
 

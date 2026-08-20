@@ -39,8 +39,13 @@ class LanguageCubit extends Cubit<LanguageState> {
       );
 
       // This param is json data which contains all the translations.
-      final translations = languageData['file_name'] as Map<String, dynamic>;
-      AppLocalization.setTranslations(translations);
+      final rawTranslations = languageData['file_name'];
+      if (rawTranslations is! Map<String, dynamic>) {
+        throw StateError(
+          'Language translations missing for ${language.languageCode}',
+        );
+      }
+      AppLocalization.setTranslations(rawTranslations);
 
       final bool shouldStore = AppSession.currentLanguage?.id != language.id;
       if (shouldStore) {
