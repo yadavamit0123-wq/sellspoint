@@ -58,3 +58,14 @@ Choose **debug-apk** — no signing secrets required. For Play Store use **relea
 | sellspoint-release-aab | `app-release.aab` |
 
 Upload **app-release.aab** to Google Play Console.
+
+## AGP 9 build error on GitHub Actions
+
+If you see `Starting AGP 9+, only the new DSL interface will be read`, ensure `android/gradle.properties` includes:
+
+```
+android.newDsl=false
+android.builtInKotlin=false
+```
+
+Then push and re-run the workflow.
