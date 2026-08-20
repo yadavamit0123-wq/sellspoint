@@ -68,6 +68,7 @@ jobs:
           touch android/gradle.properties
           grep -q '^android.newDsl=false' android/gradle.properties || echo 'android.newDsl=false' >> android/gradle.properties
           grep -q '^android.builtInKotlin=false' android/gradle.properties || echo 'android.builtInKotlin=false' >> android/gradle.properties
+          grep -q '^android.enableLegacyVariantApi=true' android/gradle.properties || echo 'android.enableLegacyVariantApi=true' >> android/gradle.properties
           echo "--- gradle-wrapper ---"
           grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
           echo "--- gradle.properties (AGP flags) ---"

@@ -67,7 +67,7 @@ The workflow pins **Flutter 3.47.1** (Dart **3.13.1**).
 |---------|------|--------|
 | 3.32.0 | 3.8.0 | `flutter_stripe` fails (needs ≥3.8.1) |
 | 3.32.8 | 3.8.1 | `google_mobile_ads` fails (needs ≥3.9 / 3.10) |
-| 3.47.1 | 3.13.1 | Matches current `pubspec.yaml` |
+| 3.47.1 | 3.13.1 | Matches current `pubspec.yaml`; needs AGP **8.11.1+** and Kotlin **2.4.0+** |
 
 After changing `.github/workflows/android-build.yml`, push the branch and re-run the workflow **on that same branch**. Running an old commit on `main` will keep failing.
 
