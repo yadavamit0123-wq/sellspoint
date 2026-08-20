@@ -44,7 +44,6 @@ class MetaSdkService {
       });
 
       await _events.setAutoLogAppEventsEnabled(false);
-      await _events.setDebugLoggingEnabled(settings.metaTestMode);
 
       if (settings.metaTestMode) {
         await _events.setAdvertiserTracking(enabled: true);
@@ -63,11 +62,7 @@ class MetaSdkService {
 
   static Future<void> logActivateApp() async {
     if (!isEnabled || !_logActivateApp) return;
-    try {
-      await _events.activateApp(applicationId: _appId);
-    } catch (e, stack) {
-      Log.error('Meta SDK activateApp failed', e, stack);
-    }
+    // Native configure() already calls AppEvents activateApp on both platforms.
   }
 
   static Future<void> logRegistration({String? method}) async {

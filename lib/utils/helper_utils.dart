@@ -31,6 +31,10 @@ extension StringCasingExtension on String {
 }
 
 class HelperUtils {
+  static String checkHost(String url) {
+    return url.endsWith('/') ? url : '$url/';
+  }
+
   static String shareUrl(
     String type,
     String value, {

@@ -1,4 +1,4 @@
-import 'package:eClassify/data/Repositories/banner_repository.dart';
+import 'package:eClassify/data/repositories/banner_repository.dart';
 import 'package:eClassify/data/model/banner/banner_ad.dart';
 import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

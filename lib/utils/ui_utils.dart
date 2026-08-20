@@ -12,10 +12,25 @@ import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/login_required_bottom_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 class UiUtils {
+  static SystemUiOverlayStyle getSystemUiOverlayStyle({
+    required BuildContext context,
+    Color? statusBarColor,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SystemUiOverlayStyle(
+      statusBarColor: statusBarColor,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
+    );
+  }
+
   // Temporary
   // This is to fulfil the case when bottom-sheet cannot show default snack-bars
   // due to absence of Scaffold widget.
