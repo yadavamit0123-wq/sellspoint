@@ -118,16 +118,18 @@ class _SplashScreenState extends State<SplashScreen> {
         defaultLanguage: settings.defaultLanguage,
       );
 
-      await languageCubit.stream
-          .firstWhere(
-            (state) =>
-                state is LanguageFetchSuccess || state is LanguageFailure,
-          )
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () =>
-                throw TimeoutException('Loading language timed out'),
-          );
+      if (languageCubit.state is! LanguageFetchSuccess) {
+        await languageCubit.stream
+            .firstWhere(
+              (state) =>
+                  state is LanguageFetchSuccess || state is LanguageFailure,
+            )
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () =>
+                  throw TimeoutException('Loading language timed out'),
+            );
+      }
 
       if (languageCubit.state case LanguageFailure(:final error)) {
         throw error;

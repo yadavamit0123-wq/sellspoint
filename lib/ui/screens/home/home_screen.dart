@@ -169,7 +169,8 @@ class _HomeScreenState extends State<HomeScreen>
               }
             },
             builder: (context, state) {
-              if (state is HomeConfigurationLoading) {
+              if (state is HomeConfigurationInitial ||
+                  state is HomeConfigurationLoading) {
                 return HomeScreenShimmer();
               }
               if (state is HomeConfigurationFailure) {
