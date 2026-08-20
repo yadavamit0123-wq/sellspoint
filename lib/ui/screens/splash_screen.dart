@@ -46,15 +46,20 @@ class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _controller;
   late Future<void> _initializeVideoPlayerFuture;
 
+  Timer? _splashWatchdog;
+
   @override
   void initState() {
     super.initState();
     _initVideo();
     _startNavigationFlow();
+    // Never block launch if the splash video fails to fire "completed".
+    _splashWatchdog = Timer(const Duration(seconds: 15), _markVideoFinished);
   }
 
   @override
   void dispose() {
+    _splashWatchdog?.cancel();
     _controller.removeListener(_onVideoTick);
     _controller.dispose();
     super.dispose();
