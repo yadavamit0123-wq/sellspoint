@@ -33,24 +33,32 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: "3.32.0"
+          # 3.32.0 = Dart 3.8.0; flutter_stripe needs Dart >=3.8.1
+          flutter-version: "3.32.8"
           cache: false
 
       - name: Flutter version
         run: |
           flutter --version
           dart --version
-          DART_MAJOR=$(dart --version 2>&1 | sed -n 's/.*Dart SDK version: \([0-9]*\)\.\([0-9]*\).*/\1/p')
+          DART_VER=$(dart --version 2>&1 | sed -n 's/.*Dart SDK version: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+          DART_MAJOR=$(echo "$DART_VER" | cut -d. -f1)
+          DART_MINOR=$(echo "$DART_VER" | cut -d. -f2)
+          DART_PATCH=$(echo "$DART_VER" | cut -d. -f3)
           if [ "${DART_MAJOR:-0}" -lt 3 ]; then
-            echo "ERROR: Dart too old for this project"
+            echo "ERROR: Dart too old for this project (got ${DART_VER:-unknown})"
             exit 1
           fi
-          DART_MINOR=$(dart --version 2>&1 | sed -n 's/.*Dart SDK version: [0-9]*\.\([0-9]*\).*/\1/p')
           if [ "${DART_MINOR:-0}" -lt 8 ]; then
-            echo "ERROR: Need Dart 3.8+ (pubspec). Got Dart 3.${DART_MINOR:-?}"
+            echo "ERROR: Need Dart 3.8.1+ (flutter_stripe). Got Dart ${DART_VER:-unknown}"
             exit 1
           fi
-          echo "Dart SDK OK for pubspec (>=3.8.0)"
+          if [ "${DART_MINOR:-0}" -eq 8 ] && [ "${DART_PATCH:-0}" -lt 1 ]; then
+            echo "ERROR: Need Dart 3.8.1+ (flutter_stripe). Got Dart ${DART_VER:-unknown}"
+            echo "Flutter 3.32.0 is Dart 3.8.0 — use Flutter 3.32.8+"
+            exit 1
+          fi
+          echo "Dart SDK OK for flutter_stripe (>=3.8.1): ${DART_VER}"
 
       - name: Prepare Android Gradle (CI compatibility)
         run: |

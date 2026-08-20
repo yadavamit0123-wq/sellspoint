@@ -59,6 +59,16 @@ Choose **debug-apk** — no signing secrets required. For Play Store use **relea
 
 Upload **app-release.aab** to Google Play Console.
 
+## Flutter / Dart SDK on GitHub Actions
+
+The workflow pins **Flutter 3.32.8** (Dart **3.8.1**). Do not use 3.32.0 — that is Dart 3.8.0, and `flutter_stripe` fails with:
+
+```
+flutter_stripe >=12.0.0 requires SDK version >=3.8.1 <4.0.0
+```
+
+After changing `.github/workflows/android-build.yml`, push the branch and re-run the workflow **on that same branch**. Running an old commit on `main` will keep failing.
+
 ## AGP 9 build error on GitHub Actions
 
 If you see `Starting AGP 9+, only the new DSL interface will be read`, ensure `android/gradle.properties` includes:
