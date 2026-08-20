@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
 import 'package:eClassify/data/cubits/system/language_cubit.dart';
 import 'package:eClassify/data/cubits/system/system_settings_cubit.dart';
 import 'package:eClassify/data/model/core/language.dart';
@@ -34,9 +33,6 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   static const _splashVideoAsset = 'assets/videos/splash_video.mp4';
 
-  late Completer<SystemSettings> _settingsCompleter;
-  late Completer<void> _languageCompleter;
-
   Object? _error;
   SystemSettings? _loadedSettings;
   bool _bootReady = false;
@@ -53,7 +49,10 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     _initVideo();
-    _startNavigationFlow();
+    // Wait until BlocListeners are mounted before calling APIs.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startNavigationFlow();
+    });
     // Never block launch if the splash video fails to fire "completed".
     _splashWatchdog = Timer(const Duration(seconds: 15), _markVideoFinished);
   }
@@ -101,26 +100,38 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _startNavigationFlow() async {
     try {
-      _settingsCompleter = Completer<SystemSettings>();
-      _languageCompleter = Completer<void>();
-
-      context.read<SystemSettingsCubit>().getSystemSettings();
-      context.read<HomeConfigurationCubit>().getHomeConfiguration();
-
-      final settings = await _settingsCompleter.future.timeout(
+      final settingsCubit = context.read<SystemSettingsCubit>();
+      await settingsCubit.getSystemSettings().timeout(
         const Duration(seconds: 30),
         onTimeout: () => throw TimeoutException('Loading app settings timed out'),
       );
 
+      final settings = switch (settingsCubit.state) {
+        SystemSettingsSuccess(:final settings) => settings,
+        SystemSettingsFailure(:final error) => throw error,
+        _ => throw StateError('Failed to load app settings'),
+      };
+
+      final languageCubit = context.read<LanguageCubit>();
       _loadLanguage(
         currentLanguageCode: settings.currentLanguageCode,
         defaultLanguage: settings.defaultLanguage,
       );
 
-      await _languageCompleter.future.timeout(
-        const Duration(seconds: 30),
-        onTimeout: () => throw TimeoutException('Loading language timed out'),
-      );
+      await languageCubit.stream
+          .firstWhere(
+            (state) =>
+                state is LanguageFetchSuccess || state is LanguageFailure,
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () =>
+                throw TimeoutException('Loading language timed out'),
+          );
+
+      if (languageCubit.state case LanguageFailure(:final error)) {
+        throw error;
+      }
 
       _loadedSettings = settings;
       _bootReady = true;
@@ -221,46 +232,14 @@ class _SplashScreenState extends State<SplashScreen> {
       );
     }
 
-    return MultiBlocListener(
-      listeners: [
-        BlocListener<SystemSettingsCubit, SystemSettingsState>(
-          listener: (context, state) {
-            if (state is SystemSettingsSuccess) {
-              if (!_settingsCompleter.isCompleted) {
-                _settingsCompleter.complete(state.settings);
-              }
-            }
-            if (state is SystemSettingsFailure) {
-              if (!_settingsCompleter.isCompleted) {
-                _settingsCompleter.completeError(state.error);
-              }
-            }
-          },
-        ),
-        BlocListener<LanguageCubit, LanguageState>(
-          listener: (context, state) {
-            if (state is LanguageFetchSuccess) {
-              if (!_languageCompleter.isCompleted) {
-                _languageCompleter.complete();
-              }
-            }
-            if (state is LanguageFailure) {
-              if (!_languageCompleter.isCompleted) {
-                _languageCompleter.completeError(state.error);
-              }
-            }
-          },
-        ),
-      ],
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle(
-          statusBarColor: context.color.territoryColor,
-        ),
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          backgroundColor: context.color.territoryColor,
-          body: _videoBody(),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: context.color.territoryColor,
+      ),
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        backgroundColor: context.color.territoryColor,
+        body: _videoBody(),
       ),
     );
   }

@@ -66,6 +66,10 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     context.read<BottomNavCubit>().changeTab(BottomTab.home);
+    final homeConfigState = context.read<HomeConfigurationCubit>().state;
+    if (homeConfigState is! HomeConfigurationSuccess) {
+      context.read<HomeConfigurationCubit>().getHomeConfiguration();
+    }
     _loadHomeScreenData();
     if (HiveUtils.isUserAuthenticated()) {
       _loadUserData();
