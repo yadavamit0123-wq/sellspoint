@@ -61,11 +61,13 @@ Upload **app-release.aab** to Google Play Console.
 
 ## Flutter / Dart SDK on GitHub Actions
 
-The workflow pins **Flutter 3.32.8** (Dart **3.8.1**). Do not use 3.32.0 — that is Dart 3.8.0, and `flutter_stripe` fails with:
+The workflow pins **Flutter 3.47.1** (Dart **3.13.1**).
 
-```
-flutter_stripe >=12.0.0 requires SDK version >=3.8.1 <4.0.0
-```
+| Flutter | Dart | Result |
+|---------|------|--------|
+| 3.32.0 | 3.8.0 | `flutter_stripe` fails (needs ≥3.8.1) |
+| 3.32.8 | 3.8.1 | `google_mobile_ads` fails (needs ≥3.9 / 3.10) |
+| 3.47.1 | 3.13.1 | Matches current `pubspec.yaml` |
 
 After changing `.github/workflows/android-build.yml`, push the branch and re-run the workflow **on that same branch**. Running an old commit on `main` will keep failing.
 
