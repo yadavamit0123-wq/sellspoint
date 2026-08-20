@@ -75,7 +75,23 @@ Future<void> initApp() async {
     runApp(const EntryPoint());
   } catch (e, stackTrace) {
     debugPrint('Error initializing app: $e\n$stackTrace');
-    rethrow;
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'App failed to start.\n\n$e',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -104,12 +120,17 @@ Future<void> _initializeFirebase() async {
     );
   }
 
-  await FirebaseAppCheck.instance.activate(
-    providerApple: kDebugMode ? AppleDebugProvider() : AppleAppAttestProvider(),
-    providerAndroid: kDebugMode
-        ? AndroidDebugProvider()
-        : AndroidPlayIntegrityProvider(),
-  );
+  try {
+    await FirebaseAppCheck.instance.activate(
+      providerApple:
+          kDebugMode ? AppleDebugProvider() : AppleAppAttestProvider(),
+      providerAndroid: kDebugMode
+          ? AndroidDebugProvider()
+          : AndroidPlayIntegrityProvider(),
+    );
+  } catch (e, stackTrace) {
+    debugPrint('Firebase App Check activation failed: $e\n$stackTrace');
+  }
 }
 
 /// Initializes Hive and opens all required boxes

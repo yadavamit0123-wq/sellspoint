@@ -50,11 +50,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyA_usa-2matJnaEuxFvNag8qhXL51w4vJM',
-    appId: '1:6343732161:android:be9cbc67ef8a19792b5d40',
-    messagingSenderId: '6343732161',
-    projectId: 'eclassify-wrteam',
-    storageBucket: 'eclassify-wrteam.appspot.com',
+    apiKey: 'AIzaSyDJxjkRPPcUO_w4lQRBy0ZOzvmEbLk0MOA',
+    appId: '1:229203066228:android:54a3ac0391dd97203b8021',
+    messagingSenderId: '229203066228',
+    projectId: 'sells-point',
+    storageBucket: 'sells-point.firebasestorage.app',
+    databaseURL:
+        'https://sells-point-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
