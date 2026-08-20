@@ -33,10 +33,24 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: "3.32.0"
           cache: true
 
       - name: Flutter version
         run: flutter --version
+
+      - name: Prepare Android Gradle (CI compatibility)
+        run: |
+          # Gradle 8.14+ required by current Flutter Android tooling
+          sed -i 's|gradle-8\.[0-9.]*-all|gradle-8.14.3-all|g' android/gradle/wrapper/gradle-wrapper.properties
+          # AGP 9 opt-out — must exist before any Gradle task
+          touch android/gradle.properties
+          grep -q '^android.newDsl=false' android/gradle.properties || echo 'android.newDsl=false' >> android/gradle.properties
+          grep -q '^android.builtInKotlin=false' android/gradle.properties || echo 'android.builtInKotlin=false' >> android/gradle.properties
+          echo "--- gradle-wrapper ---"
+          grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
+          echo "--- gradle.properties (AGP flags) ---"
+          grep -E 'android.newDsl|android.builtInKotlin' android/gradle.properties
 
       - name: Install dependencies
         run: flutter pub get
