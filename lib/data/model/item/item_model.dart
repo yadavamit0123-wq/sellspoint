@@ -1,6 +1,14 @@
-import 'package:eClassify/data/model/category_model.dart';
+import 'dart:developer';
+
+import 'package:eClassify/data/model/core/category.dart';
+import 'package:eClassify/data/model/currency.dart';
 import 'package:eClassify/data/model/custom_field/custom_field_model.dart';
-import 'package:eClassify/data/model/seller_ratings_model.dart';
+import 'package:eClassify/data/model/item/ad_item_type.dart';
+import 'package:eClassify/data/model/item/product_video.dart';
+import 'package:eClassify/data/model/item/seo_details.dart';
+import 'package:eClassify/data/model/localized_string.dart';
+import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/json_helper.dart';
 
 class ItemModel {
   int? id;
@@ -8,30 +16,42 @@ class ItemModel {
   String? slug;
   String? description;
   double? price;
+  String? formattedPrice; // Formatted price from API
+  String? formattedSalary; // Formatted salary from API
+  double? minSalary;
+  double? maxSalary;
   String? image;
-  dynamic watermarkimage;
+  dynamic watermarkImage;
   double? _latitude;
   double? _longitude;
-  String? address;
+  LocalizedString? address;
   String? contact;
+  String? regionCode;
+  String? phoneCode;
   int? totalLikes;
   int? views;
   String? type;
   String? status;
   bool? active;
-  String? videoLink;
+  ProductVideo? video;
   User? user;
   List<GalleryImages>? galleryImages;
   List<ItemOffers>? itemOffers;
-  CategoryModel? category;
+  Category? category;
   List<CustomFieldModel>? customFields;
+  List<CustomFieldModel>? translatedCustomFields;
+  List<dynamic>? translations;
+  List<dynamic>? allTranslatedCustomFields;
+  Map<String, dynamic>? translatedItem;
   bool? isLike;
   bool? isFeature;
   String? created;
-  String? itemType;
+  AdItemType? itemType;
   int? userId;
   int? categoryId;
   bool? isAlreadyOffered;
+  int? itemOfferId;
+  bool? isAlreadyJobApplied;
   bool? isAlreadyReported;
   String? allCategoryIds;
   String? rejectedReason;
@@ -41,9 +61,35 @@ class ItemModel {
   String? state;
   String? country;
   int? isPurchased;
-  List<UserRatings>? review;
+  bool? hasReviewed;
+  int? isEditedByAdmin;
+  String? adminEditReason;
+  Currency? currency;
+  SeoDetails? seoDetails;
+
+  String? get formattedAmount {
+    log('${category?.isJobCategory}');
+    return (category?.isJobCategory ?? false)
+        ? formattedSalary
+        : formattedPrice;
+  }
+
+  // Translated getters
+  String? get translatedName => translatedItem?['name'];
+
+  String? get translatedDescription => translatedItem?['description'];
+
+  String? get translatedAddress => address?.localized;
+
+  String? get translatedRejectedReason => translatedItem?['rejected_reason'];
+
+  String? get translatedAdminEditReason => translatedItem?['admin_edit_reason'];
 
   double? get latitude => _latitude;
+
+  bool get isActive {
+    return status == Constant.statusActive || status == Constant.statusApproved;
+  }
 
   set latitude(dynamic value) {
     if (value is int) {
@@ -67,193 +113,86 @@ class ItemModel {
     }
   }
 
-  ItemModel(
-      {this.id,
-      this.name,
-      this.slug,
-      this.category,
-      this.description,
-      this.price,
-      this.image,
-      this.watermarkimage,
-      dynamic latitude,
-      dynamic longitude,
-      this.address,
-      this.contact,
-      this.type,
-      this.status,
-      this.active,
-      this.totalLikes,
-      this.views,
-      this.videoLink,
-      this.user,
-      this.galleryImages,
-      this.itemOffers,
-      this.customFields,
-      this.isLike,
-      this.isFeature,
-      this.created,
-      this.itemType,
-      this.userId,
-      this.categoryId,
-      this.isAlreadyOffered,
-      this.isAlreadyReported,
-      this.rejectedReason,
-      this.allCategoryIds,
-      this.areaId,
-      this.area,
-      this.city,
-      this.state,
-      this.country,
-      this.review,
-      this.isPurchased}) {
-    this.latitude = latitude;
-    this.longitude = longitude;
-  }
-
-  ItemModel copyWith(
-      {int? id,
-      String? name,
-      String? slug,
-      String? description,
-      double? price,
-      String? image,
-      dynamic watermarkimage,
-      dynamic latitude,
-      dynamic longitude,
-      String? address,
-      String? contact,
-      int? totalLikes,
-      int? views,
-      String? type,
-      String? status,
-      bool? active,
-      String? videoLink,
-      User? user,
-      List<GalleryImages>? galleryImages,
-      List<ItemOffers>? itemOffers,
-      CategoryModel? category,
-      List<CustomFieldModel>? customFields,
-      bool? isLike,
-      bool? isFeature,
-      String? created,
-      String? itemType,
-      int? userId,
-      bool? isAlreadyOffered,
-      bool? isAlreadyReported,
-      String? allCategoryIds,
-      int? categoryId,
-      int? areaId,
-      String? area,
-      String? city,
-      String? state,
-      String? country,
-      int? isPurchased,
-      List<UserRatings>? review}) {
-    return ItemModel(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      slug: slug ?? this.slug,
-      category: category ?? this.category,
-      description: description ?? this.description,
-      price: price ?? this.price,
-      image: image ?? this.image,
-      watermarkimage: watermarkimage ?? this.watermarkimage,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
-      address: address ?? this.address,
-      contact: contact ?? this.contact,
-      type: type ?? this.type,
-      status: status ?? this.status,
-      active: active ?? this.active,
-      totalLikes: totalLikes ?? this.totalLikes,
-      views: views ?? this.views,
-      videoLink: videoLink ?? this.videoLink,
-      user: user ?? this.user,
-      galleryImages: galleryImages ?? this.galleryImages,
-      itemOffers: itemOffers ?? this.itemOffers,
-      customFields: customFields ?? this.customFields,
-      isLike: isLike ?? this.isLike,
-      isFeature: isFeature ?? this.isFeature,
-      created: created ?? this.created,
-      itemType: itemType ?? this.itemType,
-      userId: userId ?? this.userId,
-      categoryId: categoryId ?? this.categoryId,
-      isAlreadyOffered: isAlreadyOffered ?? this.isAlreadyOffered,
-      isAlreadyReported: isAlreadyReported ?? this.isAlreadyReported,
-      allCategoryIds: allCategoryIds ?? this.allCategoryIds,
-      rejectedReason: rejectedReason ?? this.rejectedReason,
-      areaId: areaId ?? this.areaId,
-      area: area ?? this.area,
-      city: city ?? this.city,
-      state: state ?? this.state,
-      country: country ?? this.country,
-      isPurchased: isPurchased ?? this.isPurchased,
-      review: review ?? this.review,
-    );
-  }
-
   ItemModel.fromJson(Map<String, dynamic> json) {
     if (json['area'] != null) {
       areaId = json['area']['id'];
       area = json['area']['name'];
     }
-
-    // Ensure price is formatted to 2 decimal places
-    /* if (json['price'] is int) {
-      price = double.parse((json['price'] as int).toStringAsFixed(2));
-    } else if (json['price'] is double) {
-      price = double.parse((json['price'] as double).toStringAsFixed(2));
-    } else {
-      price = 0.00;
-    }*/
-
     if (json['price'] is int) {
       price = (json['price'] as int).toDouble();
     } else {
       price = json['price'];
     }
-
+    formattedPrice = json['formatted_price'];
+    formattedSalary = json['formatted_salary_range'];
+    currency = JsonHelper.parseObjectOrNull(
+      json['currency'] as Json?,
+      Currency.fromJson,
+    );
+    if (json['min_salary'] is int) {
+      minSalary = (json['min_salary'] as int).toDouble();
+    } else {
+      minSalary = json['min_salary'];
+    }
+    if (json['max_salary'] is int) {
+      maxSalary = (json['max_salary'] as int).toDouble();
+    } else {
+      maxSalary = json['max_salary'];
+    }
     id = json['id'];
     name = json['name'];
     slug = json['slug'];
-    category = json['category'] != null
-        ? CategoryModel.fromJson(json['category'])
-        : null;
+    category = JsonHelper.parseObjectOrNull(
+      json['category'],
+      Category.fromJson,
+    );
     totalLikes = json['total_likes'];
     views = json['clicks'];
     description = json['description'];
-
     image = json['image'];
-    watermarkimage = json['watermark_image'];
+    watermarkImage = json['watermark_image'];
     latitude = json['latitude'];
     longitude = json['longitude'];
-    address = json['address'];
+    address = json['address'] != null
+        ? LocalizedString(
+            canonical: json['address'],
+            translated: json['translated_address'],
+          )
+        : null;
     contact = json['contact'];
+    regionCode = json['region_code'];
+    phoneCode = json['country_code'];
     type = json['type'];
     status = json['status'];
     active = json['active'] == 0 ? false : true;
-    videoLink = json['video_link'];
+    video = JsonHelper.parseObjectOrNull(
+      json['item_video'] as Json?,
+      ProductVideo.fromJson,
+    );
     isLike = json['is_liked'];
     isFeature = json['is_feature'];
     created = json['created_at'];
-    itemType = json['item_type'];
+    itemType = json['item_type'] == 'normal'
+        ? AdItemType.regularAd
+        : AdItemType.videoAd;
     userId = json['user_id'];
     categoryId = json['category_id'];
     isAlreadyOffered = json['is_already_offered'];
-    isAlreadyReported = json['is_already_reported'];
+    itemOfferId = json['offer_item_id'];
+    isAlreadyJobApplied = json['is_already_job_applied'];
+    isAlreadyReported = json['is_already_reported'] ?? false;
     allCategoryIds = json['all_category_ids'];
     rejectedReason = json['rejected_reason'];
     city = json['city'];
     state = json['state'];
     country = json['country'];
     isPurchased = json['is_purchased'];
-    if (json['review'] != null) {
-      review = <UserRatings>[];
-      json['review'].forEach((v) {
-        review!.add(UserRatings.fromJson(v));
-      });
-    }
+    isEditedByAdmin = json['is_edited_by_admin'];
+    adminEditReason = json['admin_edit_reason'];
+    translations = json['translations'];
+    translatedItem = json['translated_item'] ?? {};
+    allTranslatedCustomFields = json['all_translated_custom_fields'];
+    hasReviewed = json['review'] != null;
     user = json['user'] != null ? User.fromJson(json['user']) : null;
     if (json['gallery_images'] != null) {
       galleryImages = <GalleryImages>[];
@@ -273,27 +212,41 @@ class ItemModel {
         customFields!.add(CustomFieldModel.fromMap(v));
       });
     }
+    if (json['translated_custom_fields'] != null) {
+      translatedCustomFields = <CustomFieldModel>[];
+      json['translated_custom_fields'].forEach((v) {
+        translatedCustomFields!.add(CustomFieldModel.fromMap(v));
+      });
+    }
+    seoDetails = JsonHelper.parseObjectOrNull(
+      json['seo_detail'] as Json?,
+      SeoDetails.fromJson,
+    );
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['id'] = id;
+    data['item_type'] = itemType == AdItemType.regularAd ? 'normal' : 'reel';
     data['name'] = name;
     data['slug'] = slug;
     data['description'] = description;
     data['price'] = price;
+    data['min_salary'] = minSalary;
+    data['max_salary'] = maxSalary;
     data['total_likes'] = totalLikes;
     data['clicks'] = views;
     data['image'] = image;
-    data['watermark_image'] = watermarkimage;
+    data['watermark_image'] = watermarkImage;
     data['latitude'] = latitude;
     data['longitude'] = longitude;
-    data['address'] = address;
+    data['address'] = address?.canonical;
     data['contact'] = contact;
+    data['region_code'] = regionCode;
+    data['country_code'] = phoneCode;
     data['type'] = type;
     data['status'] = status;
     data['active'] = active;
-    data['video_link'] = videoLink;
     data['is_liked'] = isLike;
     data['is_feature'] = isFeature;
     data['created_at'] = created;
@@ -301,25 +254,23 @@ class ItemModel {
     data['user_id'] = userId;
     data['category_id'] = categoryId;
     data['is_already_offered'] = isAlreadyOffered;
+    data['is_already_job_applied'] = isAlreadyJobApplied;
     data['is_already_reported'] = isAlreadyReported;
     data['all_category_ids'] = allCategoryIds;
     data['rejected_reason'] = rejectedReason;
+    data['admin_edit_reason'] = adminEditReason;
     data['is_purchased'] = isPurchased;
-    if (review != null) {
-      data['review'] = review!.map((v) => v.toJson()).toList();
-    }
+    data['is_edited_by_admin'] = isEditedByAdmin;
+    data['review'] = hasReviewed;
     data['city'] = city;
     data['state'] = state;
     data['country'] = country;
-    data['category'] = category!.toJson();
+    data['category'] = category!.toJson;
+    data['formatted_price'] = formattedPrice;
     if (areaId != null && area != null) {
-      data['area'] = {
-        'id': areaId,
-        'name': area,
-      };
+      data['area'] = {'id': areaId, 'name': area};
     }
     data['user'] = user!.toJson();
-
     if (galleryImages != null) {
       data['gallery_images'] = galleryImages!.map((v) => v.toJson()).toList();
     }
@@ -329,65 +280,84 @@ class ItemModel {
     if (customFields != null) {
       data['custom_fields'] = customFields!.map((v) => v.toMap()).toList();
     }
+    if (translatedCustomFields != null) {
+      data['translated_custom_fields'] = translatedCustomFields!
+          .map((v) => v.toMap())
+          .toList();
+    }
+    if (translations != null) {
+      data['translations'] = translations;
+    }
+    if (allTranslatedCustomFields != null) {
+      data['all_translated_custom_fields'] = allTranslatedCustomFields;
+    }
+    if (translatedItem != null) {
+      data['translated_item'] = translatedItem;
+    }
     return data;
   }
 
   @override
-  String toString() {
-    return 'ItemModel{id: $id, name: $name,slug:$slug, description: $description, price: $price, image: $image, watermarkimage: $watermarkimage, latitude: $latitude, longitude: $longitude, address: $address, contact: $contact, total_likes: $totalLikes,isLiked: $isLike, isFeature: $isFeature,views: $views, type: $type, status: $status, active: $active, videoLink: $videoLink, user: $user, galleryImages: $galleryImages,itemOffers:$itemOffers, category: $category, customFields: $customFields,createdAt:$created,itemType:$itemType,userId:$userId,categoryId:$categoryId,isAlreadyOffered:$isAlreadyOffered,isAlreadyReported:$isAlreadyReported,allCategoryId:$allCategoryIds,rejected_reason:$rejectedReason,area_id:$areaId,area:$area,city:$city,state:$state,country:$country,is_purchased:$isPurchased,review:$review}';
-  }
+  bool operator ==(Object other) => other is ItemModel && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class User {
   int? id;
   String? name;
   String? mobile;
+  String? phoneCode;
   String? email;
   String? type;
   String? profile;
   String? fcmId;
   String? firebaseId;
   int? status;
-  String? apiToken;
   dynamic address;
   String? createdAt;
   String? updatedAt;
-  int? showPersonalDetails;
-  int? isVerified;
+  bool? isVerified;
+  bool? isFollowing;
 
-  User(
-      {this.id,
-      this.name,
-      this.mobile,
-      this.email,
-      this.type,
-      this.profile,
-      this.fcmId,
-      this.firebaseId,
-      this.status,
-      this.apiToken,
-      this.address,
-      this.createdAt,
-      this.updatedAt,
-      this.isVerified,
-      this.showPersonalDetails});
+  User({
+    this.id,
+    this.name,
+    this.mobile,
+    this.email,
+    this.type,
+    this.profile,
+    this.fcmId,
+    this.firebaseId,
+    this.status,
+    this.address,
+    this.createdAt,
+    this.updatedAt,
+    this.isVerified = false,
+    this.isFollowing = false,
+  });
 
   User.fromJson(Map<String, dynamic> json) {
     id = json['id'];
     name = json['name'];
     mobile = json['mobile'];
+    phoneCode = json['country_code'];
     email = json['email'];
     type = json['type'];
     profile = json['profile'];
     fcmId = json['fcm_id'];
     firebaseId = json['firebase_id'];
     status = json['status'];
-    apiToken = json['api_token'];
     address = json['address'];
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
-    isVerified = json['is_verified'];
-    showPersonalDetails = json['show_personal_details'];
+    isVerified = (json['is_verified'] is bool)
+        ? json['is_verified'] as bool
+        : (json['is_verified'] as int?) == 1;
+    isFollowing = (json['is_following'] is bool)
+        ? json['is_following'] as bool
+        : (json['is_following'] as int?) == 1;
   }
 
   Map<String, dynamic> toJson() {
@@ -395,18 +365,17 @@ class User {
     data['id'] = id;
     data['name'] = name;
     data['mobile'] = mobile;
+    data['country_code'] = phoneCode;
     data['email'] = email;
     data['type'] = type;
     data['profile'] = profile;
     data['fcm_id'] = fcmId;
     data['firebase_id'] = firebaseId;
     data['status'] = status;
-    data['api_token'] = apiToken;
     data['address'] = address;
     data['created_at'] = createdAt;
     data['updated_at'] = updatedAt;
     data['is_verified'] = isVerified;
-    data['show_personal_details'] = showPersonalDetails;
     return data;
   }
 }
@@ -418,8 +387,13 @@ class GalleryImages {
   String? updatedAt;
   int? itemId;
 
-  GalleryImages(
-      {this.id, this.image, this.createdAt, this.updatedAt, this.itemId});
+  GalleryImages({
+    this.id,
+    this.image,
+    this.createdAt,
+    this.updatedAt,
+    this.itemId,
+  });
 
   GalleryImages.fromJson(Map<String, dynamic> json) {
     id = json['id'];
@@ -448,13 +422,14 @@ class ItemOffers {
   String? updatedAt;
   double? amount;
 
-  ItemOffers(
-      {this.id,
-      this.sellerId,
-      this.createdAt,
-      this.updatedAt,
-      this.buyerId,
-      this.amount});
+  ItemOffers({
+    this.id,
+    this.sellerId,
+    this.createdAt,
+    this.updatedAt,
+    this.buyerId,
+    this.amount,
+  });
 
   ItemOffers.fromJson(Map<String, dynamic> json) {
     id = json['id'];
@@ -482,40 +457,3 @@ class ItemOffers {
     return data;
   }
 }
-
-/*class ItemOffers {
-  int? id;
-  int? sellerId;
-  int? buyerId;
-  String? createdAt;
-  String? updatedAt;
-  double? amount;
-
-  ItemOffers(
-      {this.id,
-      this.sellerId,
-      this.createdAt,
-      this.updatedAt,
-      this.buyerId,
-      this.amount});
-
-  ItemOffers.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
-    buyerId = json['buyer_id'];
-    sellerId = json['seller_id'];
-    createdAt = json['created_at'];
-    updatedAt = json['updated_at'];
-    amount = json['amount'];
-  }
-
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['id'] = id;
-    data['buyer_id'] = buyerId;
-    data['seller_id'] = sellerId;
-    data['created_at'] = createdAt;
-    data['updated_at'] = updatedAt;
-    data['amount'] = amount;
-    return data;
-  }
-}*/

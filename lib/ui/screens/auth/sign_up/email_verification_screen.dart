@@ -5,25 +5,22 @@ import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/app_icon.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/utils/app_assets.dart';
+import 'package:eClassify/utils/color_mappers/primary_color_mapper.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
-  final String password;
 
-  EmailVerificationScreen({
-    super.key,
-    required this.email,
-    required this.password,
-  });
+  EmailVerificationScreen({super.key, required this.email});
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -36,8 +33,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   @override
   void initState() {
-    initFunction();
     super.initState();
+    initFunction();
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
   }
 
   void initFunction() {
@@ -45,35 +48,31 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       bool? emailVerified = FirebaseAuth.instance.currentUser?.emailVerified;
       await FirebaseAuth.instance.currentUser?.reload();
       if (emailVerified == true) {
-        Future.delayed(
-          Duration.zero,
-          () async {
-            if (isVerified == false) {
-              isVerified = true;
-              setState(() {});
+        Future.delayed(Duration.zero, () async {
+          if (isVerified == false) {
+            isVerified = true;
+            setState(() {});
 
-              await Future.delayed(const Duration(seconds: 2));
+            await Future.delayed(const Duration(seconds: 2));
 
-              Navigator.pushReplacementNamed(context, Routes.login);
-              return;
-            }
-            // timer.cancel();
-          },
-        );
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              Routes.login,
+              (route) => false,
+              arguments: {'email': widget.email},
+            );
+            return;
+          }
+          // timer.cancel();
+        });
       }
     });
   }
 
   @override
-  void dispose() {
-    timer?.cancel();
-
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return SafeArea(
+      top: false,
       child: Scaffold(
         body: BlocConsumer<AuthenticationCubit, AuthenticationState>(
           listener: (context, state) async {
@@ -83,9 +82,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           },
           builder: (context, state) {
             if (state is AuthenticationInProcess) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
             if (state is AuthenticationSuccess) {
               return Padding(
@@ -96,22 +93,21 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      SvgPicture.asset(AppIcons.verificationMail),
-                      const SizedBox(
-                        height: 38,
+                      CustomImage(
+                        src: AppAssets.illustrators.verificationMail,
+                        svgColorMapper: PrimaryColorMapper(
+                          context.colorScheme.primary,
+                        ),
                       ),
+                      const SizedBox(height: 38),
                       CustomText(
                         "youHaveGotEmail".translate(context),
                         fontSize: context.font.extraLarge,
                         fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(
-                        height: 14,
-                      ),
+                      const SizedBox(height: 14),
                       CustomText("clickLinkInYourEmail".translate(context)),
-                      const SizedBox(
-                        height: 58,
-                      ),
+                      const SizedBox(height: 58),
                       MaterialButton(
                         onPressed: () {
                           if (!isVerified) {
@@ -142,7 +138,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             }
             if (state is AuthenticationFail) {
               return Center(
-                child: CustomText(state.error.toString()),
+                child: CustomText(state.errorKey.translate(context).toString()),
               );
             }
 
@@ -156,9 +152,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   void openEmailAppToList() async {
     if (Platform.isAndroid) {
       AndroidIntent intent = AndroidIntent(
-          action: 'android.intent.action.MAIN',
-          category: 'android.intent.category.APP_EMAIL',
-          flags: [Flag.FLAG_ACTIVITY_NEW_TASK]);
+        action: 'android.intent.action.MAIN',
+        category: 'android.intent.category.APP_EMAIL',
+        flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+      );
 
       intent.launch();
     } else if (Platform.isIOS) {

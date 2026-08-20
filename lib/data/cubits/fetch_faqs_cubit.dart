@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:eClassify/data/model/data_output.dart';
 import 'package:eClassify/data/model/faqs_model.dart';
 import 'package:eClassify/data/repositories/faqs_repository.dart';
@@ -13,10 +15,7 @@ class FetchFaqsSuccess extends FetchFaqsState {
   final List<FaqsModel> faqModel;
   final int total;
 
-  FetchFaqsSuccess({
-    required this.faqModel,
-    required this.total,
-  });
+  FetchFaqsSuccess({required this.faqModel, required this.total});
 
   FetchFaqsSuccess copyWith({
     bool? isLoadingMore,
@@ -33,9 +32,8 @@ class FetchFaqsSuccess extends FetchFaqsState {
 }
 
 class FetchFaqsFailure extends FetchFaqsState {
-  final dynamic errorMessage;
-
-  FetchFaqsFailure(this.errorMessage);
+  FetchFaqsFailure(this.error);
+  final Object error;
 }
 
 class FetchFaqsCubit extends Cubit<FetchFaqsState> {
@@ -49,10 +47,10 @@ class FetchFaqsCubit extends Cubit<FetchFaqsState> {
 
       DataOutput<FaqsModel> result = await _faqRepository.fetchFaqs(page: 1);
 
-      emit(
-        FetchFaqsSuccess(faqModel: result.modelList, total: result.total),
-      );
-    } catch (e) {
+      emit(FetchFaqsSuccess(faqModel: result.modelList, total: result.total));
+    } catch (e, st) {
+      log('$e', name: 'fetchFaqs');
+      log('$st', name: 'fetchFaqs');
       emit(FetchFaqsFailure(e));
     }
   }

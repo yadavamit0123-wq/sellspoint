@@ -23,9 +23,9 @@ class CustomFieldBuilder {
   late CustomField? customField = KRegisteredFields().get(field['type']);
 
   void init() {
-    customField?.parameters = field;
+    customField!.parameters = field;
     //Calling init of custom field from here and this init will be called into the UI
-    customField?.init();
+    customField!.init();
   }
 
   void stateUpdater(StateSetter updater) {
@@ -33,14 +33,14 @@ class CustomFieldBuilder {
   }
 
   Widget build(BuildContext context) {
-    ///setting parameters from here
-    customField?.parameters = field;
+    if (customField != null) {
+      ///setting context from here
+      customField!.context = context;
 
-    ///setting context from here
-    customField?.context = context;
-
-    //Calling render function so we can get widget
-    Widget? render = customField?.render();
-    return render ?? Container();
+      //Calling render function so we can get widget
+      Widget render = customField!.render();
+      return render;
+    }
+    return Container();
   }
 }

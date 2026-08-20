@@ -1,43 +1,45 @@
 // ignore_for_file: file_names
 
+import 'dart:developer';
+
+import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 
 class ErrorFilter {
   final dynamic error;
-  // static BuildContext? _context;
   ErrorFilter(this.error);
-  static void setContext(BuildContext context) {
-    // _context = context;
+
+  static final Map<String, String> _errorKeyMap = {
+    "network-request-failed": "networkRequestFailed",
+    "app-not-authorized": "appNotAuthorized",
+    "no-internet": "checkNetwork",
+    "email-already-in-use": "emailAlreadyInUse",
+    "wrong-password": "wrongPassword",
+    "user-not-found": "emailNotRegistered",
+    "invalid-email": "invalidEmail",
+    "invalid-phone-number": "invalidPhoneNumber",
+    "invalid-verification-code": "invalidVerificationCode",
+    "session-expired": "sessionExpired",
+    "too-many-requests": "tooManyRequests",
+    "user-disabled": "userDisabled",
+    "operation-not-allowed": "operationNotAllowed",
+  };
+
+  /// Returns the translated message based on FirebaseAuthException
+  static String getTranslatedFirebaseAuthException(
+    BuildContext context, {
+    required FirebaseAuthException error,
+  }) {
+    final errorKey = getErrorKeyFromFirebaseAuthException(error);
+    return errorKey.translate(context);
   }
 
-  /// set this in errror filters so you can get translated errors
-  factory ErrorFilter.check(errorCode) {
-    switch (errorCode) {
-      case "network-request-failed":
-        return ErrorFilter("Please check internet connection");
-      case "app-not-authorized":
-        return ErrorFilter("Add SHA keys in Firebase and Playstore");
-      case "no-internet":
-        return ErrorFilter("Please check internet connection");
-      case "email-already-in-use":
-        return ErrorFilter("This email is already registerd.");
-      case "wrong-password":
-        return ErrorFilter("The password is wrong.");
-      case "user-not-found":
-        return ErrorFilter("This email is not registerd. Please try signup.");
-      case "invalid-email":
-        return ErrorFilter("This email is not valid.");
-      case "invalid-phone-number":
-        return ErrorFilter("Phone number is invalid.");
-      case "invalid-verification-code":
-        return ErrorFilter("OTP is incorrect.");
-      case "too-many-requests":
-        return ErrorFilter("Unusual activity detected. Please try again later");
-      case "session-expired":
-        return ErrorFilter(
-            "The otp code has expired. Please re-send the verification code to try again");
-      default:
-        return ErrorFilter(errorCode);
-    }
+  /// Returns just the error key (e.g., "userNotFound") for internal use or logging
+  static String getErrorKeyFromFirebaseAuthException(
+    FirebaseAuthException error,
+  ) {
+    log('${error.code} ${error.message}');
+    return _errorKeyMap[error.code] ?? error.message ?? error.code;
   }
 }

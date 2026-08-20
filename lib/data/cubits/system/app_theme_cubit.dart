@@ -1,38 +1,28 @@
 // ignore_for_file: depend_on_referenced_packages
 
-import 'package:bloc/bloc.dart';
-
-import 'package:eClassify/app/app_theme.dart';
+import 'package:eClassify/utils/app_session.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class AppThemeCubit extends Cubit<ThemeState> {
-  AppThemeCubit() : super(ThemeState(AppTheme.light));
-// HiveUtils.getCurrentTheme()
-  void changeTheme(AppTheme appTheme) {
-    HiveUtils.setCurrentTheme(appTheme);
-    emit(ThemeState(appTheme));
-  }
-
-  //dev!
-  void toggleTheme() {
-    if (state.appTheme == AppTheme.dark) {
-      HiveUtils.setCurrentTheme(AppTheme.light);
-
-      emit(ThemeState(AppTheme.light));
-    } else {
-      HiveUtils.setCurrentTheme(AppTheme.dark);
-
-      emit(ThemeState(AppTheme.dark));
+class AppThemeCubit extends Cubit<ThemeMode> {
+  AppThemeCubit() : super(ThemeMode.light) {
+    final currentTheme = HiveUtils.getCurrentTheme();
+    if (state != currentTheme) {
+      emit(currentTheme);
     }
   }
 
-  bool isDarkMode() {
-    return state.appTheme == AppTheme.dark;
+  void toggleTheme() {
+    final toggledTheme = state == ThemeMode.light
+        ? ThemeMode.dark
+        : ThemeMode.light;
+    HiveUtils.setCurrentTheme(toggledTheme);
+    AppSession.setCurrentTheme(toggledTheme);
+    emit(toggledTheme);
   }
-}
 
-class ThemeState {
-  final AppTheme appTheme;
-
-  ThemeState(this.appTheme);
+  bool isDarkMode() {
+    return state == ThemeMode.dark;
+  }
 }

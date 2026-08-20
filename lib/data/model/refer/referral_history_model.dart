@@ -1,4 +1,4 @@
-import 'package:eClassify/data/model/user_model.dart';
+import 'package:eClassify/data/model/user/user_model.dart';
 
 class ReferralHistoryModel {
   int? id;
@@ -43,7 +43,6 @@ class ReferralHistoryModel {
       'amount': amount,
       'created_at': createdAt,
       'updated_at': updatedAt,
-      'user': user?.toJson(),
     };
   }
 }

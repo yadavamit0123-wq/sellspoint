@@ -1,65 +1,70 @@
-import 'dart:io';
-
 import 'package:eClassify/utils/constant.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-class AdHelper {
-  static final AdHelper _instance = AdHelper._internal();
+class InterstitialAdHelper {
+  static final InterstitialAdHelper _instance =
+      InterstitialAdHelper._internal();
 
-  factory AdHelper() {
-    return _instance;
-  }
+  InterstitialAdHelper._internal();
 
-  AdHelper._internal();
+  static InterstitialAdHelper get instance => _instance;
 
   static InterstitialAd? _interstitialAd;
+  static DateTime? _lastAdShowedTime;
+  static int _adShowedCount = 0;
 
-  static bool isAdLoaded = false;
+  static bool get _canShowAd {
+    if (Constant.interstitialAdMaxCountPerSession != -1 &&
+        _adShowedCount >= Constant.interstitialAdMaxCountPerSession) {
+      return false;
+    }
+    if (_lastAdShowedTime != null &&
+        DateTime.now().difference(_lastAdShowedTime!).inSeconds <
+            Constant.interstitialAdTimeDelaySeconds) {
+      return false;
+    }
+    return true;
+  }
 
-  static void loadInterstitialAd() {
-    if (Constant.isGoogleInterstitialAdsEnabled != "1") {
+  static void loadInterstitialAd(String adUnitId) {
+    if (!_canShowAd) {
       return;
     }
     InterstitialAd.load(
-        adUnitId: Platform.isAndroid
-            ? Constant.interstitialAdIdAndroid //Android interstitial ad id
-            : Constant.interstitialAdIdIOS, //iOS interstitial ad id
-        request: AdRequest(
-          nonPersonalizedAds: true,
-        ),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (InterstitialAd ad) {
-            print('$ad loaded');
-            _interstitialAd = ad;
-            isAdLoaded = true;
-            _interstitialAd!.setImmersiveMode(true);
-          },
-          onAdFailedToLoad: (LoadAdError error) {
-            isAdLoaded = false;
-            _interstitialAd = null;
-          },
-        ));
+      adUnitId: adUnitId,
+      request: AdRequest(nonPersonalizedAds: true),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          _interstitialAd!.setImmersiveMode(true);
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          _interstitialAd = null;
+        },
+      ),
+    );
   }
 
   static void showInterstitialAd() {
-    if (Constant.isGoogleInterstitialAdsEnabled != "1") {
-      return;
-    }
     if (_interstitialAd == null) {
       return;
     }
+    if (!_canShowAd) {
+      _interstitialAd!.dispose();
+      _interstitialAd = null;
+      return;
+    }
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (InterstitialAd ad) =>
-          print('ad onAdShowedFullScreenContent.'),
+      onAdShowedFullScreenContent: (InterstitialAd ad) {
+        _lastAdShowedTime = DateTime.now();
+        _adShowedCount++;
+        print('ad onAdShowedFullScreenContent.');
+      },
       onAdDismissedFullScreenContent: (InterstitialAd ad) {
-        print('$ad onAdDismissedFullScreenContent.');
         ad.dispose();
-        loadInterstitialAd();
       },
       onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
-        print('$ad onAdFailedToShowFullScreenContent: $error');
         ad.dispose();
-        loadInterstitialAd();
       },
     );
     _interstitialAd!.show();

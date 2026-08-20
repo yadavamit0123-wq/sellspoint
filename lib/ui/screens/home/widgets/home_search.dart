@@ -1,159 +1,66 @@
-import 'dart:async';
-import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/data/cubits/category/fetch_category_cubit.dart';
-import 'package:eClassify/ui/screens/home/home_screen.dart';
-import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/app_icon.dart';
-import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/ui_utils.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:convert';
 
-class HomeSearchField extends StatefulWidget {
+import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/data/model/item/item_list.dart';
+import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
+import 'package:eClassify/utils/app_icons.dart';
+import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/hive_keys.dart' show HiveKeys;
+import 'package:eClassify/utils/json_helper.dart';
+import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+
+class HomeSearchField extends StatelessWidget {
   const HomeSearchField({super.key});
 
   @override
-  State<HomeSearchField> createState() => _HomeSearchFieldState();
-}
-
-class _HomeSearchFieldState extends State<HomeSearchField> {
-  List<String> suggestions = ["Bikes", "Jobs", "Cars", "Mobile", "Properties", "Toys", "Electronics"];
-  int _currentIndex = 0;
-  late Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCategories(); // Initial load
-    _startAnimation();
-  }
-
-  void _loadCategories() {
-    final state = context.read<FetchCategoryCubit>().state;
-    if (state is FetchCategorySuccess && state.categories.isNotEmpty) {
-      suggestions = state.categories.map((category) => category.name!).toList();
-    } else {
-      suggestions = ["Bikes", "Jobs", "Cars", "Mobile"]; // Default fallback
-    }
-    _currentIndex = 0; // Reset index on load/change
-  }
-
-  void _startAnimation() {
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentIndex = (_currentIndex + 1) % suggestions.length;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    Widget buildSearchIcon() {
-      return Padding(
-        padding: const EdgeInsetsDirectional.only(start: 16.0, end: 16),
-        child: UiUtils.getSvg(AppIcons.search, color: context.color.territoryColor),
-      );
-    }
+    return GestureDetector(
+      onTap: () {
+        final history = Hive.box(HiveKeys.historyBox).values.map((jsonString) {
+          // TODO(I): jsonDecode should not be happening on main thread
+          // Better way is to use HiveAdapter to store only the required information
+          // of the item such as id, slug and name. Other parameters should be
+          // dropped from local storage.
+          // Consider this as part of ItemModel refactor
+          final json = (jsonDecode(jsonString) as Map).cast<String, dynamic>();
+          return JsonHelper.parseObject(json, ItemModel.fromJson);
+        }).toList();
 
-    return BlocListener<FetchCategoryCubit, FetchCategoryState>(
-      listener: (context, state) {
-        if (state is FetchCategorySuccess) {
-          _loadCategories(); // Auto-update suggestions on category change
-        }
+        Navigator.pushNamed(
+          context,
+          Routes.itemsList,
+          arguments: SearchMetaData(
+            title: 'search'.translate(context),
+            searchHistory: history,
+          ),
+        );
       },
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical: 15),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () {
-            Navigator.pushNamed(context, Routes.searchScreenRoute, arguments: {"autoFocus": true});
-          },
-          child: AbsorbPointer(
-            absorbing: true,
-            child: Container(
-              width: context.screenWidth,
-              height: 56,
-              alignment: AlignmentDirectional.center,
-              decoration: BoxDecoration(
-                border: Border.all(width: 1, color: context.color.borderColor.darken(30)),
-                borderRadius: const BorderRadius.all(Radius.circular(10)),
-                color: context.color.secondaryColor,
-              ),
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  TextFormField(
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      fillColor: Theme.of(context).colorScheme.secondaryColor,
-                      hintText: '',
-                      hintStyle: TextStyle(color: context.color.textDefaultColor.withValues(alpha: 0.5)),
-                      prefixIcon: buildSearchIcon(),
-                      prefixIconConstraints: const BoxConstraints(minHeight: 5, minWidth: 5),
-                    ),
-                    enableSuggestions: true,
-                    onEditingComplete: () {
-                      FocusScope.of(context).unfocus();
-                    },
-                    onTap: () {},
-                    style: TextStyle(color: context.color.textDefaultColor),
-                  ),
-                  Positioned(
-                    left: 50,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      height: 56,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Search ",
-                            style: TextStyle(
-                              color: context.color.textDefaultColor.withValues(alpha: 0.5),
-                              fontSize: 16,
-                            ),
-                          ),
-                          SizedBox(width: 5,),
-                          TweenAnimationBuilder<double>(
-                            key: ValueKey('suggestion_$_currentIndex'),
-                            duration: const Duration(milliseconds: 600),
-                            tween: Tween<double>(begin: 0.0, end: 1.0),
-                            builder: (context, value, child) {
-                              return Transform.translate(
-                                offset: Offset(0, (1 - value) * 20), // Start 20px below, slide up
-                                child: Opacity(
-                                  opacity: value,
-                                  child: Text(
-                                    '"${suggestions[_currentIndex]}"',
-                                    style: TextStyle(
-                                      color: context.color.textDefaultColor.withValues(alpha: 0.5),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+      child: Container(
+        margin: Constant.appContentPadding.copyWith(bottom: 5, top: 16),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: context.colorScheme.secondary,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: context.colorScheme.surfaceContainerHigh),
+        ),
+        constraints: BoxConstraints(maxHeight: 48),
+        child: Row(
+          spacing: 10,
+          children: [
+            Icon(AppIcons.magnifyingGlass, color: context.colorScheme.primary),
+            Expanded(
+              child: Text(
+                'searchHintLbl'.translate(context),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.bodyLarge.withColor(context.mutedColor),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

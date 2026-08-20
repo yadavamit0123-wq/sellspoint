@@ -1,10 +1,10 @@
 import 'package:eClassify/ui/screens/item/add_item_screen/custom_filed_structure/custom_field.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/screens/widgets/custom_text_form_field.dart';
 import 'package:eClassify/ui/screens/widgets/dynamic_field.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 
 class CustomFieldText extends CustomField {
@@ -14,14 +14,28 @@ class CustomFieldText extends CustomField {
 
   @override
   void init() {
-    //
-    if (parameters['isEdit'] == true) {
-      if (parameters['value'] != null) {
-        if ((parameters['value'] as List).isNotEmpty) {
-          initialValue = parameters['value'][0].toString();
-          update(() {});
-        }
+    print('Parameters: ${parameters.toString()}');
+
+    // Restore value per language from AbstractField.fieldsData
+    String compositeKey = '${parameters['id']}';
+    if (parameters['language_id'] != null) {
+      compositeKey = '${parameters['id']}_${parameters['language_id']}';
+    }
+
+    if (AbstractField.fieldsData.containsKey(compositeKey)) {
+      var val = AbstractField.fieldsData[compositeKey];
+      if (val is List && val.isNotEmpty) {
+        initialValue = val[0].toString();
+      } else {
+        initialValue = "";
       }
+    } else if (parameters['isEdit'] == true &&
+        parameters['value'] != null &&
+        parameters['value'] is List &&
+        (parameters['value'] as List).isNotEmpty) {
+      initialValue = parameters['value'][0].toString();
+    } else {
+      initialValue = "";
     }
     super.init();
   }
@@ -33,41 +47,33 @@ class CustomFieldText extends CustomField {
         Row(
           children: [
             if (parameters['image'] != null) ...[
-              Container(
-                width: 48,
-                height: 48,
+              DecoratedBox(
                 decoration: BoxDecoration(
-                  color: context.color.territoryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: context.color.territoryColor.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: FittedBox(
-                    fit: BoxFit.none,
-                    child: UiUtils.imageType(parameters['image'],
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.cover,
-                        color: context.color.textDefaultColor),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: CustomImage(
+                    src: parameters['image'],
+                    size: Size.square(20),
                   ),
                 ),
               ),
-              SizedBox(
-                width: 10,
-              ),
+              SizedBox(width: 10),
             ],
             CustomText(
-              parameters['name'],
+              (parameters['translated_name'] ?? parameters['name']) +
+                  (parameters['language_name'] != null
+                      ? ' (${parameters['language_name']})'
+                      : ''),
               fontSize: context.font.large,
               fontWeight: FontWeight.w500,
               color: context.color.textColorDark,
-            )
+            ),
           ],
         ),
-        SizedBox(
-          height: 14,
-        ),
+        SizedBox(height: 14),
         CustomTextFieldDynamic(
           action: TextInputAction.newline,
           initController: parameters['value'] != null ? true : false,
@@ -76,13 +82,14 @@ class CustomFieldText extends CustomField {
           //"writeSomething".translate(context),
           required: parameters['required'] == 1 ? true : false,
           id: parameters['id'],
+          languageId: parameters['language_id'],
           maxLen: parameters['max_length'],
           maxLine: 3,
           minLen: parameters['min_length'],
-          validator: CustomTextFieldValidator.minAndMixLen,
+          validator: CustomTextFieldValidator.minAndMaxLen,
           keyboardType: TextInputType.multiline,
           capitalization: TextCapitalization.sentences,
-        )
+        ),
       ],
     );
   }

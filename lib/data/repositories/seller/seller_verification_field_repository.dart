@@ -1,6 +1,7 @@
 import 'package:eClassify/data/model/custom_field/custom_field_model.dart';
-import 'package:eClassify/data/model/verification_request_model.dart';
+import 'package:eClassify/data/model/user/verification_request.dart';
 import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/log.dart';
 
 class SellerVerificationFieldRepository {
   Future<List<VerificationFieldModel>> getSellerVerificationFields() async {
@@ -8,7 +9,9 @@ class SellerVerificationFieldRepository {
       Map<String, dynamic> parameters = {};
 
       Map<String, dynamic> response = await Api.get(
-          url: Api.getVerificationFieldApi, queryParameters: parameters);
+        url: Api.getVerificationFieldApi,
+        queryParameters: parameters,
+      );
 
       List<VerificationFieldModel> modelList = (response['data'] as List)
           .map((e) => VerificationFieldModel.fromMap(e))
@@ -20,11 +23,14 @@ class SellerVerificationFieldRepository {
     }
   }
 
-  Future<Map> sendVerificationField(
-      {required Map<String, dynamic> data}) async {
+  Future<Map> sendVerificationField({
+    required Map<String, dynamic> data,
+  }) async {
     try {
-      Map response =
-          await Api.post(url: Api.sendVerificationRequestApi, parameter: data);
+      Map response = await Api.post(
+        url: Api.sendVerificationRequestApi,
+        parameter: data,
+      );
 
       return response;
     } catch (e) {
@@ -32,19 +38,13 @@ class SellerVerificationFieldRepository {
     }
   }
 
-  Future<VerificationRequestModel> getVerificationRequest() async {
+  Future<VerificationRequest> getVerificationRequest() async {
     try {
-      Map<String, dynamic> parameters = {};
-
-      Map<String, dynamic> response = await Api.get(
-          url: Api.getVerificationRequestApi, queryParameters: parameters);
-
-      VerificationRequestModel model =
-          VerificationRequestModel.fromJson(response['data']);
-
-      return model;
-    } catch (e) {
-      throw "$e";
+      final response = await Api.get(url: Api.getVerificationRequestApi);
+      return VerificationRequest.fromJson(response['data']);
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
+      rethrow;
     }
   }
 }

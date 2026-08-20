@@ -1,46 +1,42 @@
-import 'package:eClassify/data/repositories/report_item_repository.dart';
+import 'package:eClassify/data/repositories/item_report/report_item_repository.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-abstract class ItemReportState {}
+abstract class SubmitItemReportState {}
 
-class ItemReportInitial extends ItemReportState {}
+class SubmitItemReportInitial extends SubmitItemReportState {}
 
-class ItemReportInProgress extends ItemReportState {}
+class SubmitItemReportLoading extends SubmitItemReportState {}
 
-class ItemReportInSuccess extends ItemReportState {
-  final String responseMessage;
+class SubmitItemReportSuccess extends SubmitItemReportState {
+  SubmitItemReportSuccess({required this.message});
 
-  ItemReportInSuccess(this.responseMessage);
+  final String message;
 }
 
-class ItemReportFailure extends ItemReportState {
-  final dynamic error;
+class SubmitItemReportFailure extends SubmitItemReportState {
+  SubmitItemReportFailure({required this.message});
 
-  ItemReportFailure(this.error);
+  final String message;
 }
 
-class ItemReportCubit extends Cubit<ItemReportState> {
-  ItemReportCubit() : super(ItemReportInitial());
-  ReportItemRepository repository = ReportItemRepository();
+class SubmitItemReportCubit extends Cubit<SubmitItemReportState> {
+  SubmitItemReportCubit() : super(SubmitItemReportInitial());
 
-  void report({
-    required int item_id,
-    required int reason_id,
-    String? message,
-  }) async {
+  void report({required int itemId, int? reasonId, String? message}) async {
     try {
-      emit(ItemReportInProgress());
+      emit(SubmitItemReportLoading());
 
-      Map response = await repository.reportItem(
-          reasonId: reason_id, itemId: item_id, message: message);
+      final response = await ReportItemRepository().reportItem(
+        itemId: itemId,
+        reasonId: reasonId,
+        message: message,
+      );
 
-      if (response['error'] == false) {
-        emit(ItemReportInSuccess(response['message']));
-      } else {
-        emit(ItemReportFailure(response['message']));
-      }
-    } catch (e) {
-      emit(ItemReportFailure(e.toString()));
+      emit(SubmitItemReportSuccess(message: response['message']));
+    } catch (e, st) {
+      Log.error(e.toString(), e, st);
+      emit(SubmitItemReportFailure(message: e.toString()));
     }
   }
 }

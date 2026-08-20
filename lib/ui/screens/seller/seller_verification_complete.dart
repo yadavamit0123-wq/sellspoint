@@ -1,20 +1,16 @@
-import 'package:eClassify/ui/screens/home/home_screen.dart';
-import 'package:eClassify/ui/screens/widgets/animated_routes/blur_page_route.dart';
 import 'package:eClassify/ui/theme/theme.dart';
-import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
-import 'package:eClassify/utils/ui_utils.dart';
+import 'package:eClassify/utils/lottie_utility.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
 class SellerVerificationCompleteScreen extends StatefulWidget {
-  const SellerVerificationCompleteScreen({
-    super.key,
-  });
+  const SellerVerificationCompleteScreen({super.key});
 
   static Route route(RouteSettings settings) {
-    return BlurredRouter(
+    return MaterialPageRoute(
       builder: (context) {
         return SellerVerificationCompleteScreen();
       },
@@ -42,21 +38,15 @@ class _SellerVerificationCompleteScreenState
       duration: Duration(seconds: 1), // Adjust duration as needed
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: Offset(0, 1.5), // Off-screen initially
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeInOut,
-    ));
-
-    Future.delayed(const Duration(seconds: 0), () {
-      if (mounted)
-        setState(() {
-          Future.delayed(const Duration(seconds: 1), () {
-            _slideController.forward();
-          }); // Start slide animation
-        });
+    _slideAnimation =
+        Tween<Offset>(
+          begin: Offset(0, 1.5), // Off-screen initially
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeInOut),
+        );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _slideController.forward();
     });
   }
 
@@ -66,97 +56,76 @@ class _SellerVerificationCompleteScreenState
     super.dispose();
   }
 
-  void _handleBackButtonPressed() {
-    if (_slideController.isAnimating) {
-      setState(() {
-        isBack = false;
-      });
-      // Don't allow popping while the animation is playing
-      return;
-    } else {
-      // Navigate back to the home screen
-      _navigateBackToProfile();
-      return;
-    }
-  }
-
-  void _navigateBackToProfile() {
-    if (mounted)
-      Future.delayed(Duration(milliseconds: 500), () {
-        if (mounted) {
-          Navigator.pop(context);
-          Navigator.pop(context);
-          Navigator.pop(context, 'refresh');
-        }
-      });
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: isBack,
-      onPopInvokedWithResult: (didPop, result) async {
-        // Handle back button press
-        _handleBackButtonPressed();
-      },
+      canPop: false,
       child: Scaffold(
-        appBar: UiUtils.buildAppBar(context, onBackPress: () {
-          _navigateBackToProfile();
-        }, showBackButton: true),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Lottie.asset("assets/lottie/${Constant.successItemLottieFile}",
-                  repeat: false),
-              SlideTransition(
-                position: _slideAnimation,
-                child: Column(
-                  children: [
-                    SizedBox(height: 50),
-                    Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
-                        child: CustomText(
-                          'userVerificationCompleted'.translate(context),
-                          fontSize: context.font.extraLarge,
-                          fontWeight: FontWeight.w600,
-                          color: context.color.territoryColor,
-                          textAlign: TextAlign.center,
-                        )),
-                    SizedBox(height: 18),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 25),
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Lottie.asset(
+              LottieAssets.success,
+              repeat: false,
+              delegates: LottieUtility.getSuccessDelegates(
+                color: context.colorScheme.primary,
+              ),
+            ),
+            SlideTransition(
+              position: _slideAnimation,
+              child: Column(
+                children: [
+                  SizedBox(height: 50),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                    child: CustomText(
+                      'userVerificationCompleted'.translate(context),
+                      fontSize: context.font.extraLarge,
+                      fontWeight: FontWeight.w600,
+                      color: context.color.territoryColor,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(height: 18),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                    child: CustomText(
+                      'sellerDocApproveLbl'.translate(context),
+                      textAlign: TextAlign.center,
+                      fontSize: context.font.larger,
+                      color: context.color.textDefaultColor,
+                    ),
+                  ),
+                  SizedBox(height: 60),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(
+                        context,
+                      ).popUntilWithResult((route) => route.isFirst, true);
+                    },
+                    child: Container(
+                      height: 46,
+                      alignment: AlignmentDirectional.center,
+                      margin: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: context.color.territoryColor,
+                      ),
                       child: CustomText(
-                        'sellerDocApproveLbl'.translate(context),
+                        "backToProfile".translate(context),
+                        color: context.color.secondaryColor,
                         textAlign: TextAlign.center,
                         fontSize: context.font.larger,
-                        color: context.color.textDefaultColor,
                       ),
                     ),
-                    SizedBox(height: 60),
-                    InkWell(
-                      onTap: () {
-                        _navigateBackToProfile();
-                      },
-                      child: Container(
-                        height: 46,
-                        alignment: AlignmentDirectional.center,
-                        margin: EdgeInsets.symmetric(
-                            horizontal: sidePadding, vertical: 10),
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: context.color.territoryColor),
-                        child: CustomText("backToProfile".translate(context),
-                            color: context.color.secondaryColor,
-                            textAlign: TextAlign.center,
-                            fontSize: context.font.larger),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ), // Placeholder
+            ),
+          ],
         ),
       ),
     );

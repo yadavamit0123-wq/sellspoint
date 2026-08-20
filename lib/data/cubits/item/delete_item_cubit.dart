@@ -1,4 +1,7 @@
+import 'dart:developer';
+
 import 'package:eClassify/data/repositories/item/item_repository.dart';
+import 'package:eClassify/utils/api.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 abstract class DeleteItemState {}
@@ -20,14 +23,27 @@ class DeleteItemCubit extends Cubit<DeleteItemState> {
 
   DeleteItemCubit() : super(DeleteItemInitial());
 
-  Future<void> deleteItem(int id) async {
+  Future<void> deleteItem({required int id}) async {
     try {
       emit(DeleteItemInProgress());
 
-      await _itemRepository.deleteItem(id);
+      await _itemRepository.deleteItem(id: id);
       emit(DeleteItemSuccess());
     } catch (e) {
       emit(DeleteItemFailure(e.toString()));
+    }
+  }
+
+  Future<void> deleteMultiItem({required Iterable<int> ids}) async {
+    try {
+      emit(DeleteItemInProgress());
+
+      await _itemRepository.deleteItem(ids: ids);
+      emit(DeleteItemSuccess());
+    } on Exception catch (e, stack) {
+      log(e.toString(), name: 'deleteMultiItem');
+      log('$stack', name: 'deleteMultiItem');
+      throw ApiException(e.toString());
     }
   }
 }

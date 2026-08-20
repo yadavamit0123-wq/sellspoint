@@ -19,13 +19,14 @@ class FetchMyItemsSuccess extends FetchMyItemsState {
   final List<ItemModel> items;
   final String? getItemsWithStatus;
 
-  FetchMyItemsSuccess(
-      {required this.total,
-      required this.page,
-      required this.isLoadingMore,
-      required this.hasError,
-      required this.getItemsWithStatus,
-      required this.items});
+  FetchMyItemsSuccess({
+    required this.total,
+    required this.page,
+    required this.isLoadingMore,
+    required this.hasError,
+    required this.getItemsWithStatus,
+    required this.items,
+  });
 
   FetchMyItemsSuccess copyWith({
     int? total,
@@ -45,17 +46,12 @@ class FetchMyItemsSuccess extends FetchMyItemsState {
       getItemsWithStatus: getItemsWithStatus ?? this.getItemsWithStatus,
     );
   }
-
-  @override
-  String toString() {
-    return 'FetchMyItemsSuccess{items: $items, getItemsWithStatus: $getItemsWithStatus}';
-  }
 }
 
 class FetchMyItemsFailed extends FetchMyItemsState {
-  final dynamic error;
-
   FetchMyItemsFailed(this.error);
+  final Object error;
+
 }
 
 class FetchMyItemsCubit extends Cubit<FetchMyItemsState> {
@@ -69,15 +65,18 @@ class FetchMyItemsCubit extends Cubit<FetchMyItemsState> {
         page: 1,
         getItemsWithStatus: getItemsWithStatus,
       );
-      emit(FetchMyItemsSuccess(
+      emit(
+        FetchMyItemsSuccess(
           hasError: false,
           isLoadingMore: false,
           page: 1,
           items: result.modelList,
           total: result.total,
-          getItemsWithStatus: getItemsWithStatus));
+          getItemsWithStatus: getItemsWithStatus,
+        ),
+      );
     } catch (e) {
-      emit(FetchMyItemsFailed(e.toString()));
+      emit(FetchMyItemsFailed(e));
     }
   }
 
@@ -100,12 +99,10 @@ class FetchMyItemsCubit extends Cubit<FetchMyItemsState> {
     }
   }
 
-  void edit(ItemModel item) {
+  void editAds(ItemModel item) {
     if (state is FetchMyItemsSuccess) {
       List<ItemModel> items = (state as FetchMyItemsSuccess).items;
-      log('$state');
       int index = items.indexWhere((element) {
-        log('${element.id} - ${item.id}');
         return element.id == item.id;
       });
       items[index] = item;
@@ -122,7 +119,6 @@ class FetchMyItemsCubit extends Cubit<FetchMyItemsState> {
           return;
         }
         emit((state as FetchMyItemsSuccess).copyWith(isLoadingMore: true));
-
         DataOutput<ItemModel> result = await _itemRepository.fetchMyItems(
           getItemsWithStatus: getItemsWithStatus,
           page: (state as FetchMyItemsSuccess).page + 1,
@@ -141,7 +137,8 @@ class FetchMyItemsCubit extends Cubit<FetchMyItemsState> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      log('$e $st');
       emit(
         (state as FetchMyItemsSuccess).copyWith(
           isLoadingMore: false,

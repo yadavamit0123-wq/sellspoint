@@ -1,5 +1,5 @@
 import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/model/user_model.dart';
+import 'package:eClassify/data/model/user/user_model.dart';
 import 'package:eClassify/data/repositories/item_buyer_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -45,12 +45,12 @@ class GetItemBuyerListCubit extends Cubit<GetItemBuyerListState> {
   GetItemBuyerListCubit() : super(GetItemBuyerListInitial());
   final ItemBuyerRepository _itemBuyerRepository = ItemBuyerRepository();
 
-  void fetchItemBuyer(int itemId) async {
+  void fetchItemBuyer(int itemId, bool isJobCategory) async {
     try {
       emit(GetItemBuyerListInProgress());
 
       DataOutput<BuyerModel> result =
-          await _itemBuyerRepository.fetchItemBuyerList(itemId);
+          await _itemBuyerRepository.fetchItemBuyerList(itemId, isJobCategory);
 
       emit(
         GetItemBuyerListSuccess(

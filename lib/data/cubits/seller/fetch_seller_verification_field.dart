@@ -42,23 +42,4 @@ class FetchSellerVerificationFieldsCubit
       emit(FetchSellerVerificationFieldFail(e.toString()));
     }
   }
-
-//while edit
-  void fillCustomFields(List<VerificationFieldModel> fields) {
-    emit(FetchSellerVerificationFieldSuccess(fields));
-  }
-
-  List<VerificationFieldModel> getFields() {
-    if (state is FetchSellerVerificationFieldSuccess) {
-      return (state as FetchSellerVerificationFieldSuccess).fields;
-    }
-    return [];
-  }
-
-  bool? isEmpty() {
-    if (state is FetchSellerVerificationFieldSuccess) {
-      return (state as FetchSellerVerificationFieldSuccess).fields.isEmpty;
-    }
-    return null;
-  }
 }

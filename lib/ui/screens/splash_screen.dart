@@ -1,284 +1,218 @@
 import 'dart:async';
-import 'dart:developer';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/data/cubits/system/fetch_language_cubit.dart';
-import 'package:eClassify/data/cubits/system/fetch_system_settings_cubit.dart';
+import 'package:eClassify/app_config.dart';
+import 'package:eClassify/data/cubits/home/home_screen_configuration_cubit.dart';
 import 'package:eClassify/data/cubits/system/language_cubit.dart';
-import 'package:eClassify/data/model/system_settings_model.dart';
-import 'package:eClassify/ui/screens/widgets/errors/no_internet.dart';
-import 'package:eClassify/ui/theme/theme.dart';
+import 'package:eClassify/data/cubits/system/system_settings_cubit.dart';
+import 'package:eClassify/data/model/core/language.dart';
+import 'package:eClassify/data/model/system_settings.dart';
+import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
+import 'package:eClassify/ui/theme/theme_colors.dart';
+import 'package:eClassify/ui/theme/theme_extensions.dart';
+import 'package:eClassify/utils/app_assets.dart';
+import 'package:eClassify/utils/app_session.dart';
 import 'package:eClassify/utils/constant.dart';
-import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:video_player/video_player.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({this.itemSlug, super.key});
+  const SplashScreen({super.key});
 
-  //Used when the app is terminated and then is opened using deep link, in which case
-  //the main route needs to be added to navigation stack, previously it directly used to
-  //push adDetails route.
-  final String? itemSlug;
   @override
-  SplashScreenState createState() => SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
+
+  static Route<dynamic> route(RouteSettings routeSettings) {
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => const SplashScreen(),
+    );
+  }
 }
 
-class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen> {
+  // Completers used to coordinate the asynchronous startup flow.
+  // Using Completers allows us to sequentially fetch configuration settings,
+  // load localized language assets, and transition screens.
+  late Completer<SystemSettings> _settingsCompleter;
+  late Completer<void> _languageCompleter;
 
-  bool isTimerCompleted = false;
-  bool isSettingsLoaded = false; //TODO: temp
-  bool isLanguageLoaded = false;
-  late StreamSubscription<List<ConnectivityResult>> subscription;
-  bool hasInternet = true;
-
-  late VideoPlayerController _controller;
-  late Future<void> _initializeVideoPlayerFuture;
-  bool _didComplete = false;
+  // Holds the error context when setting or language retrieval fails,
+  // prompting a screen update to render the retry error widget.
+  Object? _error;
 
   @override
   void initState() {
-    //locationPermission();
     super.initState();
-    _controller = VideoPlayerController.asset("assets/videos/splash_video.mp4");
-    _controller.setLooping(false);
-    _initializeVideoPlayerFuture = _controller.initialize().then((value) {
-      _controller.play();
-      setState(() {});
-    },);
-    _controller.addListener(() async {
-      final value = _controller.value;
-      if (!value.isInitialized) return;
-
-      final position = value.position;
-      final duration = value.duration;
-
-      // fire once when video really finishes
-      if (!_didComplete && !value.isPlaying && position > Duration.zero && position >= duration) {
-        _didComplete = true;
-        navigateCheck();
-      }
-    });
-
-    subscription = Connectivity().onConnectivityChanged.listen((result) {
-      setState(() {
-        hasInternet = (!result.contains(ConnectivityResult.none));
-      });
-      if (hasInternet) {
-        context.read<FetchSystemSettingsCubit>().fetchSettings(forceRefresh: true);
-        startTimer();
-      }
-    });
+    _startNavigationFlow();
   }
 
-  @override
-  void dispose() {
-    subscription.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future getDefaultLanguage(String code) async {
+  /// Runs the step-by-step sequence of asynchronous actions required to boot the application.
+  ///
+  /// 1. Concurrently starts fetching system settings and home screen configurations.
+  /// 2. Suspends until system settings are retrieved successfully.
+  /// 3. Dispatches language localization fetching based on user-configured or default parameters.
+  /// 4. Suspends until the localization file has finished loading.
+  /// 5. Validates system modes (like Maintenance mode) and user authentication status,
+  ///    routing the user to the correct initial page.
+  void _startNavigationFlow() async {
     try {
-      if (HiveUtils.getLanguage() == null ||
-          HiveUtils.getLanguage()?['data'] == null) {
-        context.read<FetchLanguageCubit>().getLanguage(code);
-      } else if (HiveUtils.isUserFirstTime() == true &&
-          code != HiveUtils.getLanguage()?['code']) {
-        context.read<FetchLanguageCubit>().getLanguage(code);
+      // Re-instantiate the completers on each loading attempt to avoid caching past results.
+      _settingsCompleter = Completer<SystemSettings>();
+      _languageCompleter = Completer<void>();
+
+      context.read<SystemSettingsCubit>().getSystemSettings();
+      context.read<HomeConfigurationCubit>().getHomeConfiguration();
+
+      // Step 1: Wait for system settings
+      final settings = await _settingsCompleter.future;
+
+      // Step 2: Load default or active locale settings
+      _loadLanguage(
+        currentLanguageCode: settings.currentLanguageCode,
+        defaultLanguage: settings.defaultLanguage,
+      );
+
+      // Step 3: Wait for language translations to be downloaded
+      await _languageCompleter.future;
+
+      // Step 4: Route the user based on settings and authentication states
+      if (settings.maintenanceMode) {
+        Navigator.of(context).pushReplacementNamed(Routes.maintenanceMode);
+      } else if (HiveUtils.isUserFirstTime()) {
+        Navigator.of(context).pushReplacementNamed(Routes.onboarding);
+      } else if (HiveUtils.isUserAuthenticated()) {
+        Navigator.of(
+          context,
+        ).pushReplacementNamed(Routes.main, arguments: {'from': "main"});
+      } else if (HiveUtils.isUserSkip()) {
+        Navigator.of(
+          context,
+        ).pushReplacementNamed(Routes.main, arguments: {'from': "main"});
       } else {
-        isLanguageLoaded = true;
-        setState(() {});
+        Navigator.of(context).pushReplacementNamed(Routes.login);
       }
     } catch (e) {
-      log("Error while load default language $e");
+      // Catch failure states bubbled up through the completers
+      _error = e;
+      setState(() {});
     }
   }
 
-  Future<void> startTimer() async {
-    Timer(const Duration(seconds: 1), () {
-      isTimerCompleted = true;
-      if (mounted) setState(() {});
-    });
-  }
-
-  void navigateCheck() {
-    if (isTimerCompleted && isSettingsLoaded && isLanguageLoaded) {
-      navigateToScreen();
-    }
-  }
-
-  void navigateToScreen() async {
-    if (context.read<FetchSystemSettingsCubit>().getSetting(SystemSetting.maintenanceMode) == "1") {
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed(Routes.maintenanceMode);
-        }
-      });
-    } else if (HiveUtils.isUserFirstTime() == true) {
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed(Routes.onboarding);
-        }
-      });
-    } else if (HiveUtils.isUserAuthenticated()) {
-      // if ((HiveUtils.getUserDetails().name == null ||
-      //         HiveUtils.getUserDetails().name == "") ||
-      //     (HiveUtils.getUserDetails().email == null ||
-      //         HiveUtils.getUserDetails().email == "")) {
-      //   Future.delayed(
-      //     const Duration(seconds: 1),
-      //     () {
-      //       Navigator.pushReplacementNamed(
-      //         context,
-      //         Routes.completeProfile,
-      //         arguments: {
-      //           "from": "login",
-      //         },
-      //       );
-      //     },
-      //   );
-      // } else {
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          //We pass slug only when the user is authenticated otherwise drop the slug
-          Navigator.of(context).pushReplacementNamed(Routes.main, arguments: {'from': "main", "slug": widget.itemSlug});
-        }
-      });
-      //}
+  /// Loads the language translations from either the app session storage
+  /// (if active and matching) or fallbacks to the settings' default language.
+  void _loadLanguage({
+    required String currentLanguageCode,
+    required Language defaultLanguage,
+  }) {
+    final persistedLanguage = AppSession.currentLanguage;
+    // Check if the persisted language is still valid and matches the current language.
+    if (persistedLanguage != null &&
+        persistedLanguage.languageCode == currentLanguageCode) {
+      context.read<LanguageCubit>().loadLanguage(persistedLanguage);
     } else {
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          if (HiveUtils.isUserSkip() == true) {
-            Navigator.of(context).pushReplacementNamed(Routes.main, arguments: {'from': "main"});
-          } else {
-            Navigator.of(context).pushReplacementNamed(Routes.login);
-          }
-        }
-      });
+      context.read<LanguageCubit>().loadLanguage(defaultLanguage);
+    }
+  }
+
+  Widget? _companyLogo() {
+    if (AppConfig.showCompanyLogo) {
+      return SafeArea(
+        child: Padding(
+          padding: Constant.safeAreaMinimumPadding,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: CustomImage(
+                src: AppAssets.branding.company,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return hasInternet
-        ? BlocListener<FetchLanguageCubit, FetchLanguageState>(
-            listener: (context, state) {
-              if (state is FetchLanguageSuccess) {
-                Map<String, dynamic> map = state.toMap();
-
-                var data = map['file_name'];
-                map['data'] = data;
-                map.remove("file_name");
-
-                HiveUtils.storeLanguage(map);
-                context.read<LanguageCubit>().changeLanguages(map);
-                isLanguageLoaded = true;
-                if (mounted) {
-                  setState(() {});
-                }
-              }
-            },
-            child: BlocListener<FetchSystemSettingsCubit, FetchSystemSettingsState>(
-              listener: (context, state) {
-                if (state is FetchSystemSettingsSuccess) {
-                  Constant.isDemoModeOn = context.read<FetchSystemSettingsCubit>().getSetting(SystemSetting.demoMode);
-                  getDefaultLanguage(state.settings['data']['default_language']);
-                  isSettingsLoaded = true;
-                  setState(() {});
-                }
-                if (state is FetchSystemSettingsFailure) {}
-              },
-              child: AnnotatedRegion(
-                value: SystemUiOverlayStyle(
-                  statusBarColor: context.color.territoryColor,
-                ),
-                child: Scaffold(
-                  extendBodyBehindAppBar: true,
-                  backgroundColor: context.color.territoryColor,
-                  body: FutureBuilder(
-                    future: _initializeVideoPlayerFuture,
-                    builder: (context, snapshot) {
-                      if(snapshot.connectionState == ConnectionState.done && _controller.value.isInitialized){
-                        return FittedBox(
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: MediaQuery.of(context).size.height,
-                            width: MediaQuery.of(context).size.width,
-                              child: VideoPlayer(_controller)
-                          ),
-                        );
-                      } else {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-          )
-        : NoInternet(
+    if (_error != null) {
+      return Material(
+        color: context.colorScheme.surface,
+        child: Center(
+          child: QErrorWidget(
+            error: _error,
             onRetry: () {
+              _error = null;
               setState(() {});
+              _startNavigationFlow();
             },
-          );
-  }
+          ),
+        ),
+      );
+    }
 
-  // old splash screen
-  /*
-              child: AnnotatedRegion(
-                value: SystemUiOverlayStyle(
-                  statusBarColor: context.color.territoryColor,
-                ),
-                child: Scaffold(
-                  backgroundColor: context.color.territoryColor,
-                  // bottomNavigationBar: Padding(
-                  //   padding: const EdgeInsets.symmetric(vertical: 10.0),
-                  //   child: UiUtils.getSvg(AppIcons.companyLogo),
-                  // ),
-                  body: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Align(
-                        alignment: AlignmentDirectional.center,
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 10.0),
-                          child: SizedBox(
-                            width: 150,
-                            height: 150,
-                            child: UiUtils.getSvg(AppIcons.splashLogo),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(top: 10.0),
-                        child: Column(
-                          children: [
-                            CustomText(
-                              AppSettings.applicationName,
-                              fontSize: context.font.xxLarge,
-                              color: context.color.secondaryColor,
-                              textAlign: TextAlign.center,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            CustomText(
-                              "\"${"buyAndSellAnything".translate(context)}\"",
-                              fontSize: context.font.smaller,
-                              color: context.color.secondaryColor,
-                              textAlign: TextAlign.center,
-                            )
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+    return MultiBlocListener(
+      listeners: [
+        // Listens for system setting fetch outcomes and completes/errors the settings completer.
+        BlocListener<SystemSettingsCubit, SystemSettingsState>(
+          listener: (context, state) {
+            if (state is SystemSettingsSuccess) {
+              if (!_settingsCompleter.isCompleted) {
+                _settingsCompleter.complete(state.settings);
+              }
+            }
+            if (state is SystemSettingsFailure) {
+              if (!_settingsCompleter.isCompleted) {
+                _settingsCompleter.completeError(state.error);
+              }
+            }
+          },
+        ),
+        // Listens for language loading outcomes and completes/errors the language completer.
+        BlocListener<LanguageCubit, LanguageState>(
+          listener: (context, state) {
+            if (state is LanguageFetchSuccess) {
+              if (!_languageCompleter.isCompleted) {
+                _languageCompleter.complete();
+              }
+            }
+            if (state is LanguageFailure) {
+              if (!_languageCompleter.isCompleted) {
+                _languageCompleter.completeError(state.error);
+              }
+            }
+          },
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: context.colorScheme.primary,
+        bottomNavigationBar: _companyLogo(),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 10,
+          children: [
+            CustomImage(
+              src: AppAssets.branding.logo,
+              size: Size.square(150),
+              fit: BoxFit.scaleDown,
+            ),
+            Text(
+              AppConfig.applicationName,
+              style: context.headlineLarge.copyWith(
+                color: context.colorScheme.onPrimary,
+                fontWeight: FontWeight.bold,
               ),
-
-  */
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -1,97 +1,50 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
-
-import 'package:eClassify/data/model/chat/chat_user_model.dart';
-import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/repositories/chat_repository.dart';
+import 'package:eClassify/data/model/chat/chat.dart';
+import 'package:eClassify/data/repositories/chat_history_repository.dart';
+import 'package:eClassify/utils/log.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class BlockedUsersListState {}
+abstract class BlockedUserListState {}
 
-class BlockedUsersListInitial extends BlockedUsersListState {}
+class BlockedUserListInitial extends BlockedUserListState {}
 
-class BlockedUsersListInProgress extends BlockedUsersListState {}
+class BlockedUserListLoading extends BlockedUserListState {}
 
-class BlockedUsersListSuccess extends BlockedUsersListState {
-  final List<BlockedUserModel> data;
+class BlockedUserListSuccess extends BlockedUserListState {
+  BlockedUserListSuccess({required this.users});
 
-  BlockedUsersListSuccess({
-    required this.data,
-  });
-
-  BlockedUsersListSuccess copyWith({
-    List<BlockedUserModel>? data,
-  }) {
-    return BlockedUsersListSuccess(data: data ?? this.data);
-  }
+  final List<ChatUser> users;
 }
 
-class BlockedUsersListFail extends BlockedUsersListState {
-  dynamic error;
+class BlockedUserListFailure extends BlockedUserListState {
+  BlockedUserListFailure({required this.error});
 
-  BlockedUsersListFail({
-    required this.error,
-  });
+  final Object? error;
 }
 
-class BlockedUsersListCubit extends Cubit<BlockedUsersListState> {
-  BlockedUsersListCubit() : super(BlockedUsersListInitial());
+class BlockedUserListCubit extends Cubit<BlockedUserListState> {
+  BlockedUserListCubit() : super(BlockedUserListInitial());
 
-  final ChatRepository _chatRepository = ChatRepository();
-
-  void blockedUsersList() async {
+  Future<void> getBlockedUsers() async {
     try {
-      emit(BlockedUsersListInProgress());
-      DataOutput<BlockedUserModel> result =
-          await _chatRepository.blockedUsersListApi();
+      emit(BlockedUserListLoading());
 
-      emit(BlockedUsersListSuccess(data: result.modelList));
-    } catch (e) {
-      emit(BlockedUsersListFail(error: e.toString()));
+      final users = await ChatHistoryRepository.instance.getBlockedUsers();
+
+      emit(BlockedUserListSuccess(users: users));
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      emit(BlockedUserListFailure(error: e));
     }
   }
 
-  bool isUserBlocked(int userId) {
-    if (state is BlockedUsersListSuccess) {
-      List<BlockedUserModel> list = (state as BlockedUsersListSuccess).data;
-
-      return list.any((user) => user.id == userId);
+  void removeUser(int userId) {
+    if (state is! BlockedUserListSuccess) return;
+    final success = this.state as BlockedUserListSuccess;
+    if (success.users.isNotEmpty) {
+      final updatedList = success.users
+          .where((user) => user.id != userId)
+          .toList();
+      emit(BlockedUserListSuccess(users: updatedList));
     }
-    return false;
-  }
-
-  void addBlockedUser(BlockedUserModel user) {
-    //this will create new chat in chat list if there is no already
-    if (state is BlockedUsersListSuccess) {
-      List<BlockedUserModel> list = (state as BlockedUsersListSuccess).data;
-      bool contains = list.any(
-        (element) => element.id == user.id,
-      );
-      if (contains == false) {
-        list.insert(0, user);
-        emit((state as BlockedUsersListSuccess).copyWith(data: list));
-      }
-    }
-  }
-
-  void unblockUser(int userId) {
-    if (state is BlockedUsersListSuccess) {
-      List<BlockedUserModel> list = (state as BlockedUsersListSuccess).data;
-      list.removeWhere((user) => user.id == userId);
-      emit((state as BlockedUsersListSuccess).copyWith(data: list));
-    }
-  }
-
-  void resetState() {
-    emit(BlockedUsersListInProgress());
-  }
-
-  BlockedUsersListState? fromJson(Map<String, dynamic> json) {
-    // TODO: implement fromJson
-    return null;
-  }
-
-  Map<String, dynamic>? toJson(BlockedUsersListState state) {
-    // TODO: implement toJson
-    return null;
   }
 }

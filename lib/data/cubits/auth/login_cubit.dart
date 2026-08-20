@@ -1,140 +1,264 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'dart:developer';
 
-import 'dart:io';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/repositories/auth_repository.dart';
-import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-abstract class LoginState {}
+/// States for the login operation
+abstract class LoginState {
+  const LoginState();
+}
 
-class LoginInitial extends LoginState {}
+/// Initial state when no login operation has been performed
+class LoginInitial extends LoginState {
+  const LoginInitial();
+}
 
-class LoginInProgress extends LoginState {}
+/// State indicating that the login operation is in progress
+class LoginInProgress extends LoginState {
+  const LoginInProgress();
+}
 
+class LogoutInProgress extends LoginState {}
+
+/// State indicating successful login
 class LoginSuccess extends LoginState {
   final bool isProfileCompleted;
-  final UserCredential credential;
+  final dynamic credential;
   final Map<String, dynamic> apiResponse;
 
-  LoginSuccess({
+  const LoginSuccess({
     required this.isProfileCompleted,
     required this.credential,
     required this.apiResponse,
   });
 }
 
+class LogoutSuccess extends LoginState {}
+
+/// State indicating failure in login
 class LoginFailure extends LoginState {
   final dynamic errorMessage;
 
-  LoginFailure(this.errorMessage);
+  const LoginFailure(this.errorMessage);
 }
 
-class ReferralCheckFailure extends LoginState {
-  final dynamic errorMessage;
-
-  ReferralCheckFailure(this.errorMessage);
-}
-class ReferralCheckInProgress extends LoginState {}
-
-class ReferralCheckSuccess extends LoginState {
-  final dynamic successMessage;
-  ReferralCheckSuccess(this.successMessage);
-}
-
+/// Cubit responsible for handling login operations
 class LoginCubit extends Cubit<LoginState> {
-  LoginCubit() : super(LoginInitial());
+  final AuthRepository _authRepository;
+  final FirebaseAuth _firebaseAuth;
+  final FirebaseMessaging _firebaseMessaging;
 
-  final AuthRepository _authRepository = AuthRepository();
+  /// Creates a new instance of [LoginCubit]
+  LoginCubit()
+    : _authRepository = AuthRepository(),
+      _firebaseAuth = FirebaseAuth.instance,
+      _firebaseMessaging = FirebaseMessaging.instance,
+      super(const LoginInitial());
 
-  Future<String?> getDeviceToken() async {
-    String? token;
-    if (Platform.isIOS) {
-      token = await FirebaseMessaging.instance.getAPNSToken();
-    } else {
-      token = await FirebaseMessaging.instance.getToken();
-    }
-    return token;
-  }
-
-  void login({
+  /// Handles the login process
+  Future<void> login({
     String? phoneNumber,
     required String firebaseUserId,
     required String type,
     required UserCredential credential,
     String? countryCode,
-    // String? referralCode
+    String? regionCode,
+    String? password,
   }) async {
     try {
-      emit(LoginInProgress());
+      emit(const LoginInProgress());
 
-      String? token = await () async {
-        try {
-          return await FirebaseMessaging.instance.getToken();
-        } catch (_) {
-          return '';
-        }
-      }();
+      final token = await _getFCMToken();
+      final user = await _getUpdatedUser(type, credential);
+      final name = _getUserName(type, user, credential);
 
-      FirebaseAuth firebaseAuth = FirebaseAuth.instance;
-
-      User? updatedUser;
-      if (type == AuthenticationType.apple.name) {
-        updatedUser = firebaseAuth.currentUser;
-        if (updatedUser != null) {
-          print("Updated Display Name: ${updatedUser.displayName}");
-        }
-        await credential.user!.reload();
-      }
-
-      Map<String, dynamic> result = await _authRepository.numberLoginWithApi(
+      final result = await _authRepository.numberLoginWithApi(
         phone: phoneNumber ?? credential.user!.providerData[0].phoneNumber,
         type: type,
         uid: firebaseUserId,
         fcmId: token,
         email: credential.user!.providerData[0].email,
-        name: type == AuthenticationType.apple.name
-            ? updatedUser?.displayName ??
-                credential.user!.displayName ??
-                credential.user!.providerData[0].displayName
-            : credential.user!.providerData[0].displayName,
+        name: name,
         profile: credential.user!.providerData[0].photoURL,
         countryCode: countryCode,
-        // referralCode: referralCode,
+        regionCode: regionCode,
+        password: password,
       );
 
-      // Storing data to local database {HIVE}
-      HiveUtils.setJWT(result['token']);
-
-      if ((result['data']['name'] == "" || result['data']['name'] == null) ||
-          (result['data']['email'] == "" || result['data']['email'] == null)) {
-        HiveUtils.setProfileNotCompleted();
-
-        var data = result['data'];
-        // data['countryCode'] = countryCode;
-        HiveUtils.setUserData(data);
-        emit(LoginSuccess(
-          apiResponse: Map<String, dynamic>.from(result['data']),
-          isProfileCompleted: false,
-          credential: credential,
-        ));
-      } else {
-        var data = result['data'];
-        // data['countryCode'] = countryCode;
-        HiveUtils.setUserData(data);
-        emit(LoginSuccess(
-          apiResponse: Map<String, dynamic>.from(result['data']),
-          isProfileCompleted: true,
-          credential: credential,
-        ));
-      }
+      await _handleLoginResponse(result, credential);
     } catch (e) {
-      if (e is ApiException) {}
-
       emit(LoginFailure(e));
+    }
+  }
+
+  /// Handles login with Twilio
+  Future<void> loginWithTwilio({
+    required String phoneNumber,
+    required String firebaseUserId,
+    required String type,
+    required Map<String, dynamic> credential,
+    required String countryCode,
+    required String regionCode,
+    String? password,
+  }) async {
+    try {
+      emit(const LoginInProgress());
+      final token = await _getFCMToken();
+
+      if (_isValidTwilioCredential(credential)) {
+        await _handleTwilioLoginResponse(credential);
+        return;
+      }
+
+      final result = await _authRepository.numberLoginWithApi(
+        phone: phoneNumber,
+        type: type,
+        uid: firebaseUserId,
+        fcmId: token,
+        email: null,
+        name: null,
+        profile: null,
+        countryCode: countryCode,
+        regionCode: regionCode,
+        password: password,
+      );
+
+      await _handleLoginResponse(result, credential);
+    } catch (e) {
+      emit(LoginFailure(e));
+    }
+  }
+
+  /// Handles login with phone number and password
+  Future<void> loginWithPhonePassword({
+    required String phoneNumber,
+    required String password,
+    required String phoneCode,
+    required String regionCode,
+  }) async {
+    try {
+      emit(const LoginInProgress());
+      final token = await _getFCMToken();
+
+      final result = await _authRepository.loginWithPhonePassword(
+        phoneNumber: phoneNumber,
+        password: password,
+        phoneCode: phoneCode,
+        regionCode: regionCode,
+        fcmId: token,
+      );
+
+      await _handleLoginResponse(result, {});
+    } catch (e) {
+      emit(LoginFailure(e));
+    }
+  }
+
+  /// Gets FCM token with error handling
+  Future<String?> _getFCMToken() async {
+    try {
+      return await _firebaseMessaging.getToken();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Gets updated user information
+  Future<User?> _getUpdatedUser(String type, UserCredential credential) async {
+    if (type == AuthenticationType.apple.name) {
+      final user = _firebaseAuth.currentUser;
+      await credential.user!.reload();
+      return user;
+    }
+    return null;
+  }
+
+  /// Gets user name based on authentication type
+  String? _getUserName(
+    String type,
+    User? updatedUser,
+    UserCredential credential,
+  ) {
+    if (type == AuthenticationType.apple.name) {
+      return updatedUser?.displayName ??
+          credential.user!.displayName ??
+          credential.user!.providerData[0].displayName;
+    }
+    return credential.user!.providerData[0].displayName;
+  }
+
+  /// Handles login response
+  Future<void> _handleLoginResponse(
+    Map<String, dynamic> result,
+    dynamic credential,
+  ) async {
+    HiveUtils.setJWT(result['token']);
+    final data = result['data'];
+    final isProfileCompleted = _isProfileCompleted(data);
+
+    if (!isProfileCompleted) {
+      HiveUtils.setProfileNotCompleted();
+    }
+
+    HiveUtils.setUserData(data);
+    emit(
+      LoginSuccess(
+        apiResponse: Map<String, dynamic>.from(data),
+        isProfileCompleted: isProfileCompleted,
+        credential: credential,
+      ),
+    );
+  }
+
+  /// Handles Twilio login response
+  Future<void> _handleTwilioLoginResponse(
+    Map<String, dynamic> credential,
+  ) async {
+    HiveUtils.setJWT(credential['token']);
+    final data = credential['data'];
+    final isProfileCompleted = _isProfileCompleted(data);
+
+    if (!isProfileCompleted) {
+      HiveUtils.setProfileNotCompleted();
+    }
+
+    HiveUtils.setUserData(data);
+    emit(
+      LoginSuccess(
+        apiResponse: Map<String, dynamic>.from(data),
+        isProfileCompleted: isProfileCompleted,
+        credential: credential,
+      ),
+    );
+  }
+
+  /// Checks if the profile is completed
+  bool _isProfileCompleted(Map<String, dynamic> data) {
+    return !(data['name'] == "" ||
+        data['name'] == null ||
+        data['email'] == "" ||
+        data['email'] == null);
+  }
+
+  /// Validates Twilio credential format
+  bool _isValidTwilioCredential(Map<String, dynamic> credential) {
+    return credential.containsKey('token') && credential.containsKey('data');
+  }
+
+  Future<void> logoutUser() async {
+    try {
+      emit(LogoutInProgress());
+      final fcm = await _getFCMToken();
+      await _authRepository.logoutUser(fcmToken: fcm!);
+      emit(LogoutSuccess());
+    } on Exception catch (e, stack) {
+      log(e.toString(), name: 'logoutUser');
+      log('$stack', name: 'logoutUser');
+      emit(LoginFailure(e.toString()));
     }
   }
 }

@@ -1,6 +1,11 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:eClassify/data/repositories/auth_repository.dart';
+import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/error_filter.dart';
+import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/login/apple_login/apple_login.dart';
 import 'package:eClassify/utils/login/email_login/email_login.dart';
 import 'package:eClassify/utils/login/google_login/google_login.dart';
@@ -9,120 +14,309 @@ import 'package:eClassify/utils/login/lib/login_system.dart';
 import 'package:eClassify/utils/login/lib/payloads.dart';
 import 'package:eClassify/utils/login/phone_login/phone_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-enum AuthenticationType {
-  email,
-  google,
-  apple,
-  phone;
+/// Enum representing different authentication types
+enum AuthenticationType { email, google, apple, phone }
+
+/// Base class for all authentication states
+abstract class AuthenticationState {
+  const AuthenticationState();
 }
 
-abstract class AuthenticationState {}
+/// Initial authentication state
+class AuthenticationInitial extends AuthenticationState {
+  const AuthenticationInitial();
+}
 
-class AuthenticationInitial extends AuthenticationState {}
-
+/// Authentication in process state with type information
 class AuthenticationInProcess extends AuthenticationState {
   final AuthenticationType type;
 
-  AuthenticationInProcess(this.type);
+  const AuthenticationInProcess(this.type);
 }
 
+/// Successful authentication state with credentials and payload
 class AuthenticationSuccess extends AuthenticationState {
   final AuthenticationType type;
-  final UserCredential credential;
+  final dynamic credential;
   final LoginPayload payload;
+  final String? authId;
 
-  AuthenticationSuccess(this.type, this.credential, this.payload);
+  const AuthenticationSuccess(
+    this.type,
+    this.credential,
+    this.payload,
+    this.authId,
+  );
 }
 
+/// Failed authentication state with error information
 class AuthenticationFail extends AuthenticationState {
-  final dynamic error;
+  final String errorKey;
 
-  AuthenticationFail(this.error);
+  const AuthenticationFail(this.errorKey);
 }
 
+class AuthenticationUserDeleted extends AuthenticationState {}
+
+class AuthenticationUserDeletionFailure extends AuthenticationState {
+  const AuthenticationUserDeletionFailure(this.error);
+  final Object? error;
+}
+
+/// Cubit for handling authentication logic
 class AuthenticationCubit extends Cubit<AuthenticationState> {
-  AuthenticationCubit() : super(AuthenticationInitial());
+  /// Creates a new instance of [AuthenticationCubit]
+  AuthenticationCubit() : super(const AuthenticationInitial());
+  final AuthRepository _authRep = AuthRepository();
+
   AuthenticationType? type;
   LoginPayload? payload;
-  MMultiAuthentication mMultiAuthentication = MMultiAuthentication({
+
+  /// Multi-authentication system instance
+  final MMultiAuthentication mMultiAuthentication = MMultiAuthentication({
     "google": GoogleLogin(),
     "email": EmailLogin(),
     if (Platform.isIOS) "apple": AppleLogin(),
-    "phone": PhoneLogin()
+    "phone": PhoneLogin(),
   });
 
+  /// Initializes the authentication system
   void init() {
     mMultiAuthentication.init();
   }
 
-  void setData(
-      {required LoginPayload payload, required AuthenticationType type}) {
+  /// Sets authentication data
+  void setData({
+    required LoginPayload payload,
+    required AuthenticationType type,
+  }) {
     this.type = type;
     this.payload = payload;
   }
 
-  void authenticate() async {
-    if (type == null && payload == null) {
+  /// Performs authentication based on the set type and payload
+  Future<void> authenticate() async {
+    if (type == null || payload == null) {
       return;
     }
 
     try {
       emit(AuthenticationInProcess(type!));
-      mMultiAuthentication.setActive(type!.name);
-      mMultiAuthentication.payload = MultiLoginPayload({
-        type!.name: payload!,
-      });
+      await _setupAuthentication();
+      log('Authenticating');
 
-      UserCredential? credential = await mMultiAuthentication.login();
-
-      LoginPayload? payloadData = (payload);
-
-      if (payloadData is EmailLoginPayload &&
-          payloadData.type == EmailLoginType.login) {
-        if (credential != null) {
-          User? user = credential.user;
-          if (user != null && !user.emailVerified) {
-            // Handle the case when the user's email is not verified
-            emit(AuthenticationFail("pleaseFirstVerifyUser"));
-          } else {
-            emit(AuthenticationSuccess(type!, credential, payload!));
-          }
-        }
+      if (_isTwilioVerificationRequired()) {
+        await _handleTwilioAuthentication();
       } else {
-        emit(AuthenticationSuccess(type!, credential!, payload!));
+        await _handleStandardAuthentication();
       }
+    } on FirebaseAuthException catch (e) {
+      print("firebase error***${e.code.toString()}***${e.message.toString()}");
+      _handleFirebaseAuthError(e);
     } catch (e, stack) {
-      log(e.toString());
-      log('$stack');
-      emit(AuthenticationFail(e));
+      print("error auth***${e.toString()}");
+      _handleGeneralError(e, stack);
     }
   }
 
+  Future<void> authenticateWithPhonePassword() async {
+    try {
+      // Check if it's phone login with password
+      if (payload is PhoneLoginPayload &&
+          (payload as PhoneLoginPayload).hasPassword()) {
+        // For password-based phone login, we don't need Firebase credential
+        // Pass a placeholder map that will be handled by the backend
+        final phonePayload = payload as PhoneLoginPayload;
+        final passwordCredential = {
+          'type': 'phone_password',
+          'phoneNumber': phonePayload.phoneNumber,
+          'phoneCode': phonePayload.phoneCode,
+          'regionCode': phonePayload.regionCode,
+          'password': phonePayload.password,
+        };
+        emit(AuthenticationSuccess(type!, passwordCredential, payload!, null));
+        return;
+      }
+    } on Exception catch (e, stack) {
+      log(e.toString(), name: 'authenticateWithPhonePassword');
+      log('$stack', name: 'authenticateWithPhonePassword');
+      throw ApiException(e.toString());
+    }
+  }
+
+  /// Sets up the authentication system with current type and payload
+  Future<void> _setupAuthentication() async {
+    mMultiAuthentication.setActive(type!.name);
+    mMultiAuthentication.payload = MultiLoginPayload({type!.name: payload!});
+  }
+
+  /// Checks if Twilio verification is required
+  bool _isTwilioVerificationRequired() {
+    return Constant.systemSettings.otpProvider != 'firebase' &&
+        payload is PhoneLoginPayload;
+  }
+
+  /// Handles Twilio authentication
+  Future<void> _handleTwilioAuthentication() async {
+    final twilio = await verifyTwilioOtp();
+    if (twilio['error'] == true) {
+      emit(AuthenticationFail(twilio['message']));
+      return;
+    }
+
+    final token = twilio['token']?.toString() ?? '';
+    final credentials = twilio['data'];
+    emit(AuthenticationSuccess(type!, credentials, payload!, token));
+  }
+
+  /// Handles standard authentication flow
+  Future<void> _handleStandardAuthentication() async {
+    try {
+      log('Standard Auth');
+
+      final credential = await mMultiAuthentication.login();
+      if (credential == null) {
+        emit(AuthenticationFail('userDoesNotExist'));
+        return;
+      }
+
+      if (_isEmailLoginWithUnverifiedEmail(credential)) {
+        _handleUnverifiedEmail();
+      } else {
+        emit(AuthenticationSuccess(type!, credential, payload!, null));
+      }
+    } on PlatformException catch (e, st) {
+      log(e.toString(), name: 'PlatformException');
+      log('$st', name: 'PlatformException');
+      final message = switch (e.code) {
+        'sign_in_failed' => 'Firebase is not configured',
+        _ => 'somethingWentWrong',
+      };
+      emit(AuthenticationFail(message));
+    } on FirebaseAuthException catch (e, st) {
+      log(e.toString(), name: 'Exception');
+      log('$st', name: 'Exception');
+      final message = switch (e.code) {
+        'email-already-in-use' => 'emailAlreadyInUse',
+        _ => 'somethingWentWrong',
+      };
+      emit(AuthenticationFail(message));
+    } on Exception catch (e, st) {
+      log(e.toString(), name: 'Exception');
+      log('$st', name: 'Exception');
+      emit(AuthenticationFail('somethingWentWrong'));
+    }
+  }
+
+  /// Checks if the current login is an unverified email login
+  bool _isEmailLoginWithUnverifiedEmail(UserCredential credential) {
+    return payload is EmailLoginPayload &&
+        (payload as EmailLoginPayload).type == EmailLoginType.login &&
+        credential.user != null &&
+        !credential.user!.emailVerified;
+  }
+
+  /// Handles unverified email case
+  void _handleUnverifiedEmail() {
+    emit(
+      AuthenticationFail(
+        "pleaseVerifyYourEmail".translate(
+          Constant.navigatorKey.currentContext!,
+        ),
+      ),
+    );
+  }
+
+  /// Handles Firebase authentication errors
+  void _handleFirebaseAuthError(FirebaseAuthException e) {
+    log(e.toString());
+    emit(
+      AuthenticationFail(ErrorFilter.getErrorKeyFromFirebaseAuthException(e)),
+    );
+  }
+
+  /// Handles general errors
+  void _handleGeneralError(dynamic e, StackTrace stack) {
+    print(e.toString());
+    print('$stack');
+    emit(AuthenticationFail(e.toString()));
+  }
+
+  /// Verifies Twilio OTP
+  Future<Map<String, dynamic>> verifyTwilioOtp() async {
+    final phonePayload = payload as PhoneLoginPayload;
+    final parameters = {
+      'number': phonePayload.phoneNumber,
+      'country_code': phonePayload.phoneCode,
+      'otp': phonePayload.getOTP(),
+      'password': phonePayload.password,
+    };
+
+    return await Api.get(url: Api.verifyTwilioOtp, queryParameters: parameters);
+  }
+
+  /// Sets up authentication listener
   void listen(Function(MLoginState state) fn) {
     mMultiAuthentication.listen(fn);
   }
 
+  /// Requests verification for the current authentication
   void verify() {
     mMultiAuthentication.setActive(type!.name);
-    mMultiAuthentication.payload = MultiLoginPayload({
-      type!.name: payload!,
-    });
+    mMultiAuthentication.payload = MultiLoginPayload({type!.name: payload!});
     mMultiAuthentication.requestVerification();
   }
 
-  void signOut() {
+  Future<bool> checkIfPhoneUserExists() async {
+    assert(payload is PhoneLoginPayload, 'Payload must be a PhoneLoginPayload');
+    final phonePayload = payload as PhoneLoginPayload;
+
+    return await _authRep.checkUserExists(
+      phoneNumber: phonePayload.phoneNumber,
+      countryCode: phonePayload.phoneCode,
+      isFromForgotPassword: false,
+    );
+  }
+
+  /// Checks if a social-login (Google/Apple) user already exists in the backend
+  /// by their Firebase UID.
+  Future<bool> checkSocialUserExists({
+    required String firebaseId,
+  }) async {
+    return await _authRep.checkSocialUserExists(firebaseId: firebaseId);
+  }
+
+  /// Signs out the current user
+  Future<void> signOut() async {
+    log('$state');
     if (state is AuthenticationSuccess) {
-      final isGoogleLogin =
-          (state as AuthenticationSuccess).type == AuthenticationType.google;
-      if (isGoogleLogin) {
-        final googleLogin = mMultiAuthentication.systems['google'];
+      final authType = (state as AuthenticationSuccess).type;
 
-        (googleLogin as GoogleLogin).signOut();
+      await FirebaseAuth.instance.signOut();
 
-        emit(AuthenticationInitial());
+      if (authType == AuthenticationType.google) {
+        final googleLogin =
+            mMultiAuthentication.systems['google'] as GoogleLogin;
+        googleLogin.signOut();
       }
+    }
+    emit(const AuthenticationInitial());
+  }
+
+  Future<void> deleteUser() async {
+    try {
+      if (Constant.systemSettings.otpProvider == 'firebase') {
+        final user = FirebaseAuth.instance.currentUser;
+        await user?.delete();
+      }
+      emit(AuthenticationUserDeleted());
+    } on Exception catch (e, stack) {
+      log(e.toString(), name: 'deleteUser');
+      log('$stack', name: 'deleteUser');
+      emit(AuthenticationUserDeletionFailure(e));
     }
   }
 }

@@ -1,5 +1,5 @@
 import 'package:eClassify/data/model/data_output.dart';
-import 'package:eClassify/data/model/seller_ratings_model.dart';
+import 'package:eClassify/data/model/user/seller_ratings_model.dart';
 import 'package:eClassify/data/repositories/seller/seller_ratings_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,8 +10,9 @@ class FetchSellerRatingsInitial extends FetchSellerRatingsState {}
 class FetchSellerRatingsInProgress extends FetchSellerRatingsState {}
 
 class FetchSellerRatingsSuccess extends FetchSellerRatingsState {
-  final Seller? seller; // Make seller nullable
+  final Seller seller;
   final List<UserRatings> ratings;
+  final Map<String, int> ratingsCount;
   final bool isLoadingMore;
   final bool loadingMoreError;
   final int page;
@@ -19,7 +20,8 @@ class FetchSellerRatingsSuccess extends FetchSellerRatingsState {
 
   FetchSellerRatingsSuccess({
     required this.ratings,
-    this.seller, // Optional, can be null
+    required this.seller,
+    required this.ratingsCount,
     required this.isLoadingMore,
     required this.loadingMoreError,
     required this.page,
@@ -29,6 +31,7 @@ class FetchSellerRatingsSuccess extends FetchSellerRatingsState {
   FetchSellerRatingsSuccess copyWith({
     List<UserRatings>? ratings,
     Seller? seller,
+    Map<String, int>? ratingsCount,
     bool? isLoadingMore,
     bool? loadingMoreError,
     int? page,
@@ -37,6 +40,7 @@ class FetchSellerRatingsSuccess extends FetchSellerRatingsState {
     return FetchSellerRatingsSuccess(
       ratings: ratings ?? this.ratings,
       seller: seller ?? this.seller,
+      ratingsCount: ratingsCount ?? this.ratingsCount,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       loadingMoreError: loadingMoreError ?? this.loadingMoreError,
       page: page ?? this.page,
@@ -66,8 +70,9 @@ class FetchSellerRatingsCubit extends Cubit<FetchSellerRatingsState> {
       emit(
         FetchSellerRatingsSuccess(
           page: 1,
-          seller: result.extraData?.data,
-          // Handle nullable seller
+          seller: (result.extraData?.data as SellerRatingsModel).seller,
+          ratingsCount:
+              (result.extraData?.data as SellerRatingsModel).ratingsCount,
           isLoadingMore: false,
           loadingMoreError: false,
           ratings: result.modelList,
@@ -86,83 +91,37 @@ class FetchSellerRatingsCubit extends Cubit<FetchSellerRatingsState> {
           return;
         }
         emit(
-            (state as FetchSellerRatingsSuccess).copyWith(isLoadingMore: true));
-        DataOutput<UserRatings> result =
-            await _sellerRatingsRepository.fetchSellerRatingsAllRatings(
-                page: (state as FetchSellerRatingsSuccess).page + 1,
-                sellerId: sellerId);
+          (state as FetchSellerRatingsSuccess).copyWith(isLoadingMore: true),
+        );
+        DataOutput<UserRatings> result = await _sellerRatingsRepository
+            .fetchSellerRatingsAllRatings(
+              page: (state as FetchSellerRatingsSuccess).page + 1,
+              sellerId: sellerId,
+            );
 
         FetchSellerRatingsSuccess sellerRatingsModelState =
             (state as FetchSellerRatingsSuccess);
         sellerRatingsModelState.ratings.addAll(result.modelList);
-        emit(FetchSellerRatingsSuccess(
+        emit(
+          FetchSellerRatingsSuccess(
             isLoadingMore: false,
             loadingMoreError: false,
-            seller: result.extraData?.data,
-            // Handle nullable seller
+            seller: (result.extraData?.data as SellerRatingsModel).seller,
+            ratingsCount:
+                (result.extraData?.data as SellerRatingsModel).ratingsCount,
             ratings: sellerRatingsModelState.ratings,
             page: (state as FetchSellerRatingsSuccess).page + 1,
-            total: result.total));
+            total: result.total,
+          ),
+        );
       }
     } catch (e) {
-      emit((state as FetchSellerRatingsSuccess)
-          .copyWith(isLoadingMore: false, loadingMoreError: true));
-    }
-  }
-
-/*  void updateExpanded(int index) {
-    if (state is FetchSellerRatingsSuccess) {
-      FetchSellerRatingsSuccess currentState =
-          state as FetchSellerRatingsSuccess;
-      List<UserRatings> updatedRatings = List.from(currentState.ratings);
-
-      // Toggle isExpanded
-      updatedRatings[index] = updatedRatings[index].copyWith(
-        isExpanded: !(updatedRatings[index].isExpanded ?? false),
+      emit(
+        (state as FetchSellerRatingsSuccess).copyWith(
+          isLoadingMore: false,
+          loadingMoreError: true,
+        ),
       );
-
-      emit(currentState.copyWith(ratings: updatedRatings));
-    }
-  }*/
-
-  /* void toggleExpandedState(int index) {
-    if (state is FetchSellerRatingsSuccess) {
-      FetchSellerRatingsSuccess currentState =
-          state as FetchSellerRatingsSuccess;
-
-      // Clone the list of ratings
-      List<UserRatings> updatedRatings = List.from(currentState.ratings);
-
-      // Reset all other indices to false
-      for (int i = 0; i < updatedRatings.length; i++) {
-        if (i != index) {
-          updatedRatings[i] = updatedRatings[i].copyWith(isExpanded: false);
-        }
-      }
-
-      // Toggle isExpanded for the selected index
-      updatedRatings[index] = updatedRatings[index].copyWith(
-        isExpanded: !(updatedRatings[index].isExpanded ?? false),
-      );
-
-      // Emit the updated state
-      emit(currentState.copyWith(ratings: updatedRatings));
-    }
-  }*/
-
-  void updateIsExpanded(int index) {
-    //this will create new chat in chat list if there is no already
-    if (state is FetchSellerRatingsSuccess) {
-      List<UserRatings> ratingsList =
-          (state as FetchSellerRatingsSuccess).ratings;
-
-      ratingsList[index] = ratingsList[index].copyWith(
-        isExpanded: !(ratingsList[index].isExpanded ?? false),
-      );
-      if (!isClosed) {
-        emit((state as FetchSellerRatingsSuccess)
-            .copyWith(ratings: ratingsList));
-      }
     }
   }
 
@@ -188,5 +147,18 @@ class FetchSellerRatingsCubit extends Cubit<FetchSellerRatingsState> {
     }
 
     return null;
+  }
+
+  void updateSellerFollowerCount({required bool isFollowing}) {
+    if (state is! FetchSellerRatingsSuccess) return;
+    final successState = state as FetchSellerRatingsSuccess;
+    final newState = successState.copyWith(
+      seller: successState.seller.copyWith(
+        followers: isFollowing
+            ? successState.seller.followers + 1
+            : successState.seller.followers - 1,
+      ),
+    );
+    emit(newState);
   }
 }

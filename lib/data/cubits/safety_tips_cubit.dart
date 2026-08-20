@@ -69,22 +69,16 @@ class FetchSafetyTipsListCubit extends Cubit<FetchSafetyTipsListState> {
 
   FetchSafetyTipsListState? fromJson(Map<String, dynamic> json) {
     try {
-      if (json['cubit_state'] == "FetchSafetyTipsSuccess") {
-        FetchSafetyTipsSuccess fetchSafetyTipsSuccess =
-            FetchSafetyTipsSuccess.fromMap(json);
-
-        return fetchSafetyTipsSuccess;
-      }
-    } catch (e) {}
-    return null;
+      return FetchSafetyTipsSuccess.fromMap(json);
+    } catch (e) {
+      return null;
+    }
   }
 
   Map<String, dynamic>? toJson(FetchSafetyTipsListState state) {
     try {
       if (state is FetchSafetyTipsSuccess) {
-        Map<String, dynamic> mapped = state.toMap();
-        mapped['cubit_state'] = "FetchSafetyTipsSuccess";
-        return mapped;
+        return state.toMap();
       }
     } catch (e) {}
 

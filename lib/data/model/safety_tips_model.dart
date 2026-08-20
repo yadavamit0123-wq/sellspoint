@@ -4,7 +4,6 @@ class SafetyTipsModel {
   int? languageId;
   String? translatedName;
 
-  //String? description;
   String? createdAt;
   String? updatedAt;
 
@@ -13,7 +12,7 @@ class SafetyTipsModel {
       this.tipId,
       this.languageId,
       this.translatedName,
-      //this.description,
+
       this.createdAt,
       this.updatedAt});
 
@@ -22,7 +21,7 @@ class SafetyTipsModel {
     tipId = json['tip_id'];
     languageId = json['language_id'];
     translatedName = json['translated_name'];
-    //description = json['description'];
+
     createdAt = json['created_at'];
     updatedAt = json['updated_at'];
   }
@@ -33,7 +32,7 @@ class SafetyTipsModel {
     data['tip_id'] = this.tipId;
     data['language_id'] = this.languageId;
     data['translated_name'] = this.translatedName;
-    //data['description'] = this.description;
+
     data['created_at'] = this.createdAt;
     data['updated_at'] = this.updatedAt;
     return data;

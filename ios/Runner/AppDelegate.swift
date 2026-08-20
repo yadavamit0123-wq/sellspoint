@@ -5,6 +5,7 @@ import GoogleMaps
 import FirebaseAuth
 import awesome_notifications
 import FirebaseMessaging
+import FBSDKCoreKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -22,6 +23,38 @@ import FirebaseMessaging
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
         }
+
+    if let controller = window?.rootViewController as? FlutterViewController {
+      let channel = FlutterMethodChannel(
+        name: "com.pt.sellspoint/meta_sdk",
+        binaryMessenger: controller.binaryMessenger
+      )
+      channel.setMethodCallHandler { call, result in
+        switch call.method {
+        case "configure":
+          guard
+            let args = call.arguments as? [String: Any],
+            let appId = args["appId"] as? String,
+            let clientToken = args["clientToken"] as? String,
+            !appId.isEmpty,
+            !clientToken.isEmpty
+          else {
+            result(FlutterError(
+              code: "INVALID_ARGUMENT",
+              message: "appId and clientToken are required",
+              details: nil
+            ))
+            return
+          }
+          Settings.shared.appID = appId
+          Settings.shared.clientToken = clientToken
+          AppEvents.shared.activateApp()
+          result(nil)
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      }
+    }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

@@ -1,95 +1,125 @@
-import 'package:eClassify/data/model/home/home_screen_section.dart';
-import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/data/model/core/category.dart';
 import 'package:eClassify/data/model/data_output.dart';
+import 'package:eClassify/data/model/home/featured_section.dart';
+import 'package:eClassify/data/model/home/home_section.dart';
+import 'package:eClassify/data/model/home/home_slider.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/data/model/location/leaf_location.dart';
+import 'package:eClassify/utils/api.dart';
+import 'package:eClassify/utils/json_helper.dart';
+import 'package:eClassify/utils/log.dart';
 
 class HomeRepository {
-  Future<List<HomeScreenSection>> fetchHome(
-      {String? country, String? state, String? city, int? areaId}) async {
+  HomeRepository._internal();
+
+  static final HomeRepository _instance = HomeRepository._internal();
+
+  static HomeRepository get instance => _instance;
+
+  Future<List<HomeSection>> getHomeConfiguration() async {
     try {
-      Map<String, dynamic> parameters = {
-        if (city != null && city != "") 'city': city,
-        if (areaId != null && areaId != "") 'area_id': areaId,
-        if (country != null && country != "") 'country': country,
-        if (state != null && state != "") 'state': state,
-      };
+      final response = await Api.get(url: Api.getHomeConfigurationApi);
 
-      Map<String, dynamic> response = await Api.get(
-          url: Api.getFeaturedSectionApi, queryParameters: parameters);
-      List<HomeScreenSection> homeScreenDataList =
-          (response['data'] as List).map((element) {
-        return HomeScreenSection.fromJson(element);
-      }).toList();
-
-      return homeScreenDataList;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<DataOutput<ItemModel>> fetchHomeAllItems(
-      {required int page,
-      String? country,
-      String? state,
-      String? city,
-      double? latitude,
-      double? longitude,
-      int? areaId,
-      int? radius}) async {
-    try {
-      Map<String, dynamic> parameters = {
-        "page": page,
-        if (radius == null) ...{
-          if (city != null && city != "") 'city': city,
-          if (areaId != null && areaId != "") 'area_id': areaId,
-          if (country != null && country != "") 'country': country,
-          if (state != null && state != "") 'state': state,
+      final sections = JsonHelper.parseList(
+        response['data']['sections'] as List?,
+        (json) {
+          try {
+            return HomeSection.fromJson(json);
+          } catch (e, stack) {
+            Log.error('Error parsing HomeSection: ${e.toString()}', e, stack);
+            return null;
+          }
         },
-        if (radius != null && radius != "") 'radius': radius,
-        if (latitude != null && latitude != "") 'latitude': latitude,
-        if (longitude != null && longitude != "") 'longitude': longitude,
-        "sort_by": "new-to-old"
-      };
+      ).nonNulls.toList();
 
-      Map<String, dynamic> response =
-          await Api.get(url: Api.getItemApi, queryParameters: parameters);
-      List<ItemModel> items = (response['data']['data'] as List)
-          .map((e) => ItemModel.fromJson(e))
-          .toList();
-
-      return DataOutput(
-          total: response['data']['total'] ?? 0, modelList: items);
-    } catch (error) {
+      return sections;
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
       rethrow;
     }
   }
 
-  Future<DataOutput<ItemModel>> fetchSectionItems(
-      {required int page,
-      required int sectionId,
-      String? country,
-      String? state,
-      String? city,
-      int? areaId}) async {
+  Future<List<HomeSlider>> getSliders({required LeafLocation? location}) async {
     try {
-      Map<String, dynamic> parameters = {
-        "page": page,
-        "featured_section_id": sectionId,
-        if (city != null && city != "") 'city': city,
-        if (areaId != null && areaId != "") 'area_id': areaId,
-        if (country != null && country != "") 'country': country,
-        if (state != null && state != "") 'state': state,
-      };
+      final response = await Api.get(
+        url: Api.getSliderApi,
+        queryParameters: {
+          Api.city: ?location?.city?.canonical,
+          Api.state: ?location?.state?.canonical,
+          Api.country: ?location?.country?.canonical,
+        },
+      );
 
-      Map<String, dynamic> response =
-          await Api.get(url: Api.getItemApi, queryParameters: parameters);
-      List<ItemModel> items = (response['data']['data'] as List)
-          .map((e) => ItemModel.fromJson(e))
-          .toList();
+      final sliders = JsonHelper.parseList(
+        response['data'] as List?,
+        HomeSlider.parse,
+      );
+      return sliders;
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      rethrow;
+    }
+  }
+
+  Future<List<Category>> getPopularCategories() async {
+    try {
+      final response = await Api.get(url: Api.getPopularCategoriesApi);
+      final categories = JsonHelper.parseList(
+        response['data'] as List?,
+        Category.fromJson,
+      );
+      return categories;
+    } on Exception catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      rethrow;
+    }
+  }
+
+  Future<List<FeaturedSection>> getFeaturedSection({
+    required LeafLocation? location,
+  }) async {
+    try {
+      final response = await Api.get(
+        url: Api.getFeaturedSectionApi,
+        queryParameters: location?.toApiJson(),
+      );
+      final sections = JsonHelper.parseList(
+        response['data'] as List?,
+        FeaturedSection.fromJson,
+      );
+      return sections.where((element) => element.items.isNotEmpty).toList();
+    } catch (e, stack) {
+      Log.error(e.toString(), e, stack);
+      rethrow;
+    }
+  }
+
+  Future<DataOutput<ItemModel>> fetchHomeAllItems({
+    required int page,
+    required LeafLocation? location,
+  }) async {
+    try {
+      final response = await Api.get(
+        url: Api.getItemApi,
+        queryParameters: {
+          Api.page: page,
+          ...?location?.toApiJson(),
+          // To Receive global items if none are available at given location
+          'current_page': 'home',
+        },
+      );
+      final items = JsonHelper.parseList(
+        response['data']['data'] as List?,
+        ItemModel.fromJson,
+      );
 
       return DataOutput(
-          total: response['data']['total'] ?? 0, modelList: items);
-    } catch (error) {
+        total: response['data']['total'] ?? 0,
+        modelList: items,
+        extraData: ExtraData<String?>(data: response['message'] as String?),
+      );
+    } catch (e, stack) {
+      Log.error(e.toString(), e, stack);
       rethrow;
     }
   }

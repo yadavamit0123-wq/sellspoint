@@ -17,11 +17,11 @@ class AppleLogin extends LoginSystem {
 
       final AuthorizationCredentialAppleID appleIdCredential =
           await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
+            scopes: [
+              AppleIDAuthorizationScopes.email,
+              AppleIDAuthorizationScopes.fullName,
+            ],
+          );
 
       oAuthProvider = OAuthProvider('apple.com');
       if (oAuthProvider != null) {
@@ -30,15 +30,17 @@ class AppleLogin extends LoginSystem {
           accessToken: appleIdCredential.authorizationCode,
         );
 
-        final UserCredential userCredential =
-            await firebaseAuth.signInWithCredential(credential!);
+        final UserCredential userCredential = await firebaseAuth
+            .signInWithCredential(credential!);
 
         if (userCredential.additionalUserInfo!.isNewUser) {
-          final String givenName = appleIdCredential.givenName ?? "";
-          final String familyName = appleIdCredential.familyName ?? "";
-
-          await userCredential.user!
-              .updateDisplayName("$givenName $familyName");
+          final givenName = appleIdCredential.givenName;
+          final familyName = appleIdCredential.familyName;
+          var userName = '$givenName $familyName'.trim();
+          if (userName.isEmpty) {
+            userName = 'user_${DateTime.now().toIso8601String()}';
+          }
+          await userCredential.user!.updateDisplayName(userName);
           await userCredential.user!.reload();
         }
 
@@ -48,7 +50,6 @@ class AppleLogin extends LoginSystem {
       }
       return null;
     } catch (e) {
-      print("apple error catch***${e.toString()}");
       emit(MFail(e));
       throw e;
     }

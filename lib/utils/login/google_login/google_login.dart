@@ -1,7 +1,10 @@
+import 'dart:developer';
+
+import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/login/lib/login_status.dart';
 import 'package:eClassify/utils/login/lib/login_system.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleLogin extends LoginSystem {
@@ -9,9 +12,7 @@ class GoogleLogin extends LoginSystem {
 
   @override
   void init() {
-    _googleSignIn = GoogleSignIn(
-      scopes: ["profile", "email"],
-    );
+    _googleSignIn = GoogleSignIn(scopes: ["profile", "email"]);
   }
 
   @override
@@ -20,8 +21,14 @@ class GoogleLogin extends LoginSystem {
       emit(MProgress());
       GoogleSignInAccount? googleSignIn = await _googleSignIn?.signIn();
       if (googleSignIn == null) {
-        print("google-terminated");
-        throw ErrorDescription("google-terminated");
+        emit(
+          MFail(
+            "loginCancelledByUser".translate(
+              Constant.navigatorKey.currentContext!,
+            ),
+          ),
+        );
+        return null;
       }
 
       GoogleSignInAuthentication? googleAuth =
@@ -32,18 +39,15 @@ class GoogleLogin extends LoginSystem {
         idToken: googleAuth.idToken,
       );
 
-      UserCredential userCredential =
-          await firebaseAuth.signInWithCredential(authCredential);
+      UserCredential userCredential = await firebaseAuth.signInWithCredential(
+        authCredential,
+      );
       emit(MSuccess());
 
       return userCredential;
-    } catch (e) {
-      if (e is ErrorDescription) {
-        emit(MFail("google-terminated"));
-      } else {
-        emit(MFail(e.toString()));
-      }
-
+    }
+    on Exception catch (e, st) {
+      log('$e $st');
       rethrow;
     }
   }
@@ -51,11 +55,10 @@ class GoogleLogin extends LoginSystem {
   void signOut() async {
     if (await _googleSignIn?.isSignedIn() ?? false) {
       _googleSignIn?.signOut();
+      _googleSignIn?.disconnect();
     }
   }
 
   @override
-  void onEvent(MLoginState state) {
-    // TODO: implement onEvent
-  }
+  void onEvent(MLoginState state) {}
 }
