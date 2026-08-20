@@ -114,6 +114,8 @@ dependencies {
     implementation 'com.google.firebase:firebase-messaging'
     // Meta SDK — required by MainActivity.kt dynamic configure (admin-driven app id)
     implementation 'com.facebook.android:facebook-android-sdk:[18.0,19.0)'
+    // Satisfy R8 references from Flutter deferred-components (app does not use splits)
+    compileOnly 'com.google.android.play:feature-delivery:2.1.0'
 //    implementation 'com.google.firebase:firebase-messaging:24.0.3'
 /*    def emoji2_version = "1.4.0"
     implementation("androidx.emoji2:emoji2:$emoji2_version")
