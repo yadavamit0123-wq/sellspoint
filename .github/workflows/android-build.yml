@@ -33,13 +33,24 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          flutter-version: "3.32.0"
+          cache: false
 
       - name: Flutter version
         run: |
           flutter --version
           dart --version
-          flutter doctor -v
+          DART_MAJOR=$(dart --version 2>&1 | sed -n 's/.*Dart SDK version: \([0-9]*\)\.\([0-9]*\).*/\1/p')
+          if [ "${DART_MAJOR:-0}" -lt 3 ]; then
+            echo "ERROR: Dart too old for this project"
+            exit 1
+          fi
+          DART_MINOR=$(dart --version 2>&1 | sed -n 's/.*Dart SDK version: [0-9]*\.\([0-9]*\).*/\1/p')
+          if [ "${DART_MINOR:-0}" -lt 8 ]; then
+            echo "ERROR: Need Dart 3.8+ (pubspec). Got Dart 3.${DART_MINOR:-?}"
+            exit 1
+          fi
+          echo "Dart SDK OK for pubspec (>=3.8.0)"
 
       - name: Prepare Android Gradle (CI compatibility)
         run: |
