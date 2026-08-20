@@ -38,10 +38,12 @@ class MetaSdkService {
     }
 
     try {
-      await _channel.invokeMethod<void>('configure', {
-        'appId': settings.facebookAppId,
-        'clientToken': settings.facebookClientToken,
-      });
+      await _channel
+          .invokeMethod<void>('configure', {
+            'appId': settings.facebookAppId,
+            'clientToken': settings.facebookClientToken,
+          })
+          .timeout(const Duration(seconds: 8));
 
       await _events.setAutoLogAppEventsEnabled(false);
 

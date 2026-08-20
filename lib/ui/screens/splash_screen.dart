@@ -11,7 +11,9 @@ import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
 import 'package:eClassify/ui/theme/theme_colors.dart';
 import 'package:eClassify/ui/theme/theme_extensions.dart';
-import 'package:eClassify/utils/app_assets.dart';
+import 'package:eClassify/utils/app_icon.dart';
+import 'package:eClassify/utils/custom_text.dart';
+import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/app_session.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/hive_utils.dart';
@@ -66,8 +68,11 @@ class _SplashScreenState extends State<SplashScreen> {
       context.read<SystemSettingsCubit>().getSystemSettings();
       context.read<HomeConfigurationCubit>().getHomeConfiguration();
 
-      // Step 1: Wait for system settings
-      final settings = await _settingsCompleter.future;
+      // Step 1: Wait for system settings (avoid infinite splash if API hangs)
+      final settings = await _settingsCompleter.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException('Loading app settings timed out'),
+      );
 
       // Step 2: Load default or active locale settings
       _loadLanguage(
@@ -76,7 +81,10 @@ class _SplashScreenState extends State<SplashScreen> {
       );
 
       // Step 3: Wait for language translations to be downloaded
-      await _languageCompleter.future;
+      await _languageCompleter.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException('Loading language timed out'),
+      );
 
       // Step 4: Route the user based on settings and authentication states
       if (settings.maintenanceMode) {
@@ -126,7 +134,7 @@ class _SplashScreenState extends State<SplashScreen> {
             height: kToolbarHeight,
             child: Center(
               child: CustomImage(
-                src: AppAssets.branding.company,
+                src: AppIcons.companyLogo,
                 fit: BoxFit.contain,
               ),
             ),
@@ -190,25 +198,37 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       ],
       child: Scaffold(
-        backgroundColor: context.colorScheme.primary,
+        backgroundColor: context.color.territoryColor,
         bottomNavigationBar: _companyLogo(),
         body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 10,
           children: [
             CustomImage(
-              src: AppAssets.branding.logo,
-              size: Size.square(150),
+              src: AppIcons.splashLogo,
+              size: const Size.square(150),
               fit: BoxFit.scaleDown,
             ),
-            Text(
-              AppConfig.applicationName,
-              style: context.headlineLarge.copyWith(
-                color: context.colorScheme.onPrimary,
-                fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Column(
+                children: [
+                  CustomText(
+                    AppConfig.applicationName,
+                    fontSize: context.font.xxLarge,
+                    color: context.color.secondaryColor,
+                    textAlign: TextAlign.center,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  CustomText(
+                    '"${"buyAndSellAnything".translate(context)}"',
+                    fontSize: context.font.smaller,
+                    color: context.color.secondaryColor,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),

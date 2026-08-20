@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:eClassify/data/model/system_settings.dart';
 import 'package:eClassify/data/repositories/system_repository.dart';
 import 'package:eClassify/utils/constant.dart';
@@ -40,7 +42,8 @@ class SystemSettingsCubit extends Cubit<SystemSettingsState> {
       // TODO(I): Find a better way to access system settings
       Constant.systemSettings = settings;
 
-      await MetaSdkService.configure(settings);
+      // Do not block splash/home on Meta SDK native init.
+      unawaited(MetaSdkService.configure(settings));
 
       emit(SystemSettingsSuccess(settings: settings));
     } on Exception catch (e, stack) {

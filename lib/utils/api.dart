@@ -54,7 +54,12 @@ class Api {
 
     _cacheOptions = CacheOptions(store: HiveCacheStore(internalPath.path));
 
-    _dio = Dio()
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    )
       ..interceptors.addAll([
         NetworkRequestInterceptor(),
         if (kReleaseMode) DioCacheInterceptor(options: _cacheOptions),
