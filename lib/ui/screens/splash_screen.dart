@@ -10,6 +10,7 @@ import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/ui/theme/theme_colors.dart';
 import 'package:eClassify/utils/app_session.dart';
+import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
