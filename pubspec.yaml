@@ -112,6 +112,7 @@ flutter:
     - assets/languages/
     - assets/lottie/
     - assets/map/
+    - assets/videos/
 
 
   fonts:
