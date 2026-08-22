@@ -74,16 +74,15 @@ class LoginCubit extends Cubit<LoginState> {
 
       final token = await _getFCMToken();
       final user = await _getUpdatedUser(type, credential);
-      final name = _getUserName(type, user, credential);
 
       final result = await _authRepository.numberLoginWithApi(
-        phone: phoneNumber ?? credential.user!.providerData[0].phoneNumber,
+        phone: phoneNumber ?? _resolvePhone(credential),
         type: type,
         uid: firebaseUserId,
         fcmId: token,
-        email: credential.user!.providerData[0].email,
-        name: name,
-        profile: credential.user!.providerData[0].photoURL,
+        email: _resolveEmail(credential),
+        name: _getUserName(type, user, credential),
+        profile: _resolvePhotoUrl(credential),
         countryCode: countryCode,
         regionCode: regionCode,
         password: password,
@@ -186,9 +185,25 @@ class LoginCubit extends Cubit<LoginState> {
     if (type == AuthenticationType.apple.name) {
       return updatedUser?.displayName ??
           credential.user!.displayName ??
-          credential.user!.providerData[0].displayName;
+          credential.user!.providerData.firstOrNull?.displayName;
     }
-    return credential.user!.providerData[0].displayName;
+    return credential.user!.displayName ??
+        credential.user!.providerData.firstOrNull?.displayName;
+  }
+
+  String? _resolveEmail(UserCredential credential) {
+    final user = credential.user;
+    return user?.email ?? user?.providerData.firstOrNull?.email;
+  }
+
+  String? _resolvePhone(UserCredential credential) {
+    final user = credential.user;
+    return user?.phoneNumber ?? user?.providerData.firstOrNull?.phoneNumber;
+  }
+
+  String? _resolvePhotoUrl(UserCredential credential) {
+    final user = credential.user;
+    return user?.photoURL ?? user?.providerData.firstOrNull?.photoURL;
   }
 
   /// Handles login response

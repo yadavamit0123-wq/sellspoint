@@ -10,9 +10,16 @@ import 'package:google_sign_in/google_sign_in.dart';
 class GoogleLogin extends LoginSystem {
   GoogleSignIn? _googleSignIn;
 
+  /// Web client ID from Firebase (required for Google Sign-In + Firebase Auth on Android).
+  static const _googleWebClientId =
+      '229203066228-ltbl68i0ng3rva3glrhcc6gvheta5kip.apps.googleusercontent.com';
+
   @override
   void init() {
-    _googleSignIn = GoogleSignIn(scopes: ["profile", "email"]);
+    _googleSignIn = GoogleSignIn(
+      scopes: ['profile', 'email'],
+      serverClientId: _googleWebClientId,
+    );
   }
 
   @override

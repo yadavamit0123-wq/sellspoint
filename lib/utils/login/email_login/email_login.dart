@@ -24,8 +24,10 @@ class EmailLogin extends LoginSystem {
             email: payloadData.email,
             password: payloadData.password,
           );
-        } on Exception catch (e) {
+          emit(MSuccess());
+        } on FirebaseAuthException catch (e) {
           emit(MFail(e));
+          rethrow;
         }
       }
     }
