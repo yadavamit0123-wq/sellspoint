@@ -18,6 +18,7 @@ import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
 import 'package:eClassify/data/model/banner/banner_ad.dart';
 import 'package:eClassify/data/model/home/home_section.dart';
 import 'package:eClassify/data/model/location/leaf_location.dart';
+import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/new_development/status/widgets/home_status_strip.dart';
 import 'package:eClassify/ui/screens/google_banner_ad.dart';
 import 'package:eClassify/ui/screens/home/mixins/root_location_resolver_mixin.dart';
@@ -37,6 +38,7 @@ import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/lib/extensions.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/log.dart';
+import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -140,12 +142,41 @@ class _HomeScreenState extends State<HomeScreen>
       },
       child: Scaffold(
         appBar: AppBar(
+          elevation: 0,
           leadingWidth: double.maxFinite,
+          backgroundColor: const Color.fromARGB(0, 0, 0, 0),
           leading: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: Constant.horizontalPadding,
             ),
-            child: LocationWidget(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const LocationWidget(),
+                InkWell(
+                  onTap: () {
+                    UiUtils.checkUser(
+                      onNotGuest: () {
+                        Navigator.pushNamed(context, Routes.notificationPage);
+                      },
+                      context: context,
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: context.color.secondaryColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.notifications_active,
+                      color: context.color.textColorDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         body: BlocListener<LeafLocationCubit, LeafLocation?>(
