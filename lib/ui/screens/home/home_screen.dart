@@ -162,17 +162,22 @@ class _HomeScreenState extends State<HomeScreen>
                       context: context,
                     );
                   },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: context.color.secondaryColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.notifications_active,
-                      color: context.color.textColorDark,
-                    ),
+                  child: Builder(
+                    builder: (context) {
+                      final colorScheme = Theme.of(context).colorScheme;
+                      return Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.notifications_active,
+                          color: colorScheme.onSurface,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
