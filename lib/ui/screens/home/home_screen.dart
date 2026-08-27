@@ -26,6 +26,7 @@ import 'package:eClassify/ui/screens/home/widgets/all_items_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/category/all_category_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/category/popular_category_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/featured_section/featured_section_widget.dart';
+import 'package:eClassify/ui/screens/home/widgets/home_add_listing_button.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_screen_shimmer.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_search.dart';
 import 'package:eClassify/ui/screens/home/widgets/location_widget.dart';
@@ -298,6 +299,14 @@ class _HomeScreenState extends State<HomeScreen>
     final slivers = List<Widget>.empty(growable: true);
 
     slivers.add(SliverToBoxAdapter(child: HomeSearchField()));
+    slivers.add(
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.only(right: 16, bottom: 4),
+          child: HomeAddListingButton(),
+        ),
+      ),
+    );
     slivers.add(const SliverToBoxAdapter(child: HomeStatusStrip()));
 
     for (final section in sections) {

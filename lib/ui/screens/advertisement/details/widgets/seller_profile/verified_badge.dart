@@ -12,7 +12,7 @@ class VerifiedBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: context.color.forthColor,
+        color: const Color(0xff05a61d),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Padding(
@@ -25,12 +25,12 @@ class VerifiedBadge extends StatelessWidget {
             Icon(
               AppIcons.shieldCheck,
               size: 18,
-              color: context.colorScheme.onTertiary,
+              color: context.colorScheme.onPrimary,
             ),
             Text(
               "verifiedLbl".translate(context),
               style: context.labelLarge.withColor(
-                context.colorScheme.onTertiary,
+                context.colorScheme.onPrimary,
               ),
             ),
           ],

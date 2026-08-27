@@ -51,7 +51,7 @@ class ReelUserCard extends StatelessWidget {
             Icon(
               AppIcons.sealCheckFill,
               size: 16,
-              color: context.colorScheme.tertiary,
+              color: const Color(0xff05a61d),
             ),
           ],
           if (HiveUtils.isUserAuthenticated() && !isMyUser) ...[

@@ -122,7 +122,7 @@ class SellerProfileHeader extends StatelessWidget {
                         if (state.seller.isVerified ?? false)
                           Icon(
                             AppIcons.sealCheckFill,
-                            color: context.colorScheme.tertiary,
+                            color: const Color(0xff05a61d),
                             size: 16,
                           ),
                       ],
@@ -143,38 +143,6 @@ class SellerProfileHeader extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (state.seller.showPersonalDetails &&
-                        HiveUtils.isUserAuthenticated())
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        spacing: 4,
-                        children: [
-                          if (state.seller.email != null)
-                            Flexible(
-                              child: Text(
-                                state.seller.email!,
-                                style: context.labelLarge,
-                              ),
-                            ),
-                          if (state.seller.email != null &&
-                              state.seller.mobile != null)
-                            const SizedBox(
-                              height: 15,
-                              child: VerticalDivider(),
-                            ),
-                          if (state.seller.mobile != null)
-                            Flexible(
-                              child: Text(
-                                HelperUtils.getFormattedNumber(
-                                  state.seller.mobile!,
-                                  state.seller.phoneCode,
-                                  state.seller.regionCode,
-                                ),
-                                style: context.labelLarge,
-                              ),
-                            ),
-                        ],
-                      ),
                     if (state.seller.createdAt != null)
                       Text(
                         '${'memberSince'.translate(context)} ${state.seller.createdAt!.format(formatString: 'MMMM yyyy')}',

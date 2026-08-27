@@ -4,6 +4,7 @@ import 'package:eClassify/data/model/item/item_list.dart';
 import 'package:eClassify/ui/screens/home/widgets/category/popular_category_card.dart';
 import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
 import 'package:eClassify/ui/theme/theme_extensions.dart';
+import 'package:eClassify/utils/app_icons.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/extensions/lib/gap.dart';
@@ -16,7 +17,7 @@ class PopularCategoryWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 5),
+      padding: EdgeInsets.symmetric(vertical: 2),
       child: BlocBuilder<PopularCategoriesCubit, PopularCategoriesState>(
         builder: (context, state) {
           if (state is PopularCategoriesLoading) {
@@ -34,6 +35,7 @@ class PopularCategoryWidget extends StatelessWidget {
           if (state is PopularCategoriesSuccess) {
             final categories = state.categories;
             if (categories.isEmpty) return const SizedBox.shrink();
+            final itemCount = categories.length + 1;
             return ConstrainedBox(
               constraints: BoxConstraints(maxHeight: 160),
               child: Column(
@@ -43,7 +45,7 @@ class PopularCategoryWidget extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: Constant.horizontalPadding,
-                      vertical: 10,
+                      vertical: 6,
                     ),
                     child: Text(
                       'popularCategories'.translate(context),
@@ -52,8 +54,17 @@ class PopularCategoryWidget extends StatelessWidget {
                   ),
                   Expanded(
                     child: _CategoryList(
-                      itemCount: categories.length,
+                      itemCount: itemCount,
                       itemBuilder: (context, index) {
+                        if (index == categories.length) {
+                          return _MoreCategoryCard(
+                            onTap: () {
+                              Navigator.of(context).pushNamed(
+                                Routes.categoryBrowsing,
+                              );
+                            },
+                          );
+                        }
                         final category = categories[index];
                         return PopularCategoryCard(
                           title: category.name.localized,
@@ -95,6 +106,49 @@ class _CategoryList extends StatelessWidget {
         itemBuilder: itemBuilder,
         padding: EdgeInsets.symmetric(horizontal: Constant.horizontalPadding),
         separatorBuilder: (context, index) => 10.hGap,
+      ),
+    );
+  }
+}
+
+class _MoreCategoryCard extends StatelessWidget {
+  const _MoreCategoryCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 70,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          spacing: 4,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: context.color.secondaryColor),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Icon(
+                    AppIcons.gridFourFill,
+                    color: context.color.territoryColor,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'more'.translate(context),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: context.labelSmall,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

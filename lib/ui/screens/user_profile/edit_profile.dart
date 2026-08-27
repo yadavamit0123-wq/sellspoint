@@ -94,6 +94,10 @@ class UserProfileScreenState extends State<UserProfileScreen> {
     phoneController.phoneCode = user?.countryCode;
     phoneController.regionCode = user?.regionCode;
 
+    final details = HiveUtils.getUserDetails();
+    referralCodeController.text =
+        details.referId ?? details.referralCode ?? '';
+
     profileImagePicker.listener((files) {
       if (files != null && files.isNotEmpty) {
         setState(() {
@@ -220,6 +224,13 @@ class UserProfileScreenState extends State<UserProfileScreen> {
                       controller: addressController,
                       maxline: 5,
                       textInputAction: TextInputAction.newline,
+                    ),
+                    buildTextField(
+                      context,
+                      title: "referralCode",
+                      controller: referralCodeController,
+                      readOnly: (HiveUtils.getUserDetails().byReferId ?? '')
+                          .isNotEmpty,
                     ),
                     CustomText("notification".translate(context)),
                     buildEnableDisableSwitch(isNotificationsEnabled, (cgvalue) {

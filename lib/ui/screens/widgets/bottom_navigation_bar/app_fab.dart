@@ -39,6 +39,10 @@ class AppFab extends StatelessWidget {
     };
   }
 
+  static void navigateToAdPosting(BuildContext context) {
+    Navigator.pushNamed(context, Routes.adPostingScreen);
+  }
+
   void _onPressed(BuildContext context) {
     UiUtils.checkUser(
       onNotGuest: () {
@@ -90,7 +94,7 @@ class AppFab extends StatelessWidget {
           );
         }
         if (state is FetchUserPackageLimitInSuccess) {
-          Navigator.pushNamed(context, Routes.adPostingScreen);
+          navigateToAdPosting(context);
         }
       },
       child: child,

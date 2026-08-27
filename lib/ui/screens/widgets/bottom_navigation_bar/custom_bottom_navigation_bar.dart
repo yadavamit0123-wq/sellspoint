@@ -127,11 +127,14 @@ class _BottomNavigationItemWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          CustomImage(
-            src: selected ? item.activeIcon : item.icon,
-            size: Size.square(24),
-            fit: BoxFit.scaleDown,
-          ),
+          if (item.tab == BottomTab.videoAds)
+            _VideoAdNavIcon(selected: selected)
+          else
+            CustomImage(
+              src: selected ? item.activeIcon : item.icon,
+              size: Size.square(24),
+              fit: BoxFit.scaleDown,
+            ),
           Text(
             item.label.translate(context),
             textAlign: TextAlign.center,
@@ -141,6 +144,47 @@ class _BottomNavigationItemWidget extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _VideoAdNavIcon extends StatelessWidget {
+  const _VideoAdNavIcon({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 34,
+        height: 34,
+        padding: const EdgeInsets.all(2.5),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const RadialGradient(
+            colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFFB300).withValues(alpha: 0.55),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFF1565C0),
+          ),
+          child: Icon(
+            Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: selected ? 22 : 20,
+          ),
+        ),
       ),
     );
   }
