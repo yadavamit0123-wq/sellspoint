@@ -28,6 +28,7 @@ class ImportCurrenciesFromWorld extends Command
         $created = 0;
         $skipped = 0;
         $updated = 0;
+        $linked = 0;
 
         try {
             foreach (JsonParser::parse(resource_path('world.json')) as $country) {
@@ -49,14 +50,21 @@ class ImportCurrenciesFromWorld extends Command
                     'country_id' => $country['id'],
                 ];
 
-                $existing = Currency::where('country_id', $country['id'])->first();
-                if ($existing) {
+                $existingForCountry = Currency::where('country_id', $country['id'])->first();
+                if ($existingForCountry) {
                     if ($force) {
-                        $existing->update($payload);
+                        $existingForCountry->update($payload);
                         $updated++;
                     } else {
                         $skipped++;
                     }
+                    continue;
+                }
+
+                $existingForIso = Currency::where('iso_code', $isoCode)->first();
+                if ($existingForIso) {
+                    // Shared currencies (EUR, USD, etc.) — one row per ISO code.
+                    $linked++;
                     continue;
                 }
 
@@ -69,7 +77,7 @@ class ImportCurrenciesFromWorld extends Command
             return self::FAILURE;
         }
 
-        $this->info("Currencies imported. Created: {$created}, Updated: {$updated}, Skipped: {$skipped}.");
+        $this->info("Currencies imported. Created: {$created}, Updated: {$updated}, Linked (existing ISO): {$linked}, Skipped: {$skipped}.");
 
         return self::SUCCESS;
     }
