@@ -50,6 +50,7 @@ class NotificationUtility {
       AuthorizationStatus.provisional => true,
       AuthorizationStatus.denied => await _askNotificationPermission(),
       AuthorizationStatus.notDetermined => await _askNotificationPermission(),
+      AuthorizationStatus.deniedPermanently => false,
     };
 
     if (permissionGiven) {
