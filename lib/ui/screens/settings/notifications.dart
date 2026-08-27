@@ -10,6 +10,7 @@ import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/custom_text.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
+import 'package:eClassify/utils/link_text.dart';
 import 'package:eClassify/utils/interstitial_ad_on_exit_mixin.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
@@ -197,8 +198,8 @@ class NotificationsState extends State<Notifications>
                                     ),
                                   ),
                             ),
-                            Text(
-                              notificationData.message!.firstUpperCase(),
+                            LinkText(
+                              text: notificationData.message!.firstUpperCase(),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall!

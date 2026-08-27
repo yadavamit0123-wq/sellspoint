@@ -4,10 +4,18 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Renders plain text with tappable http/https links.
 class LinkText extends StatelessWidget {
-  const LinkText({required this.text, this.style, super.key});
+  const LinkText({
+    required this.text,
+    this.style,
+    this.maxLines,
+    this.overflow,
+    super.key,
+  });
 
   final String text;
   final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow? overflow;
 
   static final _urlPattern = RegExp(
     r'https?://[^\s<>"{}|\\^`\[\]]+',
@@ -49,9 +57,18 @@ class LinkText extends StatelessWidget {
     }
 
     if (spans.isEmpty) {
-      return Text(text, style: defaultStyle);
+      return Text(
+        text,
+        style: defaultStyle,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
     }
 
-    return Text.rich(TextSpan(style: defaultStyle, children: spans));
+    return Text.rich(
+      TextSpan(style: defaultStyle, children: spans),
+      maxLines: maxLines,
+      overflow: overflow ?? TextOverflow.clip,
+    );
   }
 }
