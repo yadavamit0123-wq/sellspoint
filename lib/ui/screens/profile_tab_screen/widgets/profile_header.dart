@@ -153,7 +153,7 @@ class _VerifiedIcon extends StatelessWidget {
       return Icon(
         AppIcons.sealCheckFill,
         size: 16,
-        color: const Color(0xff05a61d),
+        color: context.colorScheme.tertiary,
       );
     } else {
       return const SizedBox.shrink();
