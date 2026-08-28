@@ -4,6 +4,7 @@ import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/data/model/item/product_video.dart';
 import 'package:eClassify/ui/screens/advertisement/details/widgets/media_gallery_view/gallery_screen.dart';
 import 'package:eClassify/ui/screens/advertisement/details/widgets/media_gallery_view/video_player_widget.dart';
+import 'package:eClassify/ui/screens/widgets/contained_blur_image.dart';
 import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/lib/build_context.dart';
@@ -135,13 +136,16 @@ class _MediaGalleryState extends State<MediaGallery> {
                     )
                   : InteractiveViewer(
                       maxScale: 5,
-                      child: CustomImage(
-                        src: _images[index],
-                        size: widget.isFullScreen ? null : imageSize,
-                        fit: widget.isFullScreen
-                            ? BoxFit.contain
-                            : BoxFit.cover,
-                      ),
+                      child: widget.isFullScreen
+                          ? CustomImage(
+                              src: _images[index],
+                              fit: BoxFit.contain,
+                            )
+                          : ContainedBlurImage(
+                              src: _images[index],
+                              size: imageSize,
+                              radius: 16,
+                            ),
                     ),
             ),
           );

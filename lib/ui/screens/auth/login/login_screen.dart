@@ -366,7 +366,10 @@ class LoginScreenState extends State<LoginScreen> {
           color: context.color.textColorDark,
         ),
         const SizedBox(height: 24),
-        PhoneInput(controller: _phoneInputController),
+        PhoneInput(
+          controller: _phoneInputController,
+          hintKey: 'mobileNoLbl',
+        ),
         const SizedBox(height: 10),
         CustomTextFormField(
           hintText: "${"password".translate(context)}",

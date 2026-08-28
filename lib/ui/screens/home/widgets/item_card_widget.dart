@@ -1,7 +1,7 @@
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/ui/screens/home/widgets/favorite_button.dart';
-import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/screens/widgets/contained_blur_image.dart';
 import 'package:eClassify/ui/screens/widgets/promoted_widget.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/ui/theme/theme_colors.dart';
@@ -73,11 +73,11 @@ class ItemCard extends StatelessWidget {
                         Positioned.fill(
                           child: ClipRRect(
                             borderRadius: _borderRadius,
-                            child: CustomImage(
+                            child: ContainedBlurImage(
                               key: ValueKey(item?.id),
                               src: item?.image ?? '',
                               size: size,
-                              fit: BoxFit.cover,
+                              radius: 18,
                               adaptive: true,
                             ),
                           ),

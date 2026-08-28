@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eClassify/data/cubits/system/bottom_nav_cubit.dart';
 import 'package:eClassify/data/model/item/video_ad.dart';
+import 'package:eClassify/ui/screens/widgets/contained_blur_image.dart';
 import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/theme/theme_colors.dart';
 import 'package:eClassify/ui/theme/theme_extensions.dart';
@@ -167,7 +168,7 @@ class _ReelPlayerState extends State<ReelPlayer>
             return Stack(
               fit: StackFit.expand,
               children: [
-                CustomImage(src: widget.ad.thumbnail, fit: BoxFit.cover),
+                ContainedBlurImage(src: widget.ad.thumbnail),
                 Positioned.fill(
                   child: ColoredBox(
                     color: Colors.black45,
@@ -217,9 +218,25 @@ class _ReelPlayerState extends State<ReelPlayer>
                         }
                       },
                       child: Stack(
+                        fit: StackFit.expand,
                         alignment: Alignment.center,
                         children: [
-                          VideoPlayer(_controller),
+                          ImageFiltered(
+                            imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                            child: CustomImage(
+                              src: widget.ad.thumbnail,
+                              size: MediaQuery.sizeOf(context),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.contain,
+                            child: SizedBox(
+                              width: _controller.value.size.width,
+                              height: _controller.value.size.height,
+                              child: VideoPlayer(_controller),
+                            ),
+                          ),
                           ValueListenableBuilder<VideoPlayerValue>(
                             valueListenable: _controller,
                             builder: (context, value, child) {
@@ -246,17 +263,10 @@ class _ReelPlayerState extends State<ReelPlayer>
                         ],
                       ),
                     )
-                  : CustomImage(
+                  : ContainedBlurImage(
                       key: const ValueKey('thumbnail'),
                       src: widget.ad.thumbnail,
                       size: MediaQuery.sizeOf(context),
-                      placeholder: CachedNetworkImage(
-                        imageUrl: widget.ad.thumbnail,
-                        height: MediaQuery.sizeOf(context).height,
-                        width: MediaQuery.sizeOf(context).width,
-                        fit: BoxFit.cover,
-                      ),
-                      fit: BoxFit.cover,
                     ),
             ),
           );

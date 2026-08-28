@@ -2,7 +2,7 @@
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/ui/screens/home/widgets/favorite_button.dart';
-import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/screens/widgets/contained_blur_image.dart';
 import 'package:eClassify/ui/screens/widgets/promoted_widget.dart';
 import 'package:eClassify/ui/theme/theme.dart';
 import 'package:eClassify/utils/app_icons.dart';
@@ -61,10 +61,10 @@ class ItemHorizontalCard extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: CustomImage(
+                        child: ContainedBlurImage(
                           src: item.image ?? '',
                           size: const Size(100, 122),
-                          fit: BoxFit.cover,
+                          radius: 12,
                           adaptive: true,
                         ),
                       ),

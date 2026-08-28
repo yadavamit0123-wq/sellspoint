@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:eClassify/ui/screens/widgets/contained_blur_image.dart';
 import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/favorite/favorite_cubit.dart';
 import 'package:eClassify/data/cubits/item/video_ads/liked_reels_cubit.dart';
@@ -284,14 +284,8 @@ class _LikedReelsWidgetState extends State<LikedReelsWidget> {
                     itemBuilder: (context, index) {
                       final ad = state.ads[index];
                       // Displaying a small thumbnail for the reel
-                      return DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          image: DecorationImage(
-                            image: CachedNetworkImageProvider(ad.thumbnail),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
@@ -302,7 +296,12 @@ class _LikedReelsWidgetState extends State<LikedReelsWidget> {
                             );
                           },
                           child: Stack(
+                            fit: StackFit.expand,
                             children: [
+                              ContainedBlurImage(
+                                src: ad.thumbnail,
+                                radius: 16,
+                              ),
                               PositionedDirectional(
                                 top: 8,
                                 end: 8,

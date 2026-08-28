@@ -14,6 +14,7 @@ class PhoneInput extends StatefulWidget {
     this.focusNode,
     this.readOnly = false,
     this.required = true,
+    this.hintKey,
     super.key,
   });
 
@@ -21,6 +22,7 @@ class PhoneInput extends StatefulWidget {
   final FocusNode? focusNode;
   final bool readOnly;
   final bool required;
+  final String? hintKey;
 
   @override
   State<PhoneInput> createState() => _PhoneInputState();
@@ -71,9 +73,11 @@ class _PhoneInputState extends State<PhoneInput> {
         controller: widget.controller,
         textInputType: TextInputType.number,
         readOnly: widget.readOnly,
-        hintKey: _country.exampleNumberMobileInternational.substring(
-          _country.phoneCode.length + 1,
-        ),
+        hintKey:
+            widget.hintKey ??
+            _country.exampleNumberMobileInternational.substring(
+              _country.phoneCode.length + 1,
+            ),
         onChanged: (value) {
           // Invalidate previous validation status when the user modifies input
           // to prevent form submission with a stale validation state.

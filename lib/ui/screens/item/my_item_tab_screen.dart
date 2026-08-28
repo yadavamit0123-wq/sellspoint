@@ -7,7 +7,7 @@ import 'package:eClassify/data/model/item/ad_item_type.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/ui/screens/advertisement/details/widgets/dialogs/delete_advertisement_dialog.dart';
 import 'package:eClassify/ui/screens/item/item_listeners.dart';
-import 'package:eClassify/ui/screens/widgets/custom_image.dart';
+import 'package:eClassify/ui/screens/widgets/contained_blur_image.dart';
 import 'package:eClassify/ui/screens/widgets/errors/no_data_found.dart';
 import 'package:eClassify/ui/screens/widgets/promoted_widget.dart';
 import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
@@ -471,16 +471,13 @@ class _MyItemTabState extends State<MyItemTab> {
                                                         BorderRadius.circular(
                                                           15,
                                                         ),
-                                                    child: CustomImage(
+                                                    child: ContainedBlurImage(
                                                       src: item.image!,
                                                       size: const Size(
                                                         110,
                                                         130,
                                                       ),
-                                                      resolution: Size.square(
-                                                        150,
-                                                      ),
-                                                      fit: BoxFit.cover,
+                                                      radius: 15,
                                                     ),
                                                   ),
                                                   if (item.isFeature ?? false)
