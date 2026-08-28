@@ -37,6 +37,12 @@ class LocationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Home/browse location: always show country → state → city list (website parity).
+    // Ad posting with exact location still uses map picker when paid API is active.
+    if (!requiresExactLocation) {
+      return LocationListPicker(requiresExactLocation: requiresExactLocation);
+    }
+
     final isFreeApi = Constant.systemSettings.mapProvider == 'free_api';
     return isFreeApi
         ? LocationListPicker(requiresExactLocation: requiresExactLocation)

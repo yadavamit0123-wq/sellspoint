@@ -57,8 +57,6 @@ class LocationCubit extends Cubit<LocationState> {
 
   /// Starts the selection flow by loading the list of countries.
   ///
-  /// If only one country is available, auto-selects it and moves to states.
-  ///
   /// Emits:
   /// - [LocationLoading]
   /// - [LocationSuccess<Country>] on success
@@ -203,10 +201,13 @@ class LocationCubit extends Cubit<LocationState> {
   /// Finalizes selection with the current in-progress location.
   ///
   /// Emits:
-  /// - [LocationSelected] with current location
+  /// - [LocationSelected] with current location (or global when at country root)
   /// Also clears cached state.
   void selectCurrentNode() {
-    emit(LocationSelected(location: _location.toLeafLocation()));
+    final leaf = _location.isEmpty
+        ? LeafLocation.global()
+        : _location.toLeafLocation();
+    emit(LocationSelected(location: leaf));
     _resetValues();
   }
 
