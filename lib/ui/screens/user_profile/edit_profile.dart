@@ -214,6 +214,7 @@ class UserProfileScreenState extends State<UserProfileScreen> {
                     ),
                     PhoneInput(
                       controller: phoneController,
+                      hintKey: 'mobileNoLbl',
                       readOnly:
                           HiveUtils.getUserDetails().type ==
                           AuthenticationType.phone.name,

@@ -119,6 +119,7 @@ class MainActivityState extends State<MainActivity> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         bottomNavigationBar: CustomBottomNavigationBar(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: BlocBuilder<BottomNavCubit, BottomTab>(
           builder: (context, state) {
             if (state case BottomTab.home || BottomTab.myAds) {
