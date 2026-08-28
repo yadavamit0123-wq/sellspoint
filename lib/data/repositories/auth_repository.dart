@@ -71,8 +71,6 @@ class AuthRepository {
       parameter: parameters,
     );
 
-    await _applyPendingReferralIfNeeded(response);
-
     return {"token": response['token'], "data": response['data']};
   }
 

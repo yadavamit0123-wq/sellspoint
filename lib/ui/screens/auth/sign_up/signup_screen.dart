@@ -6,6 +6,7 @@ import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/cubits/auth/login_cubit.dart';
 import 'package:eClassify/data/cubits/system/user_details.dart';
+import 'package:eClassify/data/repositories/referral_repository.dart';
 import 'package:eClassify/ui/screens/auth/sign_up/email_verification_screen.dart';
 import 'package:eClassify/ui/screens/auth/widgets/terms_and_conditions_widget.dart';
 import 'package:eClassify/ui/screens/widgets/custom_text_form_field.dart';
@@ -173,12 +174,26 @@ class _SignupScreenState extends State<SignupScreen> {
 
     bool isFormValid = _formKey.currentState?.validate() ?? false;
 
-    if (isFormValid && isPhoneValid) {
-      if (AppConfig.enableReferralProgram) {
-        await HiveUtils.setPendingReferralCode(_referralCodeController.text);
-      }
+    if (!isFormValid || !isPhoneValid) return;
 
-      if (isSignupWithMobile.value) {
+    if (AppConfig.enableReferralProgram) {
+      final referralResult = await ReferralRepository.validateAndSavePendingCode(
+        _referralCodeController.text,
+      );
+      if (!referralResult.valid) {
+        HelperUtils.showSnackBarMessage(
+          context,
+          referralResult.message ?? 'Invalid Referral Code',
+        );
+        return;
+      }
+      if (referralResult.message != null &&
+          referralResult.message!.trim().isNotEmpty) {
+        HelperUtils.showSnackBarMessage(context, referralResult.message!);
+      }
+    }
+
+    if (isSignupWithMobile.value) {
         // Mobile signup - send OTP
         if (_phonePasswordController.text.trim().isEmpty) {
           HelperUtils.showSnackBarMessage(context, 'Password is required');
@@ -220,12 +235,11 @@ class _SignupScreenState extends State<SignupScreen> {
           type: AuthenticationType.email,
         );
         context.read<AuthenticationCubit>().authenticate();
-      }
-
-      _phoneInputController.clear();
-      _passwordController.clear();
-      _emailController.clear();
     }
+
+    _phoneInputController.clear();
+    _passwordController.clear();
+    _emailController.clear();
   }
 
   void onVerifyOTP() {
@@ -430,17 +444,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
               ),
-              if (AppConfig.enableReferralProgram) ...[
-                const SizedBox(height: 10),
-                CustomTextFormField(
-                  controller: _referralCodeController,
-                  fillColor: context.color.secondaryColor,
-                  hintText: 'Referral code (optional)',
-                  borderColor: context.color.textLightColor.withValues(
-                    alpha: 0.3,
-                  ),
-                ),
-              ],
             ] else ...[
               // Email signup
               CustomTextFormField(
@@ -467,6 +470,17 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 hintText: "password".translate(context),
                 validator: CustomTextFieldValidator.password,
+                borderColor: context.color.textLightColor.withValues(
+                  alpha: 0.3,
+                ),
+              ),
+            ],
+            if (AppConfig.enableReferralProgram) ...[
+              const SizedBox(height: 10),
+              CustomTextFormField(
+                controller: _referralCodeController,
+                fillColor: context.color.secondaryColor,
+                hintText: 'Referral code (optional)',
                 borderColor: context.color.textLightColor.withValues(
                   alpha: 0.3,
                 ),
