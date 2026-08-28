@@ -119,42 +119,51 @@ class MainActivityState extends State<MainActivity> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         bottomNavigationBar: CustomBottomNavigationBar(),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        floatingActionButton: BlocBuilder<BottomNavCubit, BottomTab>(
-          builder: (context, state) {
-            if (state case BottomTab.home || BottomTab.myAds) {
-              return AppFab(type: FabType.tricolor);
-            } else {
-              return const SizedBox.shrink();
-            }
-          },
-        ),
-        body: BlocListener<AppUpdateCubit, AppUpdateState>(
-          listener: (context, state) {
-            if (state is AppUpdateAvailable) {
-              VersionUpdateDialog.show(
-                context,
-                availableVersion: state.required,
-                isForceUpdate: state.isMandatory,
-              );
-            }
-          },
-          child: BlocListener<BottomNavCubit, BottomTab>(
-            listener: (context, state) {
-              _pageController.jumpToPage(state.index);
-            },
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                HomeScreen(from: widget.from),
-                const ChatListScreen(),
-                const VideoAdsScreen(),
-                const ItemsScreen(),
-                const ProfileTabScreen(),
-              ],
+        body: Stack(
+          children: [
+            BlocListener<AppUpdateCubit, AppUpdateState>(
+              listener: (context, state) {
+                if (state is AppUpdateAvailable) {
+                  VersionUpdateDialog.show(
+                    context,
+                    availableVersion: state.required,
+                    isForceUpdate: state.isMandatory,
+                  );
+                }
+              },
+              child: BlocListener<BottomNavCubit, BottomTab>(
+                listener: (context, state) {
+                  _pageController.jumpToPage(state.index);
+                },
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    HomeScreen(from: widget.from),
+                    const ChatListScreen(),
+                    const VideoAdsScreen(),
+                    const ItemsScreen(),
+                    const ProfileTabScreen(),
+                  ],
+                ),
+              ),
             ),
-          ),
+            BlocBuilder<BottomNavCubit, BottomTab>(
+              builder: (context, state) {
+                if (state case BottomTab.home || BottomTab.myAds) {
+                  return PositionedDirectional(
+                    end: 8,
+                    bottom:
+                        kBottomNavigationBarHeight +
+                        MediaQuery.paddingOf(context).bottom +
+                        4,
+                    child: AppFab(type: FabType.tricolor),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
         ),
       ),
     );
