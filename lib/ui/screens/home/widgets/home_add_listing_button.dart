@@ -40,7 +40,10 @@ class HomeAddListingButton extends StatelessWidget {
           AppFab.navigateToAdPosting(context);
         }
       },
-      child: TricolorAddListingButton(onTap: () => _onTap(context)),
+      child: TricolorAddListingButton(
+        onTap: () => _onTap(context),
+        layout: TricolorAddListingLayout.statusStrip,
+      ),
     );
   }
 }

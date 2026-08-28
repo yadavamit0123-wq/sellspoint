@@ -10,12 +10,15 @@ class HomeStatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 8, bottom: 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          HomeAddListingButton(),
-          Expanded(child: HomeStatusStrip()),
-        ],
+      child: SizedBox(
+        height: 110,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            HomeAddListingButton(),
+            Expanded(child: HomeStatusStrip()),
+          ],
+        ),
       ),
     );
   }

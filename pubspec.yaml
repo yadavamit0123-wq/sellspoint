@@ -102,6 +102,7 @@ flutter:
 
   assets:
     - assets/
+    - assets/images/
     - assets/icons/bottom_navigation/
     - assets/icons/branding/
     - assets/icons/illustrators/

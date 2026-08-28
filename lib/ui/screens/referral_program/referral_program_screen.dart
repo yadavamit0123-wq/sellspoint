@@ -14,7 +14,6 @@ import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -117,10 +116,11 @@ class _ReferralProgramScreenState extends State<ReferralProgramScreen> with Sing
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          SvgPicture.asset(
-                            'assets/svg/gift.svg',
+                          Image.asset(
+                            'assets/images/referral_earn_banner.png',
                             height: size.height * 0.3,
                             width: size.width,
+                            fit: BoxFit.contain,
                           ),
                           const SizedBox(height: 16),
                           const Text(
