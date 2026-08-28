@@ -9,7 +9,7 @@ class HomeStatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 8, bottom: 0),
+      padding: const EdgeInsets.only(left: 16, right: 8, top: 0, bottom: 0),
       child: SizedBox(
         height: 110,
         child: Row(

@@ -102,17 +102,19 @@ class _HomeSearchFieldState extends State<HomeSearchField> {
         }
       },
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: Constant.horizontalPadding,
-          vertical: 15,
+        padding: EdgeInsets.only(
+          left: Constant.horizontalPadding,
+          right: Constant.horizontalPadding,
+          top: 8,
+          bottom: 4,
         ),
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: _openSearch,
           child: AbsorbPointer(
             child: Container(
-              width: context.screenWidth,
-              height: 56,
+              width: double.infinity,
+              height: 46,
               alignment: AlignmentDirectional.center,
               decoration: BoxDecoration(
                 border: Border.all(
