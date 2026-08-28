@@ -122,7 +122,7 @@ class MainActivityState extends State<MainActivity> {
         floatingActionButton: BlocBuilder<BottomNavCubit, BottomTab>(
           builder: (context, state) {
             if (state case BottomTab.home || BottomTab.myAds) {
-              return AppFab(type: FabType.material);
+              return AppFab(type: FabType.tricolor);
             } else {
               return const SizedBox.shrink();
             }

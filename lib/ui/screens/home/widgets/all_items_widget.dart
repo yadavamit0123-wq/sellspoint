@@ -1,7 +1,6 @@
 import 'package:eClassify/data/cubits/home/home_items_cubit.dart';
 import 'package:eClassify/ui/screens/home/widgets/item_card_widget.dart';
 import 'package:eClassify/ui/screens/native_ads_widget.dart';
-import 'package:eClassify/ui/screens/widgets/q_error_widget.dart';
 import 'package:eClassify/ui/screens/widgets/shimmer_loading_container.dart';
 import 'package:eClassify/ui/theme/theme_extensions.dart';
 import 'package:eClassify/utils/constant.dart';
@@ -64,13 +63,7 @@ class AllItemsWidget extends StatelessWidget {
             builder: (context, state) {
               if (state is HomeItemsSuccess) {
                 if (state.items.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: QErrorWidget.emptyData(
-                      onRetry: () {
-                        context.read<HomeItemsCubit>().getHomeItems();
-                      },
-                    ),
-                  );
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
                 }
 
                 final items = state.items;

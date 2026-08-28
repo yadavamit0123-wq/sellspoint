@@ -150,14 +150,7 @@ class NotificationsState extends State<Notifications>
             itemCount: state.notificationData.length,
             itemBuilder: (context, index) {
               NotificationData notificationData = state.notificationData[index];
-              return GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pushNamed(
-                    Routes.notificationDetailPage,
-                    arguments: {'notificationData': notificationData},
-                  );
-                },
-                child: Container(
+              return Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.secondaryColor,
                     borderRadius: BorderRadius.circular(10),
@@ -177,26 +170,44 @@ class NotificationsState extends State<Notifications>
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      CustomImage(
-                        src: notificationData.image,
-                        size: Size.square(50),
-                        radius: 12,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).pushNamed(
+                            Routes.notificationDetailPage,
+                            arguments: {'notificationData': notificationData},
+                          );
+                        },
+                        child: CustomImage(
+                          src: notificationData.image,
+                          size: Size.square(50),
+                          radius: 12,
+                        ),
                       ),
                       Expanded(
                         child: Column(
                           spacing: 3,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Text(
-                              notificationData.title!.firstUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium!
-                                  .merge(
-                                    const TextStyle(
-                                      fontWeight: FontWeight.w500,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).pushNamed(
+                                  Routes.notificationDetailPage,
+                                  arguments: {
+                                    'notificationData': notificationData,
+                                  },
+                                );
+                              },
+                              child: Text(
+                                notificationData.title!.firstUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium!
+                                    .merge(
+                                      const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                  ),
+                              ),
                             ),
                             LinkText(
                               text: notificationData.message!.firstUpperCase(),
@@ -219,8 +230,7 @@ class NotificationsState extends State<Notifications>
                       ),
                     ],
                   ),
-                ),
-              );
+                );
             },
           ),
         ),

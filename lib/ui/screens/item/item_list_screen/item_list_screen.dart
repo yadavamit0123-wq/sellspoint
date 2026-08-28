@@ -4,6 +4,7 @@ import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/item/item_list_cubit.dart';
 import 'package:eClassify/data/model/item/item_list.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
+import 'package:eClassify/new_development/status/widgets/category_status_strip.dart';
 import 'package:eClassify/ui/screens/home/widgets/item_card_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/item_horizontal_card.dart';
 import 'package:eClassify/ui/screens/item/item_list_screen/item_list_bottom_bar.dart';
@@ -274,6 +275,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (metadata is SearchMetaData) _searchHistoryWidget(),
+                  if (metadata is CategoryMetaData)
+                    const CategoryStatusStrip(),
                   BlocConsumer<ItemListCubit, ItemListState>(
                     listener: (context, state) {
                       if (state is ItemListSuccess ||

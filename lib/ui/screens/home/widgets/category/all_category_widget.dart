@@ -18,7 +18,7 @@ class AllCategoryWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 5),
+      padding: EdgeInsets.symmetric(vertical: 2),
       child: BlocBuilder<MainCategoryCubit, MainCategoryState>(
         builder: (context, state) {
           if (state is MainCategoryLoading) {

@@ -2,7 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Renders plain text with tappable http/https links.
+/// Renders plain text with tappable http/https and common web links.
 class LinkText extends StatelessWidget {
   const LinkText({
     required this.text,
@@ -18,9 +18,33 @@ class LinkText extends StatelessWidget {
   final TextOverflow? overflow;
 
   static final _urlPattern = RegExp(
-    r'https?://[^\s<>"{}|\\^`\[\]]+',
+    r'(https?://[^\s<>"{}|\\^`\[\]]+|www\.[^\s<>"{}|\\^`\[\]]+|(?:play\.google\.com|apps\.apple\.com|bit\.ly|t\.co)/[^\s<>"{}|\\^`\[\]]+)',
     caseSensitive: false,
   );
+
+  static Uri? _toLaunchUri(String raw) {
+    final trimmed = raw.trim().replaceAll(RegExp(r'[.,;:!?)]+$'), '');
+    if (trimmed.isEmpty) return null;
+
+    final withScheme = trimmed.startsWith(RegExp(r'https?://', caseSensitive: false))
+        ? trimmed
+        : 'https://$trimmed';
+    return Uri.tryParse(withScheme);
+  }
+
+  static Future<void> launchLink(String raw) async {
+    final uri = _toLaunchUri(raw);
+    if (uri == null) return;
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (_) {
+      // Ignore launch failures; link remains visible.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +66,7 @@ class LinkText extends StatelessWidget {
           text: url,
           style: linkStyle,
           recognizer: TapGestureRecognizer()
-            ..onTap = () async {
-              final uri = Uri.tryParse(url);
-              if (uri != null && await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
+            ..onTap = () => launchLink(url),
         ),
       );
       start = match.end;

@@ -3,6 +3,7 @@ import 'package:eClassify/data/cubits/home/home_items_cubit.dart';
 import 'package:eClassify/data/model/item/item_model.dart';
 import 'package:eClassify/app_config.dart';
 import 'package:eClassify/new_development/status/models/status_models.dart';
+import 'package:eClassify/new_development/status/utils/status_item_collector.dart';
 import 'package:eClassify/new_development/status/widgets/status_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,10 +31,7 @@ class HomeStatusStrip extends StatelessWidget {
               return const SizedBox.shrink();
             }
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: StatusWidget(allStatus: allStatus),
-            );
+            return StatusWidget(allStatus: allStatus);
           },
         );
       },
@@ -44,46 +42,18 @@ class HomeStatusStrip extends StatelessWidget {
     FeaturedSectionState featuredState,
     HomeItemsState homeItemsState,
   ) {
-    final seenIds = <int>{};
-    final allStatus = <StatusModel>[];
-
-    void addFromItem(ItemModel item) {
-      final id = item.id;
-      if (id == null || seenIds.contains(id)) return;
-
-      final images = (item.galleryImages ?? [])
-          .map((image) => image.image)
-          .whereType<String>()
-          .where((url) => url.isNotEmpty)
-          .toList();
-      if (images.isEmpty) return;
-
-      seenIds.add(id);
-      allStatus.add(
-        StatusModel(
-          item: item,
-          name: item.user?.name ?? '',
-          avatarUrl: item.user?.profile ?? '',
-          mediaUrls: images,
-          description: item.name ?? '',
-        ),
-      );
-    }
+    final items = <ItemModel>[];
 
     if (featuredState is FeaturedScreenSuccess) {
       for (final section in featuredState.sections) {
-        for (final item in section.items) {
-          addFromItem(item);
-        }
+        items.addAll(section.items);
       }
     }
 
     if (homeItemsState is HomeItemsSuccess) {
-      for (final item in homeItemsState.items) {
-        addFromItem(item);
-      }
+      items.addAll(homeItemsState.items);
     }
 
-    return allStatus;
+    return collectStatusFromItems(items);
   }
 }

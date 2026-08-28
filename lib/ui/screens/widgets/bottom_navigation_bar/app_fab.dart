@@ -2,6 +2,7 @@ import 'package:eClassify/app/routes.dart';
 import 'package:eClassify/data/cubits/subscription/fetch_user_package_limit_cubit.dart';
 import 'package:eClassify/data/model/subscription/subscription_package.dart';
 import 'package:eClassify/ui/screens/widgets/hexagon_shape_border.dart';
+import 'package:eClassify/ui/screens/widgets/tricolor_add_listing_button.dart';
 import 'package:eClassify/utils/app_icons.dart';
 import 'package:eClassify/utils/dialogs/no_package_available_dialog.dart';
 import 'package:eClassify/utils/ui_utils.dart';
@@ -9,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
-enum FabType { diamond, round, ellipse, svg, material }
+enum FabType { diamond, round, ellipse, svg, material, tricolor }
 
 class AppFab extends StatelessWidget {
   const AppFab({
@@ -36,6 +37,7 @@ class AppFab extends StatelessWidget {
       ),
       FabType.svg => null,
       FabType.material => null,
+      FabType.tricolor => null,
     };
   }
 
@@ -46,13 +48,6 @@ class AppFab extends StatelessWidget {
   void _onPressed(BuildContext context) {
     UiUtils.checkUser(
       onNotGuest: () {
-        // Instead of calling the api everytime the button is pressed we can optimize
-        // it to check whether the state is already success so we can directly navigate
-        // but doing so will remove the correctness if the user's plan expired while the app
-        // was open, then this will allow the item to be added or maybe not if the api
-        // has such checks. Need to confirm.
-        //
-        // In either case, calling api on every button click is not ideal solution for this
         if (context.read<FetchUserPackageLimitCubit>().state
             is FetchUserPackageLimitInProgress) {
           return;
@@ -76,6 +71,12 @@ class AppFab extends StatelessWidget {
       child = GestureDetector(
         onTap: () => _onPressed(context),
         child: SvgPicture.asset(svgAsset!, height: svgSize, width: svgSize),
+      );
+    } else if (type == FabType.tricolor) {
+      child = TricolorAddListingButton(
+        size: 56,
+        iconSize: 30,
+        onTap: () => _onPressed(context),
       );
     } else {
       child = FloatingActionButton(

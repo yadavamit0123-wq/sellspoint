@@ -19,14 +19,13 @@ import 'package:eClassify/data/model/banner/banner_ad.dart';
 import 'package:eClassify/data/model/home/home_section.dart';
 import 'package:eClassify/data/model/location/leaf_location.dart';
 import 'package:eClassify/app/routes.dart';
-import 'package:eClassify/new_development/status/widgets/home_status_strip.dart';
 import 'package:eClassify/ui/screens/google_banner_ad.dart';
 import 'package:eClassify/ui/screens/home/mixins/root_location_resolver_mixin.dart';
 import 'package:eClassify/ui/screens/home/widgets/all_items_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/category/all_category_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/category/popular_category_widget.dart';
 import 'package:eClassify/ui/screens/home/widgets/featured_section/featured_section_widget.dart';
-import 'package:eClassify/ui/screens/home/widgets/home_add_listing_button.dart';
+import 'package:eClassify/ui/screens/home/widgets/home_status_row.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_screen_shimmer.dart';
 import 'package:eClassify/ui/screens/home/widgets/home_search.dart';
 import 'package:eClassify/ui/screens/home/widgets/location_widget.dart';
@@ -299,15 +298,7 @@ class _HomeScreenState extends State<HomeScreen>
     final slivers = List<Widget>.empty(growable: true);
 
     slivers.add(SliverToBoxAdapter(child: HomeSearchField()));
-    slivers.add(
-      const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.only(right: 16, bottom: 4),
-          child: HomeAddListingButton(),
-        ),
-      ),
-    );
-    slivers.add(const SliverToBoxAdapter(child: HomeStatusStrip()));
+    slivers.add(const SliverToBoxAdapter(child: HomeStatusRow()));
 
     for (final section in sections) {
       final aboveBanner = '${section.id}_${BannerPlacement.above.name}';

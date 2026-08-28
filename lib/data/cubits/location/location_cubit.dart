@@ -78,12 +78,6 @@ class LocationCubit extends Cubit<LocationState> {
         );
       }
 
-      if (countries.length == 1) {
-        _location = _location.copyWith(country: countries.first);
-        _loadLocation<State>(type: _LocationType.state, id: countries.first.id);
-        return;
-      }
-
       emit(LocationSuccess<Country>(values: countries, location: _location));
     } on Exception catch (e, stack) {
       log(e.toString(), name: 'loadCountries');
@@ -287,9 +281,6 @@ class LocationCubit extends Cubit<LocationState> {
           ),
         );
       case _:
-        // If there is only one country then we should not allow navigation to
-        // the country list
-        if (_cachedValues[_LocationType.country]?.data.length == 1) break;
         _location = Location.empty();
         _cachedValues.remove(_LocationType.state);
         _cachedValues.remove(_LocationType.city);
