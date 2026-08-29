@@ -5,8 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:eClassify/data/repositories/referral_repository.dart';
 import 'package:eClassify/utils/api.dart';
 import 'package:eClassify/utils/constant.dart';
+import 'package:eClassify/utils/hive_keys.dart';
+import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/log.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:hive/hive.dart';
 
 class AuthRepository {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -42,9 +45,30 @@ class AuthRepository {
       parameter: parameters,
     );
 
-    await _applyPendingReferralIfNeeded(response);
+    ReferralApplyResult referralApplyResult = ReferralApplyResult.noPendingCode;
+    Map<String, dynamic> userData = {};
 
-    return {"token": response['token'], "data": response['data']};
+    if (response['error'] == false) {
+      if (response['token'] != null) {
+        HiveUtils.setJWT(response['token'].toString());
+      }
+      if (response['data'] is Map) {
+        userData = Map<String, dynamic>.from(response['data']);
+        HiveUtils.setUserData(userData);
+      }
+      referralApplyResult = await _applyPendingReferralIfNeeded(response);
+      if (referralApplyResult == ReferralApplyResult.success) {
+        userData = Map<String, dynamic>.from(
+          Hive.box(HiveKeys.userDetailsBox).toMap(),
+        );
+      }
+    }
+
+    return {
+      "token": response['token'],
+      "data": userData.isNotEmpty ? userData : response['data'],
+      "referralApplyResult": referralApplyResult,
+    };
   }
 
   /// Login with phone number and password
@@ -74,13 +98,19 @@ class AuthRepository {
     return {"token": response['token'], "data": response['data']};
   }
 
-  Future<void> _applyPendingReferralIfNeeded(Map<String, dynamic> response) async {
-    if (response['error'] != false) return;
+  Future<ReferralApplyResult> _applyPendingReferralIfNeeded(
+    Map<String, dynamic> response,
+  ) async {
+    if (response['error'] != false) return ReferralApplyResult.noPendingCode;
     final data = response['data'];
-    if (data is! Map) return;
+    if (data is! Map) return ReferralApplyResult.noPendingCode;
     final userId = data['id'];
-    if (userId == null) return;
-    await ReferralRepository.applyPendingReferral(userId.toString());
+    if (userId == null) return ReferralApplyResult.noPendingCode;
+
+    final result = await ReferralRepository.applyPendingReferralAndRefresh(
+      userId.toString(),
+    );
+    return result;
   }
 
   Future<dynamic> deleteUser() async {

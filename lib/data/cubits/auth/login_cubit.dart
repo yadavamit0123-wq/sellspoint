@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/repositories/auth_repository.dart';
+import 'package:eClassify/data/repositories/referral_repository.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -29,11 +30,13 @@ class LoginSuccess extends LoginState {
   final bool isProfileCompleted;
   final dynamic credential;
   final Map<String, dynamic> apiResponse;
+  final ReferralApplyResult? referralApplyResult;
 
   const LoginSuccess({
     required this.isProfileCompleted,
     required this.credential,
     required this.apiResponse,
+    this.referralApplyResult,
   });
 }
 
@@ -214,6 +217,8 @@ class LoginCubit extends Cubit<LoginState> {
     HiveUtils.setJWT(result['token']);
     final data = result['data'];
     final isProfileCompleted = _isProfileCompleted(data);
+    final referralApplyResult =
+        result['referralApplyResult'] as ReferralApplyResult?;
 
     if (!isProfileCompleted) {
       HiveUtils.setProfileNotCompleted();
@@ -225,6 +230,7 @@ class LoginCubit extends Cubit<LoginState> {
         apiResponse: Map<String, dynamic>.from(data),
         isProfileCompleted: isProfileCompleted,
         credential: credential,
+        referralApplyResult: referralApplyResult,
       ),
     );
   }

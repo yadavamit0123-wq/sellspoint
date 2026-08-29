@@ -58,6 +58,7 @@ import 'package:eClassify/ui/screens/user_profile/edit_profile.dart';
 import 'package:eClassify/ui/screens/widgets/maintenance_mode.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/seller_slug_helper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -182,14 +183,26 @@ class Routes {
   static Route _handleDynamicRoute(RouteSettings routeSettings) {
     final uri = Uri.parse(routeSettings.name!);
     final pathSegments = uri.pathSegments;
-    final type = pathSegments[0];
-    final value = pathSegments[1];
+
+    String? type;
+    String? value;
+
+    if (pathSegments.isNotEmpty) {
+      if (pathSegments[0] == 'ad-details' || pathSegments[0] == 'seller') {
+        type = pathSegments[0];
+        value = pathSegments.length > 1 ? pathSegments[1] : null;
+      } else if (pathSegments.length >= 3 &&
+          (pathSegments[1] == 'ad-details' || pathSegments[1] == 'seller')) {
+        type = pathSegments[1];
+        value = pathSegments[2];
+      }
+    }
 
     HiveUtils.setUserSkip();
 
-    if (type == 'ad-details') {
+    if (type == 'ad-details' && value != null) {
       return _handleProductDetailsRoute(value);
-    } else if (type == 'seller') {
+    } else if (type == 'seller' && value != null) {
       return _handleSellerRoute(value);
     }
 
@@ -219,8 +232,13 @@ class Routes {
       Constant.navigatorKey.currentState?.pop();
     }
 
+    final sellerId = SellerSlugHelper.parseSellerId(value);
+    if (sellerId == null) {
+      return _defaultRoute();
+    }
+
     return SellerProfileScreen.route(
-      RouteSettings(arguments: int.parse(value)),
+      RouteSettings(arguments: sellerId),
     );
   }
 

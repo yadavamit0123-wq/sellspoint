@@ -30,11 +30,13 @@ class Seller {
     required this.following,
     required this.isFollowing,
     required this.showPersonalDetails,
+    this.slug,
   });
 
   Seller.fromJson(Json json)
     : id = json['id'] as int,
       name = json['name'] as String,
+      slug = json['slug'] as String?,
       email = json['email'] as String?,
       mobile = json['mobile'] as String?,
       phoneCode = json['country_code'] as String?,
@@ -50,6 +52,7 @@ class Seller {
 
   final int id;
   final String name;
+  final String? slug;
   final String? email;
   final String? mobile;
   final String? phoneCode;
@@ -66,6 +69,7 @@ class Seller {
   Seller copyWith({required int followers}) => Seller(
     id: id,
     name: name,
+    slug: slug,
     email: email,
     mobile: mobile,
     phoneCode: phoneCode,

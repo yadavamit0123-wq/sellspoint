@@ -124,13 +124,13 @@ class _ReferralProgramScreenState extends State<ReferralProgramScreen> with Sing
                           ),
                           const SizedBox(height: 16),
                           const Text(
-                            'Earn ₹10 \nBy Inviting Your Friends & Family',
+                            'Earn ₹5 \nBy Inviting Your Friends & Family',
                             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            'Invite friends to Sell Point and get ₹10 when your friend registers with phone number. They get ₹5!',
+                            'Invite friends to Sell Point and get ₹5 when your friend registers. They get ₹10 signup bonus!',
                             style: TextStyle(fontSize: 14),
                             textAlign: TextAlign.center,
                           ),

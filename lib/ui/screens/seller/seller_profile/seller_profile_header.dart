@@ -12,6 +12,7 @@ import 'package:eClassify/utils/extensions/lib/date_extensions.dart';
 import 'package:eClassify/utils/extensions/lib/gap.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
+import 'package:eClassify/utils/seller_slug_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -59,11 +60,23 @@ class SellerProfileHeader extends StatelessWidget {
 
     return SliverAppBar(
       actions: [
-        IconButton(
-          onPressed: () {
-            HelperUtils.shareItem(context, 'seller', sellerId.toString());
+        BlocBuilder<FetchSellerRatingsCubit, FetchSellerRatingsState>(
+          builder: (context, state) {
+            final shareSlug = state is FetchSellerRatingsSuccess
+                ? SellerSlugHelper.buildSlug(
+                    name: state.seller.name,
+                    id: state.seller.id,
+                    slug: state.seller.slug,
+                  )
+                : sellerId.toString();
+
+            return IconButton(
+              onPressed: () {
+                HelperUtils.shareItem(context, 'seller', shareSlug);
+              },
+              icon: Icon(AppIcons.shareNetwork),
+            );
           },
-          icon: Icon(AppIcons.shareNetwork),
         ),
       ],
       pinned: true,

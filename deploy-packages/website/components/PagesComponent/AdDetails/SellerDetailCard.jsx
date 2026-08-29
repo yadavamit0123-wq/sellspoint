@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSelector } from "react-redux";
 import { extractYear, getDefaultCountryCode, t } from "@/utils";
 import CustomLink from "@/components/Common/CustomLink";
+import { getSellerProfilePath } from "@/utils/seller";
 import { itemOfferApi, chatListApi } from "@/utils/api";
 import { toast } from "sonner";
 import { userSignUpData } from "@/redux/reducer/authSlice";
@@ -89,6 +90,8 @@ const SellerDetailCard = ({ productDetails, setProductDetails }) => {
   };
 
 
+  const sellerPath = getSellerProfilePath(userData);
+
   const contactNumber = productDetails?.contact;
 
   const regionCode = productDetails?.region_code?.toUpperCase();
@@ -121,7 +124,7 @@ const SellerDetailCard = ({ productDetails, setProductDetails }) => {
         <div className="flex gap-2 justify-between w-full items-center p-4">
           <div className="flex gap-2.5 items-center max-w-[90%]">
             <CustomImage
-              onClick={() => navigate(`/seller/${productDetails?.user?.id}`)}
+              onClick={() => navigate(sellerPath)}
               src={productDetails?.user?.profile}
               alt="Seller Image"
               width={80}
@@ -130,7 +133,7 @@ const SellerDetailCard = ({ productDetails, setProductDetails }) => {
             />
             <div className="flex flex-col gap-1 min-w-0">
               <CustomLink
-                href={`/seller/${productDetails?.user?.id}`}
+                href={sellerPath}
                 className="font-bold text-lg truncate"
               >
                 {productDetails?.user?.name}
@@ -151,7 +154,7 @@ const SellerDetailCard = ({ productDetails, setProductDetails }) => {
                 )}
             </div>
           </div>
-          <CustomLink href={`/seller/${productDetails?.user?.id}`}>
+          <CustomLink href={sellerPath}>
             <ArrowRightIcon size={20} className="text-black rtl:scale-x-[-1]" />
           </CustomLink>
         </div>

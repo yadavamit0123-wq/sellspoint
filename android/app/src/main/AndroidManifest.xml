@@ -92,12 +92,32 @@
                     android:scheme="sellspoint" />
                 <data
                     android:host="sellspoint.in"
-                    android:pathPattern="/product-details/.*"
+                    android:pathPattern="/.*/product-details/.*"
                     android:scheme="sellspoint" />
                 <data
                     android:host="sellspoint.in"
-                    android:pathPattern="/product-details/.*"
+                    android:pathPattern="/seller/.*"
                     android:scheme="sellspoint" />
+                <data
+                    android:host="sellspoint.in"
+                    android:pathPattern="/.*/seller/.*"
+                    android:scheme="sellspoint" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="sellspoint.in"
+                    android:pathPattern="/seller/.*"
+                    android:scheme="https" />
+                <data
+                    android:host="sellspoint.in"
+                    android:pathPattern="/.*/seller/.*"
+                    android:scheme="https" />
             </intent-filter>
 
 

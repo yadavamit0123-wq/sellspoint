@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:eClassify/app/routes.dart';
+import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/cubits/auth/user_profile_cubit.dart';
 import 'package:eClassify/data/cubits/system/user_details.dart';
+import 'package:eClassify/data/repositories/referral_repository.dart';
 import 'package:eClassify/ui/screens/widgets/custom_image.dart';
 import 'package:eClassify/ui/screens/widgets/custom_text_form_field.dart';
 import 'package:eClassify/ui/screens/widgets/phone_input.dart';
@@ -22,6 +24,7 @@ import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/image_picker.dart';
 import 'package:eClassify/utils/loading_overlay.dart';
+import 'package:eClassify/utils/referral_feedback.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +71,7 @@ class UserProfileScreenState extends State<UserProfileScreen> {
   bool isPersonalDetailShow = true;
   PickImage profileImagePicker = PickImage();
   bool isFromLogin = false;
+  bool _postSaveFlowActive = false;
 
   @override
   void initState() {
@@ -95,8 +99,10 @@ class UserProfileScreenState extends State<UserProfileScreen> {
     phoneController.regionCode = user?.regionCode;
 
     final details = HiveUtils.getUserDetails();
-    referralCodeController.text =
-        details.referId ?? details.referralCode ?? '';
+    final appliedReferrer = details.byReferId ?? '';
+    if (appliedReferrer.isNotEmpty) {
+      referralCodeController.text = appliedReferrer;
+    }
 
     profileImagePicker.listener((files) {
       if (files != null && files.isNotEmpty) {
@@ -136,30 +142,51 @@ class UserProfileScreenState extends State<UserProfileScreen> {
             if (state is UserProfileSuccess) {
               LoadingOverlay.hide();
               context.read<UserDetailsCubit>().copy(state.user);
+
+              if (!_postSaveFlowActive) {
+                return;
+              }
+
               if (state.message != null) {
                 HelperUtils.showSnackBarMessage(context, state.message!);
               }
-              if (isFromLogin) {
-                Future.delayed(Duration.zero, () {
-                  if (widget.popToCurrent ?? false) {
-                    Navigator.of(context)
-                      ..pop()
-                      ..pop();
-                  } else {
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      Routes.main,
-                      (route) => false,
-                      arguments: {"from": "profile_screen"},
+
+              Future<void> finishProfileUpdate() async {
+                final hadPendingReferral =
+                    (HiveUtils.getPendingReferralCode() ?? '').isNotEmpty;
+
+                if (AppConfig.enableReferralProgram && hadPendingReferral) {
+                  final userId = state.user.id?.toString();
+                  final hasReferrer =
+                      (state.user.byReferId ?? '').isNotEmpty;
+                  if (userId != null && !hasReferrer) {
+                    final applyResult =
+                        await ReferralRepository.applyPendingReferralAndRefresh(
+                      userId,
                     );
+                    if (mounted) {
+                      context.read<UserDetailsCubit>().copy(
+                        HiveUtils.getUserDetails(),
+                      );
+                      showReferralApplyFeedback(context, applyResult);
+                    }
                   }
-                });
-              } else {
-                Navigator.pop(context);
+                }
+
+                _postSaveFlowActive = false;
+                if (mounted) {
+                  _navigateAfterProfileSave();
+                }
               }
+
+              finishProfileUpdate();
             }
 
             if (state is UserProfileFailure) {
               LoadingOverlay.hide();
+              if (_postSaveFlowActive) {
+                _postSaveFlowActive = false;
+              }
               final msg = switch (state.error) {
                 DioException() => 'noInternetErrorMsg'.translate(context),
                 ApiException() => state.error.toString(),
@@ -226,13 +253,23 @@ class UserProfileScreenState extends State<UserProfileScreen> {
                       maxline: 5,
                       textInputAction: TextInputAction.newline,
                     ),
-                    buildTextField(
-                      context,
-                      title: "referralCode",
-                      controller: referralCodeController,
-                      readOnly: (HiveUtils.getUserDetails().byReferId ?? '')
-                          .isNotEmpty,
-                    ),
+                    if (AppConfig.enableReferralProgram &&
+                        (HiveUtils.getUserDetails().byReferId ?? '')
+                            .isEmpty) ...[
+                      buildTextField(
+                        context,
+                        title: "referralCode",
+                        controller: referralCodeController,
+                      ),
+                    ] else if ((HiveUtils.getUserDetails().byReferId ?? '')
+                        .isNotEmpty) ...[
+                      buildTextField(
+                        context,
+                        title: "referralCode",
+                        controller: referralCodeController,
+                        readOnly: true,
+                      ),
+                    ],
                     CustomText("notification".translate(context)),
                     buildEnableDisableSwitch(isNotificationsEnabled, (cgvalue) {
                       isNotificationsEnabled = cgvalue;
@@ -401,12 +438,34 @@ class UserProfileScreenState extends State<UserProfileScreen> {
     bool isPhoneValid = await phoneController.validateAsync();
     bool isFormValid = _formKey.currentState!.validate();
     if (isFormValid && isPhoneValid) {
+      if (AppConfig.enableReferralProgram) {
+        final hasExistingReferrer =
+            (HiveUtils.getUserDetails().byReferId ?? '').isNotEmpty;
+        if (!hasExistingReferrer) {
+          final details = HiveUtils.getUserDetails();
+          final referralResult =
+              await ReferralRepository.validateAndSavePendingCode(
+            referralCodeController.text,
+            ownReferralCode: details.referId ?? details.referralCode,
+          );
+          if (!referralResult.valid) {
+            HelperUtils.showSnackBarMessage(
+              context,
+              referralResult.message ?? 'Invalid Referral Code',
+              type: MessageType.error,
+            );
+            return;
+          }
+        }
+      }
+
       if (isFromLogin) {
         HiveUtils.setUserIsAuthenticated(true);
       }
       if (context.read<UserProfileCubit>().state is UserProfileLoading) {
         return;
       }
+      _postSaveFlowActive = true;
       context.read<UserProfileCubit>().updateUserProfile(
         name: nameController.text.trim(),
         email: emailController.text.trim(),
@@ -417,8 +476,25 @@ class UserProfileScreenState extends State<UserProfileScreen> {
         phoneCode: phoneController.phoneCode,
         regionCode: phoneController.regionCode,
         personalDetail: isPersonalDetailShow == true ? 1 : 0,
-        referralCode: referralCodeController.text.trim(),
       );
+    }
+  }
+
+  void _navigateAfterProfileSave() {
+    if (isFromLogin) {
+      if (widget.popToCurrent ?? false) {
+        Navigator.of(context)
+          ..pop()
+          ..pop();
+      } else {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          Routes.main,
+          (route) => false,
+          arguments: {"from": "profile_screen"},
+        );
+      }
+    } else {
+      Navigator.pop(context);
     }
   }
 

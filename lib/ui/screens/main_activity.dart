@@ -17,6 +17,7 @@ import 'package:eClassify/ui/screens/widgets/version_update_dialog.dart';
 import 'package:eClassify/utils/constant.dart';
 import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
+import 'package:eClassify/utils/seller_slug_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -68,11 +69,14 @@ class MainActivityState extends State<MainActivity> {
       );
     }
     if (widget.sellerId != null) {
-      Navigator.pushNamed(
-        context,
-        Routes.sellerProfileScreen,
-        arguments: {"sellerId": int.parse(widget.sellerId!)},
-      );
+      final parsedId = SellerSlugHelper.parseSellerId(widget.sellerId!);
+      if (parsedId != null) {
+        Navigator.pushNamed(
+          context,
+          Routes.sellerProfileScreen,
+          arguments: parsedId,
+        );
+      }
     }
   }
 

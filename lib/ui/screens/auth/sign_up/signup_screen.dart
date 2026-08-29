@@ -20,6 +20,7 @@ import 'package:eClassify/utils/extensions/extensions.dart';
 import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/loading_overlay.dart';
+import 'package:eClassify/utils/referral_feedback.dart';
 import 'package:eClassify/utils/meta_sdk_service.dart';
 import 'package:eClassify/utils/login/lib/login_status.dart';
 import 'package:eClassify/utils/login/lib/payloads.dart';
@@ -179,6 +180,8 @@ class _SignupScreenState extends State<SignupScreen> {
     if (AppConfig.enableReferralProgram) {
       final referralResult = await ReferralRepository.validateAndSavePendingCode(
         _referralCodeController.text,
+        ownReferralCode: HiveUtils.getUserDetails().referId ??
+            HiveUtils.getUserDetails().referralCode,
       );
       if (!referralResult.valid) {
         HelperUtils.showSnackBarMessage(
@@ -295,6 +298,7 @@ class _SignupScreenState extends State<SignupScreen> {
             LoadingOverlay.hide();
             MetaSdkService.logRegistration(method: 'signup');
             context.read<UserDetailsCubit>().fill(HiveUtils.getUserDetails());
+            showReferralApplyFeedback(context, state.referralApplyResult);
             if (state.isProfileCompleted) {
               HiveUtils.setUserIsAuthenticated(true);
               Navigator.of(context).pushNamedAndRemoveUntil(

@@ -15,6 +15,7 @@ import { t } from "@/utils";
 import { cn } from "@/lib/utils";
 import CustomImage from "@/components/Common/CustomImage";
 import CustomLink from "@/components/Common/CustomLink";
+import { getSellerProfilePath } from "@/utils/seller";
 import NoData from "@/components/EmptyStates/NoData";
 import {
   ArrowUpIcon,
@@ -417,7 +418,7 @@ const ReelPlayer = ({ initialId }) => {
               <div className="absolute bottom-0 inset-x-0 bg-linear-to-t from-black/90 via-black/30 to-transparent p-4 space-y-3">
                 {/* User row */}
                 <div className="flex items-center gap-2">
-                  <CustomLink href={isSelf ? "/profile" : `/seller/${reel?.item?.user?.id}`} className="flex items-center gap-2 min-w-0">
+                  <CustomLink href={isSelf ? "/profile" : getSellerProfilePath(reel?.item?.user)} className="flex items-center gap-2 min-w-0">
                     <CustomImage
                       src={reel?.item?.user?.profile}
                       alt={reel?.item?.user?.name}

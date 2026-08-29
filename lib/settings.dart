@@ -24,7 +24,7 @@ class AppSettings {
   static const String applicationName = 'Sells Point';
   static const String androidPackageName = 'com.pt.sellspoint';
   static const String shareAppText = "I'm inviting you to user Sell Point, an online market place for buying and selling your usd goods. Here's my code ";
-  static const String shareAppTextSecond = " - just enter it when you register with your phone number, you will get ₹5.";
+  static const String shareAppTextSecond = " - just enter it when you register, you will get ₹10.";
 
   static const String demoUrl = "https://admin.sellspoint.in";
   // static const String demoUrl = "https://sellspointadmin.visticsolutions.com";

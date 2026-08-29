@@ -6,6 +6,7 @@ import 'package:eClassify/app_config.dart';
 import 'package:eClassify/data/cubits/auth/authentication_cubit.dart';
 import 'package:eClassify/data/cubits/auth/login_cubit.dart';
 import 'package:eClassify/data/cubits/system/user_details.dart';
+import 'package:eClassify/data/repositories/referral_repository.dart';
 import 'package:eClassify/ui/screens/auth/widgets/forgot_password_bottom_sheet.dart';
 import 'package:eClassify/ui/screens/auth/widgets/terms_acceptance_dialog.dart';
 import 'package:eClassify/ui/screens/auth/widgets/terms_and_conditions_widget.dart';
@@ -23,6 +24,7 @@ import 'package:eClassify/utils/helper_utils.dart';
 import 'package:eClassify/utils/hive_utils.dart';
 import 'package:eClassify/utils/loading_overlay.dart';
 import 'package:eClassify/utils/login/lib/payloads.dart';
+import 'package:eClassify/utils/referral_feedback.dart';
 import 'package:eClassify/utils/ui_utils.dart';
 import 'package:eClassify/utils/validator.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +54,7 @@ class LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _phonePasswordController =
       TextEditingController();
+  final TextEditingController _referralCodeController = TextEditingController();
   final PhoneInputController _phoneInputController = PhoneInputController();
   String phoneCode = AppConfig.defaultPhoneCode;
   bool isResendEnabled = false;
@@ -95,9 +98,43 @@ class LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _passwordController.dispose();
     _phonePasswordController.dispose();
+    _referralCodeController.dispose();
     _emailController.dispose();
     isLoginWithMobile.dispose();
     super.dispose();
+  }
+
+  Future<void> _proceedSocialLogin({
+    required AuthenticationSuccess state,
+    required bool isExistingUser,
+  }) async {
+    if (!isExistingUser && AppConfig.enableReferralProgram) {
+      final referralResult = await ReferralRepository.validateAndSavePendingCode(
+        _referralCodeController.text,
+      );
+      if (!referralResult.valid) {
+        if (mounted) {
+          HelperUtils.showSnackBarMessage(
+            context,
+            referralResult.message ?? 'Invalid Referral Code',
+            type: MessageType.error,
+          );
+        }
+        await context.read<AuthenticationCubit>().signOut();
+        return;
+      }
+    } else if (isExistingUser) {
+      await HiveUtils.clearPendingReferralCode();
+    }
+
+    if (!mounted) return;
+
+    context.read<LoginCubit>().login(
+      firebaseUserId: state.credential.user!.uid,
+      type: state.type.name,
+      credential: state.credential,
+      countryCode: null,
+    );
   }
 
   /// Handles Google/Apple authentication success.
@@ -109,11 +146,13 @@ class LoginScreenState extends State<LoginScreen> {
     final firebaseUserId = state.credential.user!.uid;
 
     if (!Constant.requireTermsConsent) {
-      context.read<LoginCubit>().login(
-        firebaseUserId: firebaseUserId,
-        type: state.type.name,
-        credential: state.credential,
-        countryCode: null,
+      final isExistingUser = await context
+          .read<AuthenticationCubit>()
+          .checkSocialUserExists(firebaseId: firebaseUserId);
+      if (!mounted) return;
+      await _proceedSocialLogin(
+        state: state,
+        isExistingUser: isExistingUser,
       );
       return;
     }
@@ -125,28 +164,15 @@ class LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (isExistingUser) {
-      // Existing user – proceed directly
-      context.read<LoginCubit>().login(
-        firebaseUserId: firebaseUserId,
-        type: state.type.name,
-        credential: state.credential,
-        countryCode: null,
-      );
+      await _proceedSocialLogin(state: state, isExistingUser: true);
     } else {
-      // New user – require terms acceptance before registering
       final accepted = await TermsAcceptanceDialog.show(context) ?? false;
 
       if (!mounted) return;
 
       if (accepted) {
-        context.read<LoginCubit>().login(
-          firebaseUserId: firebaseUserId,
-          type: state.type.name,
-          credential: state.credential,
-          countryCode: null,
-        );
+        await _proceedSocialLogin(state: state, isExistingUser: false);
       } else {
-        // User declined – discard Firebase session
         await context.read<AuthenticationCubit>().signOut();
       }
     }
@@ -247,6 +273,7 @@ class LoginScreenState extends State<LoginScreen> {
                 context.read<UserDetailsCubit>().fill(
                   HiveUtils.getUserDetails(),
                 );
+                showReferralApplyFeedback(context, state.referralApplyResult);
                 if (state.isProfileCompleted) {
                   HiveUtils.setUserIsAuthenticated(true);
                   Navigator.of(context).pushNamedAndRemoveUntil(
@@ -609,6 +636,15 @@ class LoginScreenState extends State<LoginScreen> {
 
   List<Widget> googleAndAppleLogin() {
     return [
+      if (AppConfig.enableReferralProgram) ...[
+        CustomTextFormField(
+          controller: _referralCodeController,
+          fillColor: context.color.secondaryColor,
+          hintText: 'Referral code (optional)',
+          borderColor: context.color.textLightColor.withValues(alpha: 0.3),
+        ),
+        const SizedBox(height: 16),
+      ],
       if (isPhoneAuthEnabled || isEmailAuthEnabled)
         if (isGoogleAuthEnabled || (isAppleAuthEnabled && Platform.isIOS))
           Align(
