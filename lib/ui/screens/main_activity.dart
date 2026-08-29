@@ -150,12 +150,12 @@ class MainActivityState extends State<MainActivity> {
             ),
             BlocBuilder<BottomNavCubit, BottomTab>(
               builder: (context, state) {
-                if (state case BottomTab.home || BottomTab.myAds) {
+                if (state == BottomTab.home) {
                   return PositionedDirectional(
-                    end: 8,
+                    end: 20,
                     bottom:
                         kBottomNavigationBarHeight +
-                        MediaQuery.paddingOf(context).bottom +
+                        MediaQuery.paddingOf(context).bottom -
                         4,
                     child: AppFab(type: FabType.tricolor),
                   );
