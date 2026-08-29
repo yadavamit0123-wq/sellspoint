@@ -73,11 +73,7 @@ class _PhoneInputState extends State<PhoneInput> {
         controller: widget.controller,
         textInputType: TextInputType.number,
         readOnly: widget.readOnly,
-        hintKey:
-            widget.hintKey ??
-            _country.exampleNumberMobileInternational.substring(
-              _country.phoneCode.length + 1,
-            ),
+        hintKey: widget.hintKey ?? 'mobileNoLbl',
         onChanged: (value) {
           // Invalidate previous validation status when the user modifies input
           // to prevent form submission with a stale validation state.
